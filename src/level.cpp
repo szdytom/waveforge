@@ -77,14 +77,8 @@ void Level::changeActiveItemBrushSize(int delta) noexcept {
 }
 
 void Level::selectItem(int index) noexcept {
-	if (index < 0 || index >= static_cast<int>(items.size())) {
-		return;
-	} else {
-		if (items[index].amount > 0) {
+	if (index >= 0 && index < static_cast<int>(items.size()) && items[index].amount > 0) {
 			_active_item_index = index;
-		} else {
-			return;
-		}
 	}
 }
 
