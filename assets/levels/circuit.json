@@ -4,7 +4,8 @@
 	"metadata": {
 		"level_name": "A Genius Idea",
 		"description": "You need to do circuit, right?",
-		"difficulty": "hard"
+		"difficulty": "hard",
+		"minimap_asset_id": "level/circuit/minimap"
 	},
 	"items": [
 		{

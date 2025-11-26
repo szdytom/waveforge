@@ -4,7 +4,8 @@
 	"metadata": {
 		"level_name": "Upsteam",
 		"description": "Let's go higher!",
-		"difficulty": "average"
+		"difficulty": "average",
+		"minimap_asset_id": "level/upsteam/minimap"
 	},
 	"items": [
 		{

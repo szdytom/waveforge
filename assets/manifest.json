@@ -600,6 +600,18 @@
 			"description": "Loading upsteam level prototype image"
 		},
 		{
+			"id": "level/upsteam/minimap/raw",
+			"type": "image",
+			"file": "levels/minimap/upsteam.png",
+			"description": "Loading upsteam level minimap image"
+		},
+		{
+			"id": "level/upsteam/minimap",
+			"type": "create-texture",
+			"input": "level/upsteam/minimap/raw",
+			"description": "Creating upsteam level minimap texture"
+		},
+		{
 			"id": "level/upsteam",
 			"type": "level-metadata",
 			"file": "levels/upsteam.json",
@@ -730,6 +742,18 @@
 			"type": "image",
 			"file": "levels/circuit.png",
 			"description": "Loading circuit level prototype image"
+		},
+		{
+			"id": "level/circuit/minimap/raw",
+			"type": "image",
+			"file": "levels/minimap/circuit.png",
+			"description": "Loading circuit level minimap image"
+		},
+		{
+			"id": "level/circuit/minimap",
+			"type": "create-texture",
+			"input": "level/circuit/minimap/raw",
+			"description": "Creating circuit level minimap texture"
 		},
 		{
 			"id": "level/circuit",
