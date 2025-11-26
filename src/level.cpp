@@ -78,12 +78,12 @@ void Level::changeActiveItemBrushSize(int delta) noexcept {
 
 void Level::selectItem(int index) noexcept {
 	if (index < 0 || index >= static_cast<int>(items.size())) {
-		_active_item_index = -1;
+		return;
 	} else {
 		if (items[index].amount > 0) {
 			_active_item_index = index;
 		} else {
-			_active_item_index = -1;
+			return;
 		}
 	}
 }

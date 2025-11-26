@@ -93,6 +93,23 @@ void LevelPlaying::handleEvent(SceneManager &mgr, sf::Event &ev) {
 	}
 
 	if (auto kb = ev.getIf<sf::Event::KeyPressed>()) {
+		constexpr int min_num_key = static_cast<int>(sf::Keyboard::Key::Num1);
+		constexpr int max_num_key = static_cast<int>(sf::Keyboard::Key::Num9);
+		constexpr int min_numpad_key = static_cast<int>(sf::Keyboard::Key::Numpad1);
+		constexpr int max_numpad_key = static_cast<int>(sf::Keyboard::Key::Numpad9);
+
+		const int key_code = static_cast<int>(kb->code);
+		if (key_code >= min_num_key && key_code <= max_num_key) {
+			int index = key_code - min_num_key;
+			_level.selectItem(index);
+			return;
+		}
+		if (key_code >= min_numpad_key && key_code <= max_numpad_key) {
+			int index = key_code - min_numpad_key;
+			_level.selectItem(index);
+			return;
+		}
+
 		switch (kb->code) {
 		case sf::Keyboard::Key::R:
 			if (_tick < retry_cooldown_ticks) {
