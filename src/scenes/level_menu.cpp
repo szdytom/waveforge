@@ -78,7 +78,7 @@ std::array<int, 2> LevelSelectionMenu::size() const {
 
 void LevelSelectionMenu::setup(SceneManager &mgr) {
 	mgr.bgm.setCollection("background/main-menu-music");
-	mgr.setWindowTitle("Level Selection");
+	mgr.setWindowTitle("Level Menu");
 }
 
 void LevelSelectionMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
