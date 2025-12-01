@@ -37,7 +37,7 @@ sf::RenderWindow createWindow(Scene &scene, int scale) {
 	scale = automaticScale(width, height, scale);
 	sf::Vector2u window_size(width * scale, height * scale);
 	sf::RenderWindow window(
-		sf::VideoMode(window_size), "Waveforge " WAVEFORGE_VERSION "alpha",
+		sf::VideoMode(window_size), "Waveforge " WAVEFORGE_VERSION,
 		sf::Style::Titlebar | sf::Style::Close
 	);
 	window.setFramerateLimit(24);

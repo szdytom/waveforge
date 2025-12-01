@@ -15,7 +15,7 @@ else()
 	set(WAVEFORGE_GIT_COMMIT_HASH "")
 endif()
 
-set(WAVEFORGE_VERSION "0.3")
+set(WAVEFORGE_VERSION "0.4")
 
 project(waveforge VERSION ${WAVEFORGE_VERSION} LANGUAGES CXX)
 

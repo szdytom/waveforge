@@ -1,8 +1,8 @@
 #include "wforge/assets.h"
 #include "wforge/audio.h"
+#include "wforge/colorpalette.h"
 #include "wforge/save.h"
 #include "wforge/scene.h"
-#include "wforge/colorpalette.h"
 #include <cstdlib>
 #include <format>
 #include <nlohmann/json.hpp>
@@ -72,7 +72,7 @@ std::array<int, 2> MainMenu::size() const {
 }
 
 void MainMenu::setup(SceneManager &mgr) {
-	mgr.setWindowTitle("Waveforge " WAVEFORGE_VERSION "alpha");
+	mgr.setWindowTitle("Waveforge " WAVEFORGE_VERSION);
 	mgr.bgm.setCollection("background/main-menu-music");
 }
 
@@ -169,8 +169,7 @@ void MainMenu::render(
 	);
 
 	renderButton(
-		"Help", _help_button,
-		_current_button_index == MainMenuButton::HELP
+		"Help", _help_button, _current_button_index == MainMenuButton::HELP
 	);
 
 	renderButton(
