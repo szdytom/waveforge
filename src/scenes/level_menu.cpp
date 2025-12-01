@@ -96,7 +96,8 @@ void LevelSelectionMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 		case sf::Keyboard::Key::Right:
 		case sf::Keyboard::Key::D:
 			UISounds::instance().forward.play();
-			if (_selected_index + 1 <= save.completed_levels) {
+			if (_selected_index + 1 <= save.completed_levels
+			    && _selected_index + 1 < _level_seq.levels.size()) {
 				_selected_index++;
 			}
 			break;
