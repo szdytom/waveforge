@@ -80,7 +80,11 @@ std::array<int, 2> LevelPlaying::size() const {
 }
 
 void LevelPlaying::setup(SceneManager &mgr) {
-	mgr.setWindowTitle(std::format("Level {} - {}", _level.metadata.index + 1, _level.metadata.name));
+	mgr.setWindowTitle(
+		std::format(
+			"Level {} - {}", _level.metadata.index + 1, _level.metadata.name
+		)
+	);
 	_level.selectItem(0);
 	mgr.bgm.setCollection("background/level-music");
 	const auto &bgm_fade = FadeIOConfig::load();
@@ -110,6 +114,9 @@ void LevelPlaying::handleEvent(SceneManager &mgr, sf::Event &ev) {
 					UISounds::instance().backward.play();
 					_show_help = false;
 					return;
+
+				default:
+					break;
 				}
 			} else {
 				switch (kb->code) {
