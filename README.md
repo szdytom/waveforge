@@ -10,20 +10,7 @@ For more details about the game physics system, please refer to [Physics System 
 
 ## Current status
 
-The game is almost finished. The are 10+ playable levels with unique mechanics and challenges. The core physics simulation system is implemented, including fluid simulation, thermal simulation, structure system, etc. Basic UI and audio systems are also implemented. Further polish, including art and sound effect tweaks are still needed.
-
-### Controls
-
-| Key		 | Action                     |
-|--------------|----------------------------|
-| Arrow Keys/WASD   | UI navigation |
-| Enter/Space  | UI selection               |
-| ESC		  | Back |
-| R (twice)		  | Retry current level       |
-| LMB		  | Use current item			|
-| Mouse Wheel | Change item brush size		|
-| Arrow Up / W | Previous item in inventory |
-| Arrow Down / S | Next item in inventory |
+The game is finished to a playable state with 18 levels, published as version 0.4 on [Itch.io](https://fang-erj.itch.io/waveforge). Try it out and let me know what you think!
 
 ## Build instructions
 
@@ -48,27 +35,6 @@ sudo pacman -S sfml
 ```
 
 You can also install those dependencies manually if you prefer not to install SFML system-wide. Please refer to SFML's official documentation for more details.
-
-## Implementation notes
-
-This is quite a straightforward C++ project with simple structure:
-
-- `include/wforge`: header files
-- `src`: source files
-- `assets`: asset files, levels, UI configuration, music, sound effects, textures, etc.
-- `CMakeLists.txt`: CMake build script (all in one file for simplicity)
-
-The physics simulation is written from scratch. We use SFML for graphics rendering and audio playback. [proxy](https://github.com/microsoft/proxy) is used to for polymorphism (i.e. fat pointers) instead of traditional virtual functions for simplier and unified lifetime management.
-
-The physics simulation is inspired by Noita's falling everything engine (but we are doing somewhat better at fluid simulation here), which is basically a cellular automaton with some rules for different pixel classes. Performance is not optimal yet, but it's acceptable for now (in Release mode).
-
-The fluid simulation process is devided into two phases: the global update phase and the local update phase. In the global update phase, we abstract the fluid pixels into fluid blocks and build a graph structure representing the connectivity between those blocks. Then the network flow algorithm (Dinic implementation) is used to calculate the fluid distribution among those blocks. In the local update phase, some classic cellular automaton rules are applied to each fluid pixel to simulate local interactions (e.g. water flowing downwards due to gravity). The global update phase is implemented in `fluidflow.cpp` and the local update phase is implemented in `fluids.cpp`.
-
-A thermal simulation system is also implemented, allowing pixels to exchange heat with adjacent pixels and change state when certain temperature thresholds are reached (e.g. oil igniting when heated enough). The heat exchange process is simple (linearly averaging respesting to thermal conductivity as weight), but it works fine for our purpose. The thermal simulation is implemented in `thermal.cpp`.
-
-Pixels can form structures. The structure is stored separately from the pixel 2D array, and each structure can span multiple pixels. The texture of the structure is loaded from an image asset. The map is loaded from a prototype image, where each color represents a different pixel type or structure, more details can be found in [Level Format Documentation](assets/levels/README.md).
-
-The game scene management is implemented as a finite state machine, where each scene is a state. The UI for some scenes (e.g. main menu, level menu, settings) are partially data-driven and can be configured via JSON files in `assets/ui`.
 
 ## Team Members
 
