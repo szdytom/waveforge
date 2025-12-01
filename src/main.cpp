@@ -99,6 +99,10 @@ void entry(
 		initialScene(level_id, is_first_launch), scale_config
 	);
 
+	if (scene_mgr.bgm.isEmpty()) {
+		scene_mgr.bgm.setCollection("background/main-menu-music");
+	}
+
 	auto &window = scene_mgr.window;
 
 	while (window.isOpen()) {

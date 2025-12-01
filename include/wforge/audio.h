@@ -35,6 +35,8 @@ public:
 	void nextMusic();
 	void setVolume(float volume);
 
+	bool isEmpty() const noexcept;
+
 private:
 	float _cur_volume;
 	float _volume_delta;
