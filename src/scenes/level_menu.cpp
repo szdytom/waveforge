@@ -104,6 +104,7 @@ void LevelSelectionMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 		case sf::Keyboard::Key::Enter:
 		case sf::Keyboard::Key::Space:
 			if (_selected_index <= save.completed_levels) {
+				UISounds::instance().forward.play();
 				if (save.user_settings.skip_animations) {
 					mgr.changeScene(
 						pro::make_proxy<SceneFacade, LevelPlaying>(
