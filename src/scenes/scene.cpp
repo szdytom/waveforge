@@ -1,5 +1,6 @@
 #include "wforge/scene.h"
 #include "wforge/assets.h"
+#include "wforge/version.h"
 #include <SFML/Graphics/RenderTexture.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Window/Window.hpp>
