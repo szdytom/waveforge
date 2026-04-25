@@ -1,4 +1,5 @@
 #include "wforge/save.h"
+#include "wforge/version.h"
 #include <cstdlib>
 #include <exception>
 #include <filesystem>

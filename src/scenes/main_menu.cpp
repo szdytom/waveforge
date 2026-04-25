@@ -3,6 +3,7 @@
 #include "wforge/colorpalette.h"
 #include "wforge/save.h"
 #include "wforge/scene.h"
+#include "wforge/version.h"
 #include <cstdlib>
 #include <format>
 #include <nlohmann/json.hpp>
