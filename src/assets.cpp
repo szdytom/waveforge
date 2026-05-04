@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <quickjs.h>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -579,6 +580,103 @@ void fLevelSequence(
 	mgr.cacheAsset(id, level_seq);
 }
 
+void fLoadJS(
+	const nlohmann::json &entry, const fs::path &assets_root, AssetsManager &mgr
+) {
+	const std::string &file = entry.at("file");
+	auto file_path = assets_root / file;
+	const std::string &id = entry.at("id");
+
+	std::ifstream file_stream(file_path);
+	if (!file_stream.is_open()) {
+		throw std::runtime_error(
+			std::format(
+				"AssetsManager: failed to open JS file '{}'",
+				file_path.string()
+			)
+		);
+	}
+
+	std::string content(
+		(std::istreambuf_iterator<char>(file_stream)),
+		std::istreambuf_iterator<char>()
+	);
+
+	auto js_source = new std::string(std::move(content));
+	mgr.cacheAsset(id, js_source);
+}
+
+void fBytecodeFromJS(
+	const nlohmann::json &entry, const fs::path &assets_root, AssetsManager &mgr
+) {
+	const std::string &input_id = entry.at("input");
+	const auto &source = mgr.getAsset<std::string>(input_id);
+	const std::string &id = entry.at("id");
+	std::string filename = entry.value("filename", input_id + ".js");
+	int eval_type = entry.value("module", true) ? JS_EVAL_TYPE_MODULE
+	                                            : JS_EVAL_TYPE_GLOBAL;
+
+	JSRuntime *rt = JS_NewRuntime();
+	if (!rt) {
+		throw std::runtime_error(
+			"AssetsManager: failed to create QuickJS runtime"
+		);
+	}
+	JSContext *ctx = JS_NewContext(rt);
+	if (!ctx) {
+		JS_FreeRuntime(rt);
+		throw std::runtime_error(
+			"AssetsManager: failed to create QuickJS context"
+		);
+	}
+
+	JSValue compiled = JS_Eval(
+		ctx, source.c_str(), source.size(), filename.c_str(),
+		eval_type | JS_EVAL_FLAG_COMPILE_ONLY
+	);
+
+	if (JS_IsException(compiled)) {
+		JSValue exc = JS_GetException(ctx);
+		const char *exc_str = JS_ToCString(ctx, exc);
+		std::string error_msg =
+			exc_str ? exc_str : "unknown error";
+		JS_FreeCString(ctx, exc_str);
+		JS_FreeValue(ctx, exc);
+		JS_FreeValue(ctx, compiled);
+		JS_FreeContext(ctx);
+		JS_FreeRuntime(rt);
+		throw std::runtime_error(
+			std::format(
+				"AssetsManager: failed to compile JS '{}': {}", id,
+				error_msg
+			)
+		);
+	}
+
+	size_t bytecode_size;
+	uint8_t *bytecode =
+		JS_WriteObject(ctx, &bytecode_size, compiled, JS_WRITE_OBJ_BYTECODE);
+	JS_FreeValue(ctx, compiled);
+
+	if (!bytecode) {
+		JS_FreeContext(ctx);
+		JS_FreeRuntime(rt);
+		throw std::runtime_error(
+			std::format(
+				"AssetsManager: failed to serialize bytecode for '{}'", id
+			)
+		);
+	}
+
+	auto bytecode_vec =
+		new std::vector<uint8_t>(bytecode, bytecode + bytecode_size);
+	js_free(ctx, bytecode);
+	JS_FreeContext(ctx);
+	JS_FreeRuntime(rt);
+
+	mgr.cacheAsset(id, bytecode_vec);
+}
+
 } // namespace
 
 void AssetsManager::loadAllAssets() {
@@ -612,6 +710,8 @@ void AssetsManager::loadAllAssets() {
 		{"font", fFont},
 		{"animation", fAnimationFrames},
 		{"level-sequence", fLevelSequence},
+		{"load-js", fLoadJS},
+		{"bytecode-from-js", fBytecodeFromJS},
 	};
 
 	nlohmann::json manifest = nlohmann::json::parse(manifest_file);

@@ -175,6 +175,46 @@ Load level metadata from a JSON file.
 }
 ```
 
+### `load-js`
+
+Load a JavaScript source file (e.g., output from esbuild or another bundler) as a plain-text string asset.
+
+**Additional fields:**
+- **`file`** (string, required): Path to the JS file, relative to the assets directory.
+
+The loaded source can later be compiled to QuickJS bytecode using the `bytecode-from-js` operation.
+
+**Example:**
+```json
+{
+  "id": "ui/myscript",
+  "type": "load-js",
+  "file": "ui/myscript.js",
+  "description": "Loading UI script"
+}
+```
+
+### `bytecode-from-js`
+
+Compile a JavaScript source asset into QuickJS bytecode. Uses a temporary QuickJS runtime to parse and compile the source, then serializes the resulting bytecode into a binary buffer. The bytecode can be evaluated later with `JS_ReadObject` + `JS_EvalFunction` (see `build/context/quickjs.md`).
+
+The compiled bytecode is tied to a specific QuickJS version. The source can be either an ES module (default) or a global script.
+
+**Additional fields:**
+- **`input`** (string, required): ID of a previously loaded JS source asset (from `load-js`).
+- **`filename`** (string, optional): Filename hint for error messages in compilation. Defaults to `<input_id>.js`.
+- **`module`** (bool, optional): Whether to compile as an ES module. Defaults to `true`.
+
+**Example:**
+```json
+{
+  "id": "ui/myscript.bytecode",
+  "type": "bytecode-from-js",
+  "input": "ui/myscript",
+  "description": "Compiling UI script to bytecode"
+}
+```
+
 ## Asset Loading Process
 
 1. The assets manager searches for `manifest.json` in the following locations (in order):

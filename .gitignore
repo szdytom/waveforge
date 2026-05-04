@@ -7,3 +7,5 @@ report.svg
 *.webm
 *.dat
 *.mp4
+node_modules
+assets/bundled-js
