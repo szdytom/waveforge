@@ -1,5 +1,5 @@
 #include "wforge/js_engine.h"
-#include <quickjs-libc.h>
+#include <cstdio>
 #include <quickjs.h>
 #include <stdexcept>
 
@@ -25,7 +25,28 @@ QuickJSEngine::QuickJSEngine()
 	if (!_ctx) {
 		throw std::runtime_error("QuickJSEngine: JS_NewContext() failed");
 	}
-	js_std_init_handlers(_rt.get());
+	JS_SetRuntimeOpaque(_rt.get(), this);
+}
+
+void js_std_dump_error(JSContext *ctx) {
+	JSValue exception_val = JS_GetException(ctx);
+	const char *str = JS_ToCString(ctx, exception_val);
+	if (str) {
+		fprintf(stderr, "%s\n", str);
+		JS_FreeCString(ctx, str);
+	}
+	if (JS_IsError(exception_val)) {
+		JSValue stack = JS_GetPropertyStr(ctx, exception_val, "stack");
+		if (!JS_IsUndefined(stack)) {
+			str = JS_ToCString(ctx, stack);
+			if (str) {
+				fprintf(stderr, "%s\n", str);
+				JS_FreeCString(ctx, str);
+			}
+			JS_FreeValue(ctx, stack);
+		}
+	}
+	JS_FreeValue(ctx, exception_val);
 }
 
 } // namespace wf

@@ -13,7 +13,7 @@ namespace wf {
 	JSValue Cls::name(                                             \
 		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
 	) {                                                            \
-		auto *ptr = unwrap(this_val);                              \
+		auto *ptr = unwrap(ctx, this_val);                              \
 		if (!ptr)                                                  \
 			return JS_UNDEFINED;                                   \
 		return JS_NewInt32(ctx, ptr->field);                       \
@@ -23,7 +23,7 @@ namespace wf {
 	JSValue Cls::name(                                             \
 		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
 	) {                                                            \
-		auto *ptr = unwrap(this_val);                              \
+		auto *ptr = unwrap(ctx, this_val);                              \
 		if (!ptr)                                                  \
 			return JS_UNDEFINED;                                   \
 		return JS_NewString(ctx, ptr->field);                      \
@@ -153,7 +153,7 @@ JSValue buildRectProto(JSContext *ctx) {
 JSValue DrawTextClass::create(JSContext *ctx, const DrawTextData &d) {
 	auto *ptr = new DrawTextClass();
 	ptr->data = d;
-	JSValue obj = JS_NewObjectClass(ctx, clsId());
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
 		delete ptr;
 		return obj;
@@ -163,7 +163,7 @@ JSValue DrawTextClass::create(JSContext *ctx, const DrawTextData &d) {
 }
 
 void DrawTextClass::bindContext(JSContext *ctx) {
-	JS_SetClassProto(ctx, clsId(), buildTextProto(ctx));
+	JS_SetClassProto(ctx, clsId(JS_GetRuntime(ctx)), buildTextProto(ctx));
 }
 
 JS_CONST_GETTER(DrawTextClass, get_type, "text")
@@ -203,7 +203,7 @@ pro::proxy<DrawCmdFacade> DrawTextClass::invoke(
 JSValue DrawSpriteClass::create(JSContext *ctx, const DrawSpriteData &d) {
 	auto *ptr = new DrawSpriteClass();
 	ptr->data = d;
-	JSValue obj = JS_NewObjectClass(ctx, clsId());
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
 		delete ptr;
 		return obj;
@@ -213,7 +213,7 @@ JSValue DrawSpriteClass::create(JSContext *ctx, const DrawSpriteData &d) {
 }
 
 void DrawSpriteClass::bindContext(JSContext *ctx) {
-	JS_SetClassProto(ctx, clsId(), buildSpriteProto(ctx));
+	JS_SetClassProto(ctx, clsId(JS_GetRuntime(ctx)), buildSpriteProto(ctx));
 }
 
 JS_CONST_GETTER(DrawSpriteClass, get_type, "sprite")
@@ -234,7 +234,7 @@ pro::proxy<DrawCmdFacade> DrawSpriteClass::invoke(
 
 	// argv[2] can be a Texture object or a string ID
 	if (JS_IsObject(argv[2])) {
-		auto *tex = TextureClass::unwrap(argv[2]);
+		auto *tex = TextureClass::unwrap(ctx, argv[2]);
 		if (tex) {
 			data.texture_id = tex->id;
 			return pro::make_proxy<DrawCmdFacade>(std::move(data));
@@ -259,7 +259,7 @@ pro::proxy<DrawCmdFacade> DrawSpriteClass::invoke(
 JSValue DrawRectClass::create(JSContext *ctx, const DrawRectData &d) {
 	auto *ptr = new DrawRectClass();
 	ptr->data = d;
-	JSValue obj = JS_NewObjectClass(ctx, clsId());
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
 		delete ptr;
 		return obj;
@@ -269,7 +269,7 @@ JSValue DrawRectClass::create(JSContext *ctx, const DrawRectData &d) {
 }
 
 void DrawRectClass::bindContext(JSContext *ctx) {
-	JS_SetClassProto(ctx, clsId(), buildRectProto(ctx));
+	JS_SetClassProto(ctx, clsId(JS_GetRuntime(ctx)), buildRectProto(ctx));
 }
 
 JS_CONST_GETTER(DrawRectClass, get_type, "rect")

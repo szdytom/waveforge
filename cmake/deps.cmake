@@ -3,7 +3,7 @@ include(FetchContent)
 # SFML
 FetchContent_Declare(SFML
     GIT_REPOSITORY https://github.com/SFML/SFML.git
-    GIT_TAG 3.0.2
+    GIT_TAG 3.1.0
     GIT_SHALLOW ON
     EXCLUDE_FROM_ALL SYSTEM
 )
@@ -12,8 +12,8 @@ FetchContent_MakeAvailable(SFML)
 
 # msft_proxy
 FetchContent_Declare(msft_proxy4
-    GIT_REPOSITORY https://github.com/microsoft/proxy.git
-    GIT_TAG 4.0.1
+    GIT_REPOSITORY https://github.com/ngcpp/proxy.git
+    GIT_TAG 4.0.2
     GIT_SHALLOW ON
     EXCLUDE_FROM_ALL SYSTEM
 )
@@ -47,4 +47,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-include(${CMAKE_CURRENT_LIST_DIR}/deps-quickjs.cmake)
+# QuickJS: Next Generation
+FetchContent_Declare(
+	quickjs
+	GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git
+	GIT_TAG v0.14.0
+	GIT_SHALLOW ON
+	EXCLUDE_FROM_ALL SYSTEM
+)
+FetchContent_MakeAvailable(quickjs)

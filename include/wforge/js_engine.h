@@ -3,9 +3,13 @@
 
 #include <memory>
 #include <quickjs.h>
-#include <unordered_set>
+#include <vector>
 
 namespace wf {
+
+// Minimal replacement for quickjs-libc's js_std_dump_error.
+// Prints the current exception and its stack trace to stderr.
+void js_std_dump_error(JSContext *ctx);
 
 struct JSRuntimeDeleter {
 	void operator()(JSRuntime *rt) const noexcept;
@@ -31,23 +35,50 @@ public:
 		return _ctx.get();
 	}
 
+	// Get or allocate a per-runtime JSClassID for type T.
+	template<typename T>
+	JSClassID classId() const {
+		constexpr auto hash = T::typeHash();
+		for (const auto &entry : _class_entries) {
+			if (entry.type_hash == hash)
+				return entry.class_id;
+		}
+		// registerClass must be called first
+		__builtin_trap();
+	}
+
+	// Register a QuickJS native class on this runtime.
 	// Safe to call multiple times for the same class (no-op on repeat).
 	template<typename T>
 	bool registerClass() {
-		auto cid = T::clsId();
-		if (_registered_classes.contains(cid)) {
-			return false;
+		constexpr auto hash = T::typeHash();
+		for (auto &entry : _class_entries) {
+			if (entry.type_hash == hash) {
+				if (entry.registered) return false;
+				entry.registered = true;
+				T::registerClass(_rt.get());
+				return true;
+			}
 		}
-		_registered_classes.insert(cid);
+		// First time: allocate and register
+		JSClassID cid = 0;
+		JS_NewClassID(_rt.get(), &cid);
+		_class_entries.push_back({hash, cid, true});
 		T::registerClass(_rt.get());
 		return true;
 	}
 
 private:
+	struct ClassEntry {
+		std::size_t type_hash;
+		JSClassID class_id;
+		bool registered;
+	};
+	mutable std::vector<ClassEntry> _class_entries;
+
 	// _ctx declared after _rt so it's destroyed before _rt
 	JSRuntimeUnique _rt;
 	JSContextUnique _ctx;
-	std::unordered_set<JSClassID> _registered_classes;
 };
 
 // RAII wrapper that calls JS_FreeValue on destruction.

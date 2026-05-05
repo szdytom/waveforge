@@ -36,6 +36,18 @@ sudo pacman -S sfml
 
 You can also install those dependencies manually if you prefer not to install SFML system-wide. Please refer to SFML's official documentation for more details.
 
+Besides the executable, you all need to build the Typescript scripts as well, which are located in `ts` directory. You need to have `make` and `esbuild` installed for this. Then run the following command in the project root directory:
+
+```bash
+make -C ts -j$(nproc)
+```
+
+The makefile assumes that a executable named `esbuild` is available in your PATH. If it's not the case, you can set the `ESBUILD` environment variable to point to the esbuild executable, for example, using `pnpm`:
+
+```bash
+make -C ts -j$(nproc) ESBUILD="pnpm exec esbuild"
+```
+
 ## Team Members
 
 - Code: [fang_erj](https://github.com/szdytom)
@@ -48,11 +60,13 @@ We would like to thank zurry for thier inspiring thoughts on game play, mechanic
 
 We would also like to thank the following open source projects for making this game possible:
 
-- [microsoft/proxy](https://github.com/microsoft/proxy): A C++ library for "Next Generation Polymorphism"
+- [proxy](https://github.com/ngcpp/proxy): A C++ library for "Next Generation Polymorphism".
 
 - [SFML](https://www.sfml-dev.org/): Simple and Fast Multimedia Library for graphics and audio.
 
 - [cpptrace](https://github.com/jeremy-rifkin/cpptrace): A simple & self-contained C++ stack trace library.
+
+- [QuickJS (NG fork)](https://github.com/quickjs-ng/quickjs): A community fork of [Fabrice Bellard's original QuickJS](https://bellard.org/quickjs/), a small and embeddable JavaScript engine.
 
 - [Aseprite](https://www.aseprite.org/): A pixel art tool used for creating pixel art assets.
 

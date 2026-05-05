@@ -50,7 +50,7 @@ JSValue TextureClass::ctor(
 		return JS_ThrowReferenceError(ctx, "Texture not found: %s", id_str);
 	}
 
-	JSValue obj = JS_NewObjectClass(ctx, clsId());
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
 		JS_FreeCString(ctx, id_str);
 		return obj;
@@ -67,7 +67,7 @@ void TextureClass::bindContext(JSContext *ctx, JSValue ns) {
 	);
 	auto proto = buildProto(ctx);
 	JS_SetConstructor(ctx, ctor_func, proto);
-	JS_SetClassProto(ctx, clsId(), proto);
+	JS_SetClassProto(ctx, clsId(JS_GetRuntime(ctx)), proto);
 	JS_DefinePropertyValueStr(
 		ctx, ns, "Texture", ctor_func, JS_PROP_CONFIGURABLE | JS_PROP_ENUMERABLE
 	);
@@ -76,7 +76,7 @@ void TextureClass::bindContext(JSContext *ctx, JSValue ns) {
 JSValue TextureClass::get_id(
 	JSContext *ctx, JSValueConst this_val, int /*argc*/, JSValueConst * /*argv*/
 ) {
-	auto *ptr = unwrap(this_val);
+	auto *ptr = unwrap(ctx, this_val);
 	if (!ptr) {
 		return JS_ThrowTypeError(ctx, "Invalid Texture object");
 	}
@@ -86,7 +86,7 @@ JSValue TextureClass::get_id(
 JSValue TextureClass::get_width(
 	JSContext *ctx, JSValueConst this_val, int /*argc*/, JSValueConst * /*argv*/
 ) {
-	auto *ptr = unwrap(this_val);
+	auto *ptr = unwrap(ctx, this_val);
 	if (!ptr || !ptr->texture) {
 		return JS_ThrowTypeError(ctx, "Invalid Texture object");
 	}
@@ -96,7 +96,7 @@ JSValue TextureClass::get_width(
 JSValue TextureClass::get_height(
 	JSContext *ctx, JSValueConst this_val, int /*argc*/, JSValueConst * /*argv*/
 ) {
-	auto *ptr = unwrap(this_val);
+	auto *ptr = unwrap(ctx, this_val);
 	if (!ptr || !ptr->texture) {
 		return JS_ThrowTypeError(ctx, "Invalid Texture object");
 	}

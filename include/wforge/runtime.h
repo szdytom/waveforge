@@ -16,23 +16,37 @@ namespace wf {
 
 class PixelFont;
 
+constexpr std::size_t fnv1a(const char *str) noexcept {
+	std::size_t hash = 0xcbf29ce484222325;
+	while (*str) {
+		hash ^= static_cast<std::size_t>(*str++);
+		hash *= 0x100000001b3;
+	}
+	return hash;
+}
+
 // CRTP base for QuickJS native classes.
 // Derived must define `static constexpr const char *className`.
 template<typename Derived>
 class QuickJSClass {
 public:
-	static JSClassID clsId() {
-		static JSClassID cid = 0;
-		JS_NewClassID(&cid);
-		return cid;
+	// FNV-1a of className, evaluated at compile time.
+	static constexpr std::size_t typeHash() noexcept {
+		return fnv1a(Derived::className);
+	}
+
+	static JSClassID clsId(JSRuntime *rt) {
+		return static_cast<QuickJSEngine *>(JS_GetRuntimeOpaque(rt))
+			->template classId<Derived>();
 	}
 
 	static void finalize(JSRuntime *rt, JSValue val) {
-		delete static_cast<Derived *>(JS_GetOpaque(val, clsId()));
+		delete static_cast<Derived *>(JS_GetOpaque(val, clsId(rt)));
 	}
 
-	static Derived *unwrap(JSValueConst obj) {
-		return static_cast<Derived *>(JS_GetOpaque(obj, clsId()));
+	static Derived *unwrap(JSContext *ctx, JSValueConst obj) {
+		return static_cast<Derived *>(
+			JS_GetOpaque(obj, clsId(JS_GetRuntime(ctx))));
 	}
 
 	static void registerClass(JSRuntime *rt) {
@@ -40,7 +54,7 @@ public:
 			.class_name = Derived::className,
 			.finalizer = finalize,
 		};
-		JS_NewClass(rt, clsId(), &def);
+		JS_NewClass(rt, clsId(rt), &def);
 	}
 };
 

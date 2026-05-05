@@ -82,5 +82,5 @@ target_link_libraries(waveforge PRIVATE
     cpptrace::cpptrace
     nlohmann_json::nlohmann_json
     argparse::argparse
-    quickjs
+    qjs
 )

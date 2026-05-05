@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
-#include <quickjs-libc.h>
 #include <quickjs.h>
 #include <stdexcept>
 #include <string>
