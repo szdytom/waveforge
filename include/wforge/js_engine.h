@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <quickjs.h>
+#include <unordered_set>
 
 namespace wf {
 
@@ -30,10 +31,23 @@ public:
 		return _ctx.get();
 	}
 
+	// Safe to call multiple times for the same class (no-op on repeat).
+	template<typename T>
+	bool registerClass() {
+		auto cid = T::clsId();
+		if (_registered_classes.contains(cid)) {
+			return false;
+		}
+		_registered_classes.insert(cid);
+		T::registerClass(_rt.get());
+		return true;
+	}
+
 private:
 	// _ctx declared after _rt so it's destroyed before _rt
 	JSRuntimeUnique _rt;
 	JSContextUnique _ctx;
+	std::unordered_set<JSClassID> _registered_classes;
 };
 
 // RAII wrapper that calls JS_FreeValue on destruction.

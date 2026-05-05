@@ -31,6 +31,8 @@ add_executable(waveforge
     src/items/oil.cpp
     src/js_engine.cpp
     src/js_scene.cpp
+    src/runtime/texture.cpp
+    src/runtime/draw.cpp
     src/scenes/duckdeath.cpp
     src/scenes/help.cpp
     src/scenes/level_menu.cpp

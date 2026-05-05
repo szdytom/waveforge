@@ -1,268 +1,32 @@
 #include "wforge/js_scene.h"
 #include "wforge/js_engine.h"
+#include "wforge/runtime.h"
 #include "wforge/version.h"
 #include <SFML/Audio/SoundBuffer.hpp>
-#include <SFML/Graphics.hpp>
-#include <SFML/Graphics/RectangleShape.hpp>
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Graphics/Texture.hpp>
 #include <SFML/Window/Mouse.hpp>
 #include <cstdint>
 #include <format>
 #include <iostream>
-#include <proxy/proxy.h>
-#include <proxy/v4/proxy.h>
-#include <proxy/v4/proxy_macros.h>
 #include <quickjs-libc.h>
 #include <quickjs.h>
 #include <stdexcept>
 #include <string>
 #include <utility>
-#include <vector>
 
 namespace wf {
 
-namespace _dispatch {
-
-PRO_DEF_MEM_DISPATCH(MemDrawRender, render);
-PRO_DEF_MEM_DISPATCH(MemDrawFillJS, fillJSObject);
-
-} // namespace _dispatch
-
-/* clang-format off */
-struct DrawCmdFacade : pro::facade_builder
-	::add_convention<_dispatch::MemDrawRender, void(sf::RenderTarget&, const PixelFont*, int) const>
-	::add_convention<_dispatch::MemDrawFillJS, void(JSContext*, JSValue) const>
-	::support_relocation<pro::constraint_level::nontrivial>
-	::build {};
-/* clang-format on */
-
-struct DrawTextCmd {
-	int x;
-	int y;
-	std::string text;
-	int size;
-	sf::Color color;
-
-	void render(
-		sf::RenderTarget &target, const PixelFont *font, int scale
-	) const {
-		if (font) {
-			font->renderText(target, text, color, x, y, scale, size);
-		}
-	}
-
-	void fillJSObject(JSContext *ctx, JSValue obj) const {
-		JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, "text"));
-		JS_SetPropertyStr(ctx, obj, "x", JS_NewInt32(ctx, x));
-		JS_SetPropertyStr(ctx, obj, "y", JS_NewInt32(ctx, y));
-		JS_SetPropertyStr(ctx, obj, "text", JS_NewString(ctx, text.c_str()));
-		JS_SetPropertyStr(ctx, obj, "size", JS_NewInt32(ctx, size));
-		JS_SetPropertyStr(ctx, obj, "r", JS_NewInt32(ctx, color.r));
-		JS_SetPropertyStr(ctx, obj, "g", JS_NewInt32(ctx, color.g));
-		JS_SetPropertyStr(ctx, obj, "b", JS_NewInt32(ctx, color.b));
-	}
-};
-
-struct DrawSpriteCmd {
-	int x;
-	int y;
-	sf::Texture *texture = nullptr;
-	std::string texture_id;
-
-	void render(sf::RenderTarget &target, const PixelFont *, int scale) const {
-		if (!texture) {
-			return;
-		}
-		sf::Sprite sprite(*texture);
-		sprite.setPosition(sf::Vector2f(x * scale, y * scale));
-		sprite.setScale(sf::Vector2f(scale, scale));
-		target.draw(sprite);
-	}
-
-	void fillJSObject(JSContext *ctx, JSValue obj) const {
-		JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, "sprite"));
-		JS_SetPropertyStr(ctx, obj, "x", JS_NewInt32(ctx, x));
-		JS_SetPropertyStr(ctx, obj, "y", JS_NewInt32(ctx, y));
-		JS_SetPropertyStr(
-			ctx, obj, "textureId", JS_NewString(ctx, texture_id.c_str())
-		);
-	}
-};
-
-struct DrawRectCmd {
-	int x;
-	int y;
-	int w;
-	int h;
-	sf::Color color;
-
-	void render(sf::RenderTarget &target, const PixelFont *, int scale) const {
-		sf::RectangleShape rect(sf::Vector2f(w * scale, h * scale));
-		rect.setPosition(sf::Vector2f(x * scale, y * scale));
-		rect.setFillColor(color);
-		target.draw(rect);
-	}
-
-	void fillJSObject(JSContext *ctx, JSValue obj) const {
-		JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, "rect"));
-		JS_SetPropertyStr(ctx, obj, "x", JS_NewInt32(ctx, x));
-		JS_SetPropertyStr(ctx, obj, "y", JS_NewInt32(ctx, y));
-		JS_SetPropertyStr(ctx, obj, "w", JS_NewInt32(ctx, w));
-		JS_SetPropertyStr(ctx, obj, "h", JS_NewInt32(ctx, h));
-		JS_SetPropertyStr(ctx, obj, "r", JS_NewInt32(ctx, color.r));
-		JS_SetPropertyStr(ctx, obj, "g", JS_NewInt32(ctx, color.g));
-		JS_SetPropertyStr(ctx, obj, "b", JS_NewInt32(ctx, color.b));
-	}
-};
-
-using DrawCmd = pro::proxy<DrawCmdFacade>;
+namespace {
 
 struct NativeModuleState {
-	std::vector<DrawCmd> cmd_buffer;
+	std::vector<pro::proxy<DrawCmdFacade>> cmd_buffer;
 	std::string pending_scene_id;
 	bool scene_change_pending = false;
 	JSValueGuard module_ns;
 };
 
-namespace {
-
 NativeModuleState *getState(JSContext *ctx) {
 	return static_cast<NativeModuleState *>(JS_GetContextOpaque(ctx));
 }
-
-int getIntArg(JSContext *ctx, JSValueConst val, int default_val) {
-	int32_t result;
-	if (JS_ToInt32(ctx, &result, val) < 0) {
-		JS_FreeValue(ctx, JS_GetException(ctx));
-		return default_val;
-	}
-	return result;
-}
-
-struct TextureClass {
-	static JSClassID clsId() {
-		static JSClassID cid = 0;
-		JS_NewClassID(&cid);
-		return cid;
-	}
-
-	static void finalize(JSRuntime *rt, JSValue val) {
-		auto *ptr = static_cast<TextureClass *>(JS_GetOpaque(val, clsId()));
-		delete ptr;
-	}
-
-	static JSValue ctor(
-		JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
-	) {
-		if (argc < 1) {
-			return JS_ThrowTypeError(ctx, "Texture requires an id");
-		}
-
-		const char *id_str = JS_ToCString(ctx, argv[0]);
-		if (!id_str) {
-			return JS_EXCEPTION;
-		}
-
-		auto res = std::make_unique<TextureClass>();
-		res->id = id_str;
-		try {
-			res->texture = &AssetsManager::instance().getAsset<sf::Texture>(
-				id_str
-			);
-		} catch (const std::exception &) {
-			JS_FreeCString(ctx, id_str);
-			return JS_ThrowReferenceError(ctx, "Texture not found: %s", id_str);
-		}
-
-		JSValue obj = JS_NewObjectClass(ctx, TextureClass::clsId());
-		if (JS_IsException(obj)) {
-			JS_FreeCString(ctx, id_str);
-			return obj;
-		}
-
-		JS_SetOpaque(obj, res.release());
-		JS_FreeCString(ctx, id_str);
-		return obj;
-	}
-
-	static void registerClass(JSRuntime *rt) {
-		JSClassDef def = {
-			.class_name = "Texture",
-			.finalizer = finalize,
-		};
-		JS_NewClass(rt, clsId(), &def);
-	}
-
-	static void bindContext(JSContext *ctx, JSValue ns) {
-		auto ctor_func = JS_NewCFunction2(
-			ctx, ctor, "Texture", 1, JS_CFUNC_constructor, 0
-		);
-		auto proto = TextureClass::proto(ctx);
-		JS_SetConstructor(ctx, ctor_func, proto);
-		JS_SetClassProto(ctx, clsId(), proto);
-		JS_DefinePropertyValueStr(
-			ctx, ns, "Texture", ctor_func,
-			JS_PROP_CONFIGURABLE | JS_PROP_ENUMERABLE
-		);
-	}
-
-	static TextureClass *unwrap(JSValueConst obj) {
-		return static_cast<TextureClass *>(JS_GetOpaque(obj, clsId()));
-	}
-
-	static JSValue get_id(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	) {
-		auto *ptr = unwrap(this_val);
-		if (!ptr) {
-			return JS_ThrowTypeError(ctx, "Invalid Texture object");
-		}
-		return JS_NewString(ctx, ptr->id.c_str());
-	}
-
-	static JSValue get_width(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	) {
-		auto *ptr = unwrap(this_val);
-		if (!ptr || !ptr->texture) {
-			return JS_ThrowTypeError(ctx, "Invalid Texture object");
-		}
-		return JS_NewInt32(ctx, ptr->texture->getSize().x);
-	}
-
-	static JSValue get_height(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	) {
-		auto *ptr = unwrap(this_val);
-		if (!ptr || !ptr->texture) {
-			return JS_ThrowTypeError(ctx, "Invalid Texture object");
-		}
-		return JS_NewInt32(ctx, ptr->texture->getSize().y);
-	}
-
-	static JSValue proto(JSContext *ctx) {
-		JSValue proto = JS_NewObject(ctx);
-		auto configure_getter = [&](const char *name, JSCFunction *getter) {
-			JSAtomGuard atom(ctx, name);
-			auto getter_val = JSValueGuard::fromCFunction(
-				ctx, getter, name, 0, JS_CFUNC_getter
-			);
-			JS_DefineProperty(
-				ctx, proto, atom.get(), JS_UNDEFINED, getter_val.get(),
-				JS_UNDEFINED,
-				JS_PROP_CONFIGURABLE | JS_PROP_ENUMERABLE | JS_PROP_HAS_GET
-			);
-		};
-		configure_getter("id", get_id);
-		configure_getter("width", get_width);
-		configure_getter("height", get_height);
-		return proto;
-	}
-
-	sf::Texture *texture;
-	std::string id;
-};
 
 JSValue native_console_log(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
@@ -279,104 +43,6 @@ JSValue native_console_log(
 	return JS_UNDEFINED;
 }
 
-JSValue native_draw_text(
-	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
-) {
-	auto *state = getState(ctx);
-	if (!state || argc < 7) {
-		return JS_UNDEFINED;
-	}
-
-	DrawTextCmd cmd;
-	cmd.x = getIntArg(ctx, argv[0], 0);
-	cmd.y = getIntArg(ctx, argv[1], 0);
-
-	const char *text = JS_ToCString(ctx, argv[2]);
-	cmd.text = text ? text : "";
-	JS_FreeCString(ctx, text);
-
-	cmd.size = getIntArg(ctx, argv[3], 1);
-	int r = getIntArg(ctx, argv[4], 255);
-	int g = getIntArg(ctx, argv[5], 255);
-	int b = getIntArg(ctx, argv[6], 255);
-	cmd.color = sf::Color(
-		static_cast<std::uint8_t>(r), static_cast<std::uint8_t>(g),
-		static_cast<std::uint8_t>(b)
-	);
-
-	state->cmd_buffer.push_back(pro::make_proxy<DrawCmdFacade>(std::move(cmd)));
-	return JS_UNDEFINED;
-}
-
-JSValue native_draw_sprite(
-	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
-) {
-	auto *state = getState(ctx);
-	if (!state || argc < 3) {
-		return JS_UNDEFINED;
-	}
-
-	DrawSpriteCmd cmd;
-	cmd.x = getIntArg(ctx, argv[0], 0);
-	cmd.y = getIntArg(ctx, argv[1], 0);
-
-	// argv[2] can be a Texture object or a string ID
-	if (JS_IsObject(argv[2])) {
-		TextureClass *tex = TextureClass::unwrap(argv[2]);
-		if (tex) {
-			cmd.texture = tex->texture;
-			cmd.texture_id = tex->id;
-			state->cmd_buffer.push_back(
-				pro::make_proxy<DrawCmdFacade>(std::move(cmd))
-			);
-			return JS_UNDEFINED;
-		}
-	}
-
-	// Fallback: string ID
-	{
-		const char *id_str = JS_ToCString(ctx, argv[2]);
-		if (!id_str) {
-			return JS_UNDEFINED;
-		}
-		cmd.texture_id = id_str;
-		try {
-			cmd.texture = &AssetsManager::instance().getAsset<sf::Texture>(
-				id_str
-			);
-		} catch (const std::exception &) {}
-		JS_FreeCString(ctx, id_str);
-	}
-
-	state->cmd_buffer.push_back(pro::make_proxy<DrawCmdFacade>(std::move(cmd)));
-	return JS_UNDEFINED;
-}
-
-JSValue native_draw_rect(
-	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
-) {
-	auto *state = getState(ctx);
-	if (!state || argc < 7) {
-		return JS_UNDEFINED;
-	}
-
-	DrawRectCmd cmd;
-	cmd.x = getIntArg(ctx, argv[0], 0);
-	cmd.y = getIntArg(ctx, argv[1], 0);
-	cmd.w = getIntArg(ctx, argv[2], 0);
-	cmd.h = getIntArg(ctx, argv[3], 0);
-	int r = getIntArg(ctx, argv[4], 255);
-	int g = getIntArg(ctx, argv[5], 255);
-	int b = getIntArg(ctx, argv[6], 255);
-	cmd.color = sf::Color(
-		static_cast<std::uint8_t>(r), static_cast<std::uint8_t>(g),
-		static_cast<std::uint8_t>(b)
-	);
-
-	state->cmd_buffer.push_back(pro::make_proxy<DrawCmdFacade>(std::move(cmd)));
-	return JS_UNDEFINED;
-}
-
 JSValue native_play_sound(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
 ) {
@@ -390,11 +56,13 @@ JSValue native_play_sound(
 		return JS_UNDEFINED;
 	}
 
-	try {
-		auto &buffer = AssetsManager::instance().getAsset<sf::SoundBuffer>(id);
-		ActiveSoundManager::instance().play(buffer);
-	} catch (const std::exception &e) {
-		std::cerr << "playSound: " << e.what() << "\n";
+	auto *buffer = AssetsManager::instance().getAssetChecked<sf::SoundBuffer>(
+		id
+	);
+	if (buffer) {
+		ActiveSoundManager::instance().play(*buffer);
+	} else {
+		std::cerr << "playSound: sound buffer not found: " << id << "\n";
 	}
 
 	JS_FreeCString(ctx, id);
@@ -418,27 +86,6 @@ JSValue native_change_scene(
 	return JS_UNDEFINED;
 }
 
-JSValue native_get_commands(
-	JSContext *ctx, JSValueConst /*this_val*/, int /*argc*/,
-	JSValueConst * /*argv*/
-) {
-	auto *state = getState(ctx);
-	if (!state) {
-		return JS_UNDEFINED;
-	}
-
-	JSValue arr = JS_NewArray(ctx);
-	uint32_t i = 0;
-	for (const auto &cmd : state->cmd_buffer) {
-		JSValue obj = JS_NewObject(ctx);
-
-		cmd->fillJSObject(ctx, obj);
-
-		JS_SetPropertyUint32(ctx, arr, i++, obj);
-	}
-	return arr;
-}
-
 JSValue native_setup_scene(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
 ) {
@@ -452,7 +99,60 @@ JSValue native_setup_scene(
 	return JS_UNDEFINED;
 }
 
-JSValue native_clear_commands(
+// ── Draw command wrappers (proxy → buffer) ──
+
+JSValue drawTextWrapper(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) {
+	auto proxy = DrawTextClass::invoke(ctx, this_val, argc, argv);
+	if (proxy) {
+		auto *state = getState(ctx);
+		state->cmd_buffer.push_back(std::move(proxy));
+	}
+	return JS_UNDEFINED;
+}
+
+JSValue drawSpriteWrapper(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) {
+	auto proxy = DrawSpriteClass::invoke(ctx, this_val, argc, argv);
+	if (proxy) {
+		auto *state = getState(ctx);
+		state->cmd_buffer.push_back(std::move(proxy));
+	}
+	return JS_UNDEFINED;
+}
+
+JSValue drawRectWrapper(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) {
+	auto proxy = DrawRectClass::invoke(ctx, this_val, argc, argv);
+	if (proxy) {
+		auto *state = getState(ctx);
+		state->cmd_buffer.push_back(std::move(proxy));
+	}
+	return JS_UNDEFINED;
+}
+
+JSValue getCommandsWrapper(
+	JSContext *ctx, JSValueConst /*this_val*/, int /*argc*/,
+	JSValueConst * /*argv*/
+) {
+	auto *state = getState(ctx);
+	if (!state) {
+		return JS_UNDEFINED;
+	}
+
+	JSValue arr = JS_NewArray(ctx);
+	uint32_t i = 0;
+	for (const auto &cmd : state->cmd_buffer) {
+		JSValue obj = cmd->toJSValue(ctx);
+		JS_SetPropertyUint32(ctx, arr, i++, obj);
+	}
+	return arr;
+}
+
+JSValue clearCommandsWrapper(
 	JSContext *ctx, JSValueConst /*this_val*/, int /*argc*/,
 	JSValueConst * /*argv*/
 ) {
@@ -462,7 +162,6 @@ JSValue native_clear_commands(
 	}
 	return JS_UNDEFINED;
 }
-
 } // anonymous namespace
 
 static std::string sfKeyToString(sf::Keyboard::Key key) {
@@ -537,9 +236,6 @@ struct JSScene::Impl {
 	bool callExport(const char *name, JSValue arg = JS_UNDEFINED) const;
 	bool callExport(const char *name, JSValue arg1, JSValue arg2) const;
 	JSValue eventToJSObject(sf::Event &evt);
-	void flushDrawCommands(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
 	void resolvePendingSceneChange(SceneManager &mgr);
 
 	std::array<int, 2> size() const;
@@ -557,7 +253,6 @@ JSScene::Impl::Impl(const std::string &scene_id)
 	JS_SetContextOpaque(engine.context(), &native_state);
 	installConsole();
 
-	// Evaluate source directly (not bytecode) to isolate module issues
 	const auto &source = AssetsManager::instance().getAsset<std::string>(
 		source_asset_id
 	);
@@ -593,16 +288,6 @@ void JSScene::Impl::installConsole() {
 	JS_SetPropertyStr(ctx, global.get(), "console", console);
 
 	// globalThis.waveforge — namespace object with all native functions.
-	// JS scenes use this instead of import syntax:
-	//   waveforge.log(...)
-	//   waveforge.drawText(x, y, text, size, r, g, b)
-	//   waveforge.drawSprite(x, y, textureId)
-	//   waveforge.drawRect(x, y, w, h, r, g, b)
-	//   waveforge.playSound(id)
-	//   waveforge.changeScene(sceneId)
-	//   waveforge.setupScene({size, setup, handleEvent, step, render})
-	//   waveforge.getCommands()
-	//   waveforge.clearCommands()
 	JSValue wf = JS_NewObject(ctx);
 	auto setFn = [&](const char *name, JSCFunction *func, int len) {
 		JSValue f = JS_NewCFunction(ctx, func, name, len);
@@ -610,16 +295,21 @@ void JSScene::Impl::installConsole() {
 	};
 	setFn("log", native_console_log, 1);
 	setFn("setupScene", native_setup_scene, 1);
-	setFn("drawText", native_draw_text, 7);
-	setFn("drawSprite", native_draw_sprite, 3);
-	setFn("drawRect", native_draw_rect, 7);
 	setFn("playSound", native_play_sound, 1);
 	setFn("changeScene", native_change_scene, 1);
-	setFn("getCommands", native_get_commands, 0);
-	setFn("clearCommands", native_clear_commands, 0);
+
 	// Register Texture class and constructor
-	TextureClass::registerClass(engine.runtime());
+	engine.registerClass<TextureClass>();
 	TextureClass::bindContext(ctx, wf);
+
+	// Register draw command classes
+	initDrawCommands(engine, ctx);
+	setFn("drawText", drawTextWrapper, 7);
+	setFn("drawSprite", drawSpriteWrapper, 3);
+	setFn("drawRect", drawRectWrapper, 7);
+	setFn("getCommands", getCommandsWrapper, 0);
+	setFn("clearCommands", clearCommandsWrapper, 0);
+
 	JS_SetPropertyStr(ctx, global.get(), "waveforge", wf);
 }
 
@@ -719,7 +409,7 @@ void JSScene::Impl::render(
 	const SceneManager &mgr, sf::RenderTarget &target, int scale
 ) const {
 	callExport("render");
-	flushDrawCommands(mgr, target, scale);
+	wf::flushDrawCommands(native_state.cmd_buffer, target, scale, font);
 	native_state.cmd_buffer.clear();
 }
 
@@ -771,18 +461,6 @@ JSValue JSScene::Impl::eventToJSObject(sf::Event &evt) {
 	}
 
 	return obj;
-}
-
-void JSScene::Impl::flushDrawCommands(
-	const SceneManager &mgr, sf::RenderTarget &target, int scale
-) const {
-	for (const auto &cmd : native_state.cmd_buffer) {
-		try {
-			cmd->render(target, font, scale);
-		} catch (const std::exception &e) {
-			std::cerr << "JSScene: draw command error: " << e.what() << "\n";
-		}
-	}
 }
 
 void JSScene::Impl::resolvePendingSceneChange(SceneManager &mgr) {
