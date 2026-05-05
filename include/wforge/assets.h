@@ -2,6 +2,7 @@
 #define WFORGE_ASSETS_H
 
 #include "wforge/2d.h"
+#include "wforge/ctti.h"
 #include "wforge/fallsand.h"
 #include <SFML/Audio/Music.hpp>
 #include <SFML/Graphics.hpp>
@@ -148,17 +149,24 @@ public:
 	// See assets/README.md and assets/manifest.json for details
 	static void loadAllAssets();
 
-	// throws for unrecognized asset ID
-	// WARNING: no check for type correctness, always ensure T is correct!
+	// Undefined behavior if asset not found or type mismatch
+	// (Expect crash with diagnostic message in debug build)
+	// Use `getAssetChecked` for unreliable asset retrieval
 	template<typename T>
-	T &getAsset(const std::string &id) {
-		return *static_cast<T *>(_getAssetRaw(id));
+	T &getAsset(std::string_view id) {
+		return *static_cast<T *>(_getAssetRawUnchecked(id, typeHash<T>()));
+	}
+
+	// nullptr if asset not found or type mismatch
+	template<typename T>
+	T *getAssetChecked(std::string_view id) {
+		return static_cast<T *>(_getAssetRaw(id, typeHash<T>()));
 	}
 
 	// asset ownership is transferred to AssetsManager
 	template<typename T>
-	void cacheAsset(const std::string &id, T *asset) {
-		_cacheAssetRaw(id, static_cast<void *>(asset));
+	void cacheAsset(std::string id, T *asset) {
+		_cacheAssetRaw(std::move(id), asset, typeHash<T>());
 	}
 
 	MusicCollection &getMusicCollection(const std::string &id);
@@ -166,10 +174,21 @@ public:
 private:
 	AssetsManager() = default;
 
-	void *_getAssetRaw(const std::string &id);
-	void _cacheAssetRaw(const std::string &id, void *asset);
+	void *_getAssetRaw(std::string_view id, std::size_t expected_type_hash);
+	void *_getAssetRawUnchecked(
+		std::string_view id, std::size_t expected_type_hash
+	);
+	void _cacheAssetRaw(std::string id, void *asset, std::size_t type_hash);
+	void _sortAssetsIfNeeded();
 
-	std::map<std::string, void *> _asset_cache; // owned pointers
+	struct AssetEntry {
+		std::size_t type_hash;
+		void *asset; // owned pointer, but never deleted for now.
+		std::string id;
+	};
+
+	bool _is_sorted = false;
+	std::vector<AssetEntry> _assets;
 	std::map<std::string, MusicCollection> _music_collections;
 };
 
