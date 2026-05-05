@@ -1,4 +1,5 @@
 #include "wforge/assets.h"
+#include "wforge/js_scene.h"
 #include "wforge/save.h"
 #include "wforge/scene.h"
 #include "wforge/version.h"
@@ -89,6 +90,8 @@ void entry(
 			} else {
 				return pro::make_proxy<wf::SceneFacade, wf::scene::MainMenu>();
 			}
+		} else if (level_id.starts_with("js:")) {
+			return wf::createSceneFromId(level_id);
 		} else {
 			return pro::make_proxy<wf::SceneFacade, wf::scene::LevelPlaying>(
 				level_id

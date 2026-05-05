@@ -934,6 +934,12 @@
 			"description": "Loading auto level metadata"
 		},
 		{
+			"id": "js/scene-test/source",
+			"type": "load-js",
+			"file": "bundled-js/scene-test.js",
+			"description": "Loading JS test scene (compiled from TS)"
+		},
+		{
 			"id": "level-sequence",
 			"type": "level-sequence",
 			"levels": [

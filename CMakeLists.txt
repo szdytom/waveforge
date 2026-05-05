@@ -29,6 +29,8 @@ add_executable(waveforge
     src/items/fire.cpp
     src/items/water.cpp
     src/items/oil.cpp
+    src/js_engine.cpp
+    src/js_scene.cpp
     src/scenes/duckdeath.cpp
     src/scenes/help.cpp
     src/scenes/level_menu.cpp

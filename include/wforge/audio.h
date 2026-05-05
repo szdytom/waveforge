@@ -2,6 +2,7 @@
 #define WFORGE_AUDIO_H
 
 #include "wforge/assets.h"
+#include <list>
 #include <SFML/Audio.hpp>
 
 namespace wf {
@@ -42,6 +43,21 @@ private:
 	float _volume_delta;
 	sf::Music *_cur_bgm;
 	MusicCollection *_collection;
+};
+
+class ActiveSoundManager {
+public:
+	static ActiveSoundManager &instance() noexcept;
+
+	void play(const sf::SoundBuffer &buffer);
+	void step();
+
+private:
+	ActiveSoundManager() noexcept = default;
+	ActiveSoundManager(const ActiveSoundManager &) = delete;
+	ActiveSoundManager &operator=(const ActiveSoundManager &) = delete;
+
+	std::vector<sf::Sound> _active_sounds;
 };
 
 }; // namespace wf

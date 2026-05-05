@@ -80,6 +80,7 @@ int automaticScale(int width, int height, int scale_configured) {
 
 SceneManager::SceneManager(Scene initial_scene, int scale)
 	: window(createWindow(initial_scene, scale))
+	, bgm(BGMManager::instance())
 	, _current_scene(std::move(initial_scene))
 	, _scene_changed(false)
 	, _config_scale(scale) {
@@ -127,7 +128,8 @@ void SceneManager::tick() {
 		return;
 	}
 
-	bgm.step();
+	BGMManager::instance().step();
+	ActiveSoundManager::instance().step();
 	window.clear(sf::Color::White);
 	_current_scene->render(*this, window, _scale);
 

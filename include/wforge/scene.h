@@ -74,7 +74,7 @@ public:
 	}
 
 	sf::RenderWindow window;
-	BGMManager bgm;
+	BGMManager &bgm;
 
 private:
 	Scene _current_scene;

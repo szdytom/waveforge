@@ -149,4 +149,20 @@ void BGMManager::nextMusic() {
 	}
 }
 
+ActiveSoundManager &ActiveSoundManager::instance() noexcept {
+	static ActiveSoundManager instance;
+	return instance;
+}
+
+void ActiveSoundManager::play(const sf::SoundBuffer &buffer) {
+	auto &sound = _active_sounds.emplace_back(buffer);
+	sound.play();
+}
+
+void ActiveSoundManager::step() {
+	std::erase_if(_active_sounds, [](const sf::Sound &sound) {
+		return sound.getStatus() != sf::Sound::Status::Playing;
+	});
+}
+
 } // namespace wf
