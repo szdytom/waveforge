@@ -35,7 +35,7 @@ MainMenu::MainMenu()
 
 	const auto &textures = json_data.at("textures");
 	_background_texture = &AssetsManager::instance().getAsset<sf::Texture>(
-		textures.at("background")
+		textures.at("background").get<std::string_view>()
 	);
 
 	if (_background_texture->getSize().x != _width

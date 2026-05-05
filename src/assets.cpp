@@ -224,24 +224,103 @@ AssetsManager &AssetsManager::instance() noexcept {
 	return mgr;
 }
 
-void *AssetsManager::_getAssetRaw(const std::string &id) {
-	auto it = _asset_cache.find(id);
-	if (it == _asset_cache.end()) {
-		throw std::invalid_argument(
-			std::format("AssetsManager: asset not found: {}", id)
+void *AssetsManager::_getAssetRaw(
+	std::string_view id, std::size_t expected_type_hash
+) {
+	_sortAssetsIfNeeded();
+
+	auto cmp = [](const AssetEntry &entry, std::string_view id) {
+		return entry.id < id;
+	};
+	auto it = std::lower_bound(_assets.begin(), _assets.end(), id, cmp);
+
+	if (it == _assets.end() || it->id != id) {
+#ifndef NDEBUG
+		std::cerr << std::format(
+			"AssetsManager: asset with id '{}' not found.\n", id
 		);
+		cpptrace::generate_trace().print(std::cerr);
+#endif
+		return nullptr;
 	}
 
-	return it->second;
+	if (it->type_hash != expected_type_hash) {
+#ifndef NDEBUG
+		std::cerr << std::format(
+			"AssetsManager: asset with id '{}' has type hash {}, but expected "
+			"{}.\n",
+			id, it->type_hash, expected_type_hash
+		);
+		cpptrace::generate_trace().print(std::cerr);
+#endif
+		return nullptr;
+	}
+
+	return it->asset;
 }
 
-void AssetsManager::_cacheAssetRaw(const std::string &id, void *asset) {
-	if (_asset_cache.find(id) != _asset_cache.end()) {
-		throw std::invalid_argument(
-			std::format("AssetsManager: asset ID '{}' is already cached", id)
+void *AssetsManager::_getAssetRawUnchecked(
+	std::string_view id, std::size_t expected_type_hash
+) {
+	_sortAssetsIfNeeded();
+
+	auto cmp = [](const AssetEntry &entry, std::string_view id) {
+		return entry.id < id;
+	};
+	auto it = std::lower_bound(_assets.begin(), _assets.end(), id, cmp);
+
+	if (it == _assets.end() || it->id != id) {
+#ifndef NDEBUG
+		std::cerr << std::format(
+			"AssetsManager: asset with id '{}' not found.\n", id
 		);
+		cpptrace::generate_trace().print(std::cerr);
+		std::abort();
+#endif
+		std::unreachable();
 	}
-	_asset_cache[id] = asset;
+
+	if (it->type_hash != expected_type_hash) {
+#ifndef NDEBUG
+		std::cerr << std::format(
+			"AssetsManager: asset with id '{}' has type hash {}, but expected "
+			"{}.\n",
+			id, it->type_hash, expected_type_hash
+		);
+		cpptrace::generate_trace().print(std::cerr);
+		std::abort();
+#endif
+		std::unreachable();
+	}
+
+	return it->asset;
+}
+
+void AssetsManager::_cacheAssetRaw(
+	std::string id, void *asset, std::size_t type_hash
+) {
+	_assets.push_back(
+		AssetEntry{
+			.type_hash = type_hash,
+			.asset = asset,
+			.id = std::move(id),
+		}
+	);
+	_is_sorted = false;
+}
+
+void AssetsManager::_sortAssetsIfNeeded() {
+	if (_is_sorted) {
+		return;
+	}
+
+	std::sort(
+		_assets.begin(), _assets.end(),
+		[](const AssetEntry &a, const AssetEntry &b) {
+		return a.id < b.id;
+	}
+	);
+	_is_sorted = true;
 }
 
 MusicCollection &AssetsManager::getMusicCollection(const std::string &id) {
@@ -571,7 +650,9 @@ void fLevelSequence(
 	LevelSequence *level_seq = new LevelSequence();
 
 	for (const auto &level_id : entry.at("levels")) {
-		auto level_metadata = &mgr.getAsset<LevelMetadata>(level_id);
+		auto level_metadata = &mgr.getAsset<LevelMetadata>(
+			level_id.get<std::string_view>()
+		);
 		level_metadata->index = static_cast<int>(level_seq->levels.size());
 		level_seq->levels.push_back(level_metadata);
 	}
