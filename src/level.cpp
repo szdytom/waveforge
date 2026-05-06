@@ -56,14 +56,14 @@ ItemStack *Level::activeItemStack() noexcept {
 	return &items[_active_item_index];
 }
 
-void Level::useActiveItem(int x, int y, int scale) noexcept {
+void Level::useActiveItem(int x, int y) noexcept {
 	constexpr int item_use_cooldown_ticks = 6;
 	if (_item_use_cooldown > 0) {
 		return;
 	}
 
 	if (auto itemstack = activeItemStack()) {
-		if (itemstack->item->use(*this, x, y, scale)) {
+		if (itemstack->item->use(*this, x, y)) {
 			// item used successfully, decrease quantity
 			itemstack->amount -= 1;
 			_item_use_cooldown = item_use_cooldown_ticks;

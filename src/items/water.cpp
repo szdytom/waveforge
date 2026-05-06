@@ -15,9 +15,9 @@ Item WaterBrush::createLarge() noexcept {
 	return pro::make_proxy<ItemFacade, WaterBrush>(true);
 }
 
-bool WaterBrush::use(Level &level, int x, int y, int scale) noexcept {
+bool WaterBrush::use(Level &level, int x, int y) noexcept {
 	auto &world = level.fallsand;
-	auto [top_left_x, top_left_y] = brushTopLeft(x, y, scale);
+	auto [top_left_x, top_left_y] = brushTopLeft(x, y);
 	int brush_size = brushSize();
 	bool used = false;
 	for (int dx = 0; dx < brush_size; ++dx) {
