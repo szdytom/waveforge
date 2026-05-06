@@ -3,13 +3,15 @@
 
 #include <memory>
 #include <quickjs.h>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace wf {
 
 // Minimal replacement for quickjs-libc's js_std_dump_error.
 // Prints the current exception and its stack trace to stderr.
-void js_std_dump_error(JSContext *ctx);
+void dumpJSError(JSContext *ctx);
 
 struct JSRuntimeDeleter {
 	void operator()(JSRuntime *rt) const noexcept;
@@ -44,8 +46,11 @@ public:
 				return entry.class_id;
 			}
 		}
-		// registerClass must be called first
-		__builtin_trap();
+
+		JSClassID cid = 0;
+		JS_NewClassID(_rt.get(), &cid);
+		_class_entries.push_back({hash, cid, false});
+		return cid;
 	}
 
 	// Register a QuickJS native class on this runtime.
@@ -63,7 +68,7 @@ public:
 				return true;
 			}
 		}
-		// First time: allocate and register
+
 		JSClassID cid = 0;
 		JS_NewClassID(_rt.get(), &cid);
 		_class_entries.push_back({hash, cid, true});

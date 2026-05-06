@@ -264,7 +264,7 @@ JSScene::Impl::Impl(const std::string &scene_id)
 		)
 	);
 	if (JS_IsException(ret.get())) {
-		js_std_dump_error(ctx);
+		dumpJSError(ctx);
 		throw std::runtime_error("JSScene: module source evaluation failed");
 	}
 
@@ -327,7 +327,7 @@ bool JSScene::Impl::callExport(const char *name, JSValue arg) const {
 
 	if (JS_IsException(ret.get())) {
 		std::cerr << "JSScene: export '" << name << "' threw:\n";
-		js_std_dump_error(ctx);
+		dumpJSError(ctx);
 		return false;
 	}
 
@@ -351,7 +351,7 @@ bool JSScene::Impl::callExport(
 
 	if (JS_IsException(ret.get())) {
 		std::cerr << "JSScene: export '" << name << "' threw:\n";
-		js_std_dump_error(ctx);
+		dumpJSError(ctx);
 		return false;
 	}
 

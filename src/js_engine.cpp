@@ -28,7 +28,7 @@ QuickJSEngine::QuickJSEngine()
 	JS_SetRuntimeOpaque(_rt.get(), this);
 }
 
-void js_std_dump_error(JSContext *ctx) {
+void dumpJSError(JSContext *ctx) {
 	JSValue exception_val = JS_GetException(ctx);
 	const char *str = JS_ToCString(ctx, exception_val);
 	if (str) {
