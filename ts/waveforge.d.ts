@@ -6,7 +6,7 @@ declare global {
 
 /** Pre-loaded texture handle. Obtain via `new waveforge.Texture(id)`. */
 interface Texture {
-	/** @internal Asset ID used for serialization in getCommands(). */
+	/** Asset ID used for draw sprite commands. */
 	get id(): string;
 
 	/** Texture width in pixels. */
@@ -28,12 +28,68 @@ interface Sound {
 	play(): void;
 }
 
+/** A single text draw command. Created via `new waveforge.DrawText(...)`. */
+interface DrawText {
+	readonly type: "text";
+	readonly x: number;
+	readonly y: number;
+	readonly text: string;
+	readonly size: number;
+	readonly r: number;
+	readonly g: number;
+	readonly b: number;
+}
+
+/** A single sprite draw command. Created via `new waveforge.DrawSprite(...)`. */
+interface DrawSprite {
+	readonly type: "sprite";
+	readonly x: number;
+	readonly y: number;
+	readonly textureId: string;
+}
+
+/** A single filled-rectangle draw command. Created via `new waveforge.DrawRect(...)`. */
+interface DrawRect {
+	readonly type: "rect";
+	readonly x: number;
+	readonly y: number;
+	readonly w: number;
+	readonly h: number;
+	readonly r: number;
+	readonly g: number;
+	readonly b: number;
+}
+
+/** Accumulates draw commands and commits them to the render pipeline. */
+interface DrawCmdBuffer {
+	/** Append a draw command (DrawText, DrawSprite, or DrawRect). */
+	add(cmd: DrawText | DrawSprite | DrawRect): void;
+
+	/** Remove all commands from the buffer. */
+	clear(): void;
+
+	/** Iterate over buffered commands. */
+	[Symbol.iterator](): Iterator<DrawText | DrawSprite | DrawRect>;
+}
+
 interface WaveForge {
 	/** Create a pre-loaded texture handle (avoids repeated asset lookups). */
 	Texture: { new(id: string): Texture };
 
 	/** Create a pre-loaded sound handle. */
 	Sound: { new(id: string): Sound };
+
+	/** Create a text draw command. */
+	DrawText: { new(x: number, y: number, text: string, size: number, r: number, g: number, b: number): DrawText };
+
+	/** Create a sprite draw command (accepts Texture object or string asset ID). */
+	DrawSprite: { new(x: number, y: number, texture: string | Texture): DrawSprite };
+
+	/** Create a filled-rectangle draw command. */
+	DrawRect: { new(x: number, y: number, w: number, h: number, r: number, g: number, b: number): DrawRect };
+
+	/** Create a command buffer for accumulating draw commands. */
+	DrawCmdBuffer: { new(): DrawCmdBuffer };
 
 	/** Print arguments to stderr. */
 	log(...args: unknown[]): void;
@@ -43,32 +99,6 @@ interface WaveForge {
 	 * Must be called exactly once during module body execution.
 	 */
 	setupScene(api: SceneAPI): void;
-
-	/**
-	 * Queue a text draw command.
-	 * Coordinates are in logical pixels (C++ multiplies by scale).
-	 */
-	drawText(
-		x: number, y: number, text: string,
-		size: number, r: number, g: number, b: number
-	): void;
-
-	/**
-	 * Queue a sprite draw command.
-	 * @param texture Texture instance (from `new waveforge.Texture(id)`)
-	 *   or a string asset ID (e.g. "ui/main-menu-background").
-	 *   Preloading via `new waveforge.Texture(id)` avoids repeated
-	 *   lookups in the assets manager.
-	 */
-	drawSprite(x: number, y: number, texture: string | Texture): void;
-
-	/**
-	 * Queue a filled rectangle draw command.
-	 */
-	drawRect(
-		x: number, y: number, w: number, h: number,
-		r: number, g: number, b: number
-	): void;
 
 	/**
 	 * Request a scene change.
@@ -82,13 +112,11 @@ interface WaveForge {
 	changeScene(sceneId: string): void;
 
 	/**
-	 * Get accumulated draw commands as an array of plain objects.
-	 * Each entry has: { type: "text"|"sprite"|"rect", x, y, ... }
+	 * Commit a DrawCmdBuffer to the render pipeline.
+	 * Can only be called once per tick (throws TypeError otherwise).
+	 * After commit, the buffer is emptied and can be reused.
 	 */
-	getCommands(): DrawCommand[];
-
-	/** Clear the draw command buffer. */
-	clearCommands(): void;
+	commitDrawCmds(buffer: DrawCmdBuffer): void;
 }
 
 export interface SceneAPI {
@@ -104,7 +132,7 @@ export interface SceneAPI {
 	/** Called per frame, before render(). Update state here. */
 	step?(): void;
 
-	/** Called per frame. Push draw commands via waveforge.draw*. */
+	/** Called per frame. Create draw commands and commit them. */
 	render?(): void;
 }
 
@@ -131,38 +159,4 @@ export interface SceneEvent {
 	alt?: boolean;
 	ctrl?: boolean;
 	shift?: boolean;
-}
-
-export type DrawCommand =
-	| DrawTextCommand
-	| DrawSpriteCommand
-	| DrawRectCommand;
-
-export interface DrawTextCommand {
-	readonly type: "text";
-	readonly x: number;
-	readonly y: number;
-	readonly text: string;
-	readonly size: number;
-	readonly r: number;
-	readonly g: number;
-	readonly b: number;
-}
-
-export interface DrawSpriteCommand {
-	readonly type: "sprite";
-	readonly x: number;
-	readonly y: number;
-	readonly textureId: string;
-}
-
-export interface DrawRectCommand {
-	readonly type: "rect";
-	readonly x: number;
-	readonly y: number;
-	readonly w: number;
-	readonly h: number;
-	readonly r: number;
-	readonly g: number;
-	readonly b: number;
 }

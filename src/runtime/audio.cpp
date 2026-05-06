@@ -1,7 +1,7 @@
-#include "wforge/assets.h"
 #include "wforge/audio.h"
-#include "wforge/runtime.h"
 #include "helpers.h"
+#include "wforge/assets.h"
+#include "wforge/runtime.h"
 #include <quickjs.h>
 
 namespace wf {
@@ -17,9 +17,7 @@ JSValue buildProto(JSContext *ctx) {
 
 	// .play() method
 	JSValue play_fn = JS_NewCFunction(ctx, SoundClass::play, "play", 0);
-	JS_SetPropertyStr(
-		ctx, proto, "play", play_fn
-	);
+	JS_SetPropertyStr(ctx, proto, "play", play_fn);
 
 	return proto;
 }

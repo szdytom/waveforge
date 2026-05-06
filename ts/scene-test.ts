@@ -34,10 +34,12 @@ waveforge.setupScene({
 	},
 
 	render() {
-		waveforge.drawRect(0, 0, WIDTH, 20, 50, 50, 80);
-		waveforge.drawText(10, 3, "JS Test Scene", 1, 200, 200, 50);
-		waveforge.drawText(10, 24, "Press ESC for menu", 1, 150, 150, 150);
-		waveforge.drawText(10, HEIGHT - 16, "Frame: " + frameCount, 1, 100, 100, 100);
-		waveforge.drawSprite(x, y, duck);
+		const cmds = new waveforge.DrawCmdBuffer();
+		cmds.add(new waveforge.DrawRect(0, 0, WIDTH, 20, 50, 50, 80));
+		cmds.add(new waveforge.DrawText(10, 3, "JS Test Scene", 1, 200, 200, 50));
+		cmds.add(new waveforge.DrawText(10, 24, "Press ESC for menu", 1, 150, 150, 150));
+		cmds.add(new waveforge.DrawText(10, HEIGHT - 16, "Frame: " + frameCount, 1, 100, 100, 100));
+		cmds.add(new waveforge.DrawSprite(x, y, duck));
+		waveforge.commitDrawCmds(cmds);
 	},
 });

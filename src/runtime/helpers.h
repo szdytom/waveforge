@@ -30,29 +30,29 @@ struct AddGetter {
 // Getter definition macros.
 // Must be used inside `namespace wf { ... }` where `unwrap` is in scope.
 
-#define WF_JS_INT_GETTER(Cls, name, field)                            \
-	JSValue Cls::name(                                                \
-		JSContext *ctx, JSValueConst this_val, int, JSValueConst *    \
-	) {                                                               \
-		auto *ptr = unwrap(ctx, this_val);                            \
-		if (!ptr)                                                     \
-			return JS_UNDEFINED;                                      \
-		return JS_NewInt32(ctx, ptr->field);                          \
+#define WF_JS_INT_GETTER(Cls, name, field)                         \
+	JSValue Cls::name(                                             \
+		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
+	) {                                                            \
+		auto *ptr = unwrap(ctx, this_val);                         \
+		if (!ptr)                                                  \
+			return JS_UNDEFINED;                                   \
+		return JS_NewInt32(ctx, ptr->field);                       \
 	}
 
-#define WF_JS_STR_GETTER(Cls, name, field)                            \
-	JSValue Cls::name(                                                \
-		JSContext *ctx, JSValueConst this_val, int, JSValueConst *    \
-	) {                                                               \
-		auto *ptr = unwrap(ctx, this_val);                            \
-		if (!ptr)                                                     \
-			return JS_UNDEFINED;                                      \
-		return JS_NewString(ctx, ptr->field);                         \
+#define WF_JS_STR_GETTER(Cls, name, field)                         \
+	JSValue Cls::name(                                             \
+		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
+	) {                                                            \
+		auto *ptr = unwrap(ctx, this_val);                         \
+		if (!ptr)                                                  \
+			return JS_UNDEFINED;                                   \
+		return JS_NewString(ctx, ptr->field);                      \
 	}
 
-#define WF_JS_LITERAL_GETTER(Cls, name, str)                                   \
-	JSValue Cls::name(JSContext *ctx, JSValueConst, int, JSValueConst *) {     \
-		return JS_NewString(ctx, str);                                         \
+#define WF_JS_LITERAL_GETTER(Cls, name, str)                               \
+	JSValue Cls::name(JSContext *ctx, JSValueConst, int, JSValueConst *) { \
+		return JS_NewString(ctx, str);                                     \
 	}
 
 #endif

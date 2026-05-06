@@ -20,6 +20,7 @@ struct NativeModuleState {
 	std::vector<pro::proxy<DrawCmdFacade>> cmd_buffer;
 	std::string pending_scene_id;
 	bool scene_change_pending = false;
+	bool committed = false;
 	JSValueGuard module_ns;
 };
 
@@ -41,7 +42,6 @@ JSValue native_console_log(
 	std::fprintf(stderr, "\n");
 	return JS_UNDEFINED;
 }
-
 
 JSValue native_change_scene(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
@@ -73,67 +73,33 @@ JSValue native_setup_scene(
 	return JS_UNDEFINED;
 }
 
-// ── Draw command wrappers (proxy → buffer) ──
-
-JSValue drawTextWrapper(
-	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-) {
-	auto proxy = DrawTextClass::invoke(ctx, this_val, argc, argv);
-	if (proxy) {
-		auto *state = getState(ctx);
-		state->cmd_buffer.push_back(std::move(proxy));
-	}
-	return JS_UNDEFINED;
-}
-
-JSValue drawSpriteWrapper(
-	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-) {
-	auto proxy = DrawSpriteClass::invoke(ctx, this_val, argc, argv);
-	if (proxy) {
-		auto *state = getState(ctx);
-		state->cmd_buffer.push_back(std::move(proxy));
-	}
-	return JS_UNDEFINED;
-}
-
-JSValue drawRectWrapper(
-	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-) {
-	auto proxy = DrawRectClass::invoke(ctx, this_val, argc, argv);
-	if (proxy) {
-		auto *state = getState(ctx);
-		state->cmd_buffer.push_back(std::move(proxy));
-	}
-	return JS_UNDEFINED;
-}
-
-JSValue getCommandsWrapper(
-	JSContext *ctx, JSValueConst /*this_val*/, int /*argc*/,
-	JSValueConst * /*argv*/
+JSValue native_commit_draw_cmds(
+	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
 ) {
 	auto *state = getState(ctx);
 	if (!state) {
 		return JS_UNDEFINED;
 	}
-
-	JSValue arr = JS_NewArray(ctx);
-	uint32_t i = 0;
-	for (const auto &cmd : state->cmd_buffer) {
-		JSValue obj = cmd->toJSValue(ctx);
-		JS_SetPropertyUint32(ctx, arr, i++, obj);
+	if (state->committed) {
+		return JS_ThrowTypeError(
+			ctx, "commitDrawCmds can only be called once per tick"
+		);
 	}
-	return arr;
-}
-
-JSValue clearCommandsWrapper(
-	JSContext *ctx, JSValueConst /*this_val*/, int /*argc*/,
-	JSValueConst * /*argv*/
-) {
-	auto *state = getState(ctx);
-	if (state) {
-		state->cmd_buffer.clear();
+	if (argc < 1) {
+		return JS_UNDEFINED;
 	}
+
+	auto *buf = DrawCmdBuffer::unwrap(ctx, argv[0]);
+	if (!buf) {
+		return JS_ThrowTypeError(ctx, "expected DrawCmdBuffer");
+	}
+
+	for (auto &entry : buf->entries) {
+		state->cmd_buffer.push_back(std::move(entry.cmd));
+		JS_FreeValue(ctx, entry.js_val);
+	}
+	buf->entries.clear();
+	state->committed = true;
 	return JS_UNDEFINED;
 }
 } // anonymous namespace
@@ -280,12 +246,8 @@ void JSScene::Impl::installConsole() {
 	SoundClass::bindContext(ctx, wf);
 
 	// Register draw command classes
-	installDrawCommands(engine, ctx);
-	setFn("drawText", drawTextWrapper, 7);
-	setFn("drawSprite", drawSpriteWrapper, 3);
-	setFn("drawRect", drawRectWrapper, 7);
-	setFn("getCommands", getCommandsWrapper, 0);
-	setFn("clearCommands", clearCommandsWrapper, 0);
+	installDrawCommands(engine, ctx, wf);
+	setFn("commitDrawCmds", native_commit_draw_cmds, 1);
 
 	JS_SetPropertyStr(ctx, global.get(), "waveforge", wf);
 }
@@ -385,6 +347,7 @@ void JSScene::Impl::step(SceneManager &mgr) {
 void JSScene::Impl::render(
 	const SceneManager &mgr, sf::RenderTarget &target, int scale
 ) const {
+	native_state.committed = false;
 	callExport("render");
 	wf::flushDrawCommands(native_state.cmd_buffer, target, scale, font);
 	native_state.cmd_buffer.clear();

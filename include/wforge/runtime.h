@@ -24,6 +24,11 @@ namespace wf {
 
 class PixelFont;
 
+template<typename T>
+concept HasGCMark = requires(
+	JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
+) { T::gcMark(rt, val, mark_func); };
+
 // CRTP base for QuickJS native classes.
 // Derived must define `static constexpr const char *className`.
 template<typename Derived>
@@ -43,16 +48,29 @@ public:
 		delete static_cast<Derived *>(JS_GetOpaque(val, clsId(rt)));
 	}
 
+	static Derived *unwrap(JSRuntime *rt, JSValueConst obj) {
+		return static_cast<Derived *>(JS_GetOpaque(obj, clsId(rt)));
+	}
+
 	static Derived *unwrap(JSContext *ctx, JSValueConst obj) {
 		return static_cast<Derived *>(
 			JS_GetOpaque(obj, clsId(JS_GetRuntime(ctx)))
 		);
 	}
 
+	static JSClassGCMark *gcMarkFunc() {
+		if constexpr (HasGCMark<Derived>) {
+			return Derived::gcMark;
+		} else {
+			return nullptr;
+		}
+	}
+
 	static void registerClass(JSRuntime *rt) {
 		JSClassDef def = {
 			.class_name = Derived::className,
 			.finalizer = finalize,
+			.gc_mark = gcMarkFunc(),
 		};
 		JS_NewClass(rt, clsId(rt), &def);
 	}
@@ -74,8 +92,6 @@ struct TextureClass : QuickJSClass<TextureClass> {
 	std::string id;
 };
 
-// ── Sound class ──
-
 struct SoundClass : QuickJSClass<SoundClass> {
 	static constexpr const char *className = "Sound";
 
@@ -90,26 +106,22 @@ struct SoundClass : QuickJSClass<SoundClass> {
 	std::string id;
 };
 
-// ── Draw command type-erased facade ──
-
 namespace _dispatch {
 
 PRO_DEF_MEM_DISPATCH(MemDrawRender, render);
-PRO_DEF_MEM_DISPATCH(MemDrawToJS, toJSValue);
 
 } // namespace _dispatch
 
 /* clang-format off */
 struct DrawCmdFacade : pro::facade_builder
 	::add_convention<_dispatch::MemDrawRender, void(sf::RenderTarget&, const PixelFont*, int) const>
-	::add_convention<_dispatch::MemDrawToJS, JSValue(JSContext*) const>
 	::support_relocation<pro::constraint_level::nontrivial>
 	::build {};
 /* clang-format on */
 
-// ── Draw command data types ──
+struct DrawTextCommand : QuickJSClass<DrawTextCommand> {
+	static constexpr const char *className = "DrawText";
 
-struct DrawTextData {
 	int x = 0;
 	int y = 0;
 	std::string text;
@@ -118,52 +130,8 @@ struct DrawTextData {
 	uint8_t g = 255;
 	uint8_t b = 255;
 
-	void render(
-		sf::RenderTarget &target, const PixelFont *font, int scale
-	) const;
-	JSValue toJSValue(JSContext *ctx) const;
-};
-
-struct DrawSpriteData {
-	int x = 0;
-	int y = 0;
-	std::string texture_id;
-	sf::Texture *texture = nullptr; // not-owned, lifetime: 'asset-manager
-
-	void render(
-		sf::RenderTarget &target, const PixelFont *font, int scale
-	) const;
-	JSValue toJSValue(JSContext *ctx) const;
-};
-
-struct DrawRectData {
-	int x = 0;
-	int y = 0;
-	int w = 0;
-	int h = 0;
-	uint8_t r = 255;
-	uint8_t g = 255;
-	uint8_t b = 255;
-
-	void render(
-		sf::RenderTarget &target, const PixelFont *font, int scale
-	) const;
-	JSValue toJSValue(JSContext *ctx) const;
-};
-
-// ── Draw command JS binding classes ──
-
-struct DrawTextClass : QuickJSClass<DrawTextClass> {
-	static constexpr const char *className = "DrawText";
-
-	DrawTextData data;
-
-	static JSValue create(JSContext *ctx, const DrawTextData &d);
-	static void bindContext(JSContext *ctx);
-
-	static pro::proxy<DrawCmdFacade> invoke(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(ctor);
+	static void bindContext(JSContext *ctx, JSValue ns);
 
 	WF_JS_METHOD(get_type);
 	WF_JS_METHOD(get_x);
@@ -173,37 +141,46 @@ struct DrawTextClass : QuickJSClass<DrawTextClass> {
 	WF_JS_METHOD(get_r);
 	WF_JS_METHOD(get_g);
 	WF_JS_METHOD(get_b);
+
+	void render(
+		sf::RenderTarget &target, const PixelFont *font, int scale
+	) const;
 };
 
-struct DrawSpriteClass : QuickJSClass<DrawSpriteClass> {
+struct DrawSpriteCommand : QuickJSClass<DrawSpriteCommand> {
 	static constexpr const char *className = "DrawSprite";
 
-	DrawSpriteData data;
+	int x = 0;
+	int y = 0;
+	std::string texture_id;
+	sf::Texture *texture = nullptr; // not-owned, lifetime: asset-manager
 
-	static JSValue create(JSContext *ctx, const DrawSpriteData &d);
-	static void bindContext(JSContext *ctx);
-
-	static pro::proxy<DrawCmdFacade> invoke(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(ctor);
+	static void bindContext(JSContext *ctx, JSValue ns);
 
 	WF_JS_METHOD(get_type);
 	WF_JS_METHOD(get_x);
 	WF_JS_METHOD(get_y);
 	WF_JS_METHOD(get_textureId);
+
+	void render(
+		sf::RenderTarget &target, const PixelFont *font, int scale
+	) const;
 };
 
-struct DrawRectClass : QuickJSClass<DrawRectClass> {
+struct DrawRectCommand : QuickJSClass<DrawRectCommand> {
 	static constexpr const char *className = "DrawRect";
 
-	DrawRectData data;
+	int x = 0;
+	int y = 0;
+	int w = 0;
+	int h = 0;
+	uint8_t r = 255;
+	uint8_t g = 255;
+	uint8_t b = 255;
 
-	static JSValue create(JSContext *ctx, const DrawRectData &d);
-	static void bindContext(JSContext *ctx);
-
-	static pro::proxy<DrawCmdFacade> invoke(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(ctor);
+	static void bindContext(JSContext *ctx, JSValue ns);
 
 	WF_JS_METHOD(get_type);
 	WF_JS_METHOD(get_x);
@@ -213,10 +190,39 @@ struct DrawRectClass : QuickJSClass<DrawRectClass> {
 	WF_JS_METHOD(get_r);
 	WF_JS_METHOD(get_g);
 	WF_JS_METHOD(get_b);
+
+	void render(
+		sf::RenderTarget &target, const PixelFont *font, int scale
+	) const;
+};
+
+struct CmdEntry {
+	pro::proxy<DrawCmdFacade> cmd;
+	JSValue js_val;
+};
+
+struct DrawCmdBuffer : QuickJSClass<DrawCmdBuffer> {
+	static constexpr const char *className = "DrawCmdBuffer";
+
+	JSContext *ctx = nullptr;
+	std::vector<CmdEntry> entries;
+
+	~DrawCmdBuffer();
+
+	WF_JS_METHOD(ctor);
+	static void bindContext(JSContext *ctx, JSValue ns);
+
+	WF_JS_METHOD(add);
+	WF_JS_METHOD(clear);
+	static JSValue iterator(
+		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+	);
+
+	static void gcMark(JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func);
 };
 
 // Register all draw command classes on the engine.
-void installDrawCommands(QuickJSEngine &engine, JSContext *ctx);
+void installDrawCommands(QuickJSEngine &engine, JSContext *ctx, JSValue ns);
 
 // Render all commands in the buffer.
 void flushDrawCommands(
