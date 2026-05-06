@@ -73,7 +73,7 @@ struct TextureClass : QuickJSClass<TextureClass> {
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	);
 
-	sf::Texture *texture = nullptr;
+	sf::Texture *texture = nullptr; // not-owned, lifetime: 'asset-manager
 	std::string id;
 };
 
@@ -115,6 +115,7 @@ struct DrawSpriteData {
 	int x = 0;
 	int y = 0;
 	std::string texture_id;
+	sf::Texture *texture = nullptr; // not-owned, lifetime: 'asset-manager
 
 	void render(
 		sf::RenderTarget &target, const PixelFont *font, int scale
@@ -242,7 +243,7 @@ struct DrawRectClass : QuickJSClass<DrawRectClass> {
 };
 
 // Register all draw command classes on the engine.
-void initDrawCommands(QuickJSEngine &engine, JSContext *ctx);
+void installDrawCommands(QuickJSEngine &engine, JSContext *ctx);
 
 // Render all commands in the buffer.
 void flushDrawCommands(

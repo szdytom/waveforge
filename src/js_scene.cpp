@@ -302,7 +302,7 @@ void JSScene::Impl::installConsole() {
 	TextureClass::bindContext(ctx, wf);
 
 	// Register draw command classes
-	initDrawCommands(engine, ctx);
+	installDrawCommands(engine, ctx);
 	setFn("drawText", drawTextWrapper, 7);
 	setFn("drawSprite", drawSpriteWrapper, 3);
 	setFn("drawRect", drawRectWrapper, 7);

@@ -131,30 +131,30 @@ export type DrawCommand =
 	| DrawRectCommand;
 
 export interface DrawTextCommand {
-	type: "text";
-	x: number;
-	y: number;
-	text: string;
-	size: number;
-	r: number;
-	g: number;
-	b: number;
+	readonly type: "text";
+	readonly x: number;
+	readonly y: number;
+	readonly text: string;
+	readonly size: number;
+	readonly r: number;
+	readonly g: number;
+	readonly b: number;
 }
 
 export interface DrawSpriteCommand {
-	type: "sprite";
-	x: number;
-	y: number;
-	textureId: string;
+	readonly type: "sprite";
+	readonly x: number;
+	readonly y: number;
+	readonly textureId: string;
 }
 
 export interface DrawRectCommand {
-	type: "rect";
-	x: number;
-	y: number;
-	w: number;
-	h: number;
-	r: number;
-	g: number;
-	b: number;
+	readonly type: "rect";
+	readonly x: number;
+	readonly y: number;
+	readonly w: number;
+	readonly h: number;
+	readonly r: number;
+	readonly g: number;
+	readonly b: number;
 }

@@ -65,13 +65,16 @@ void DrawSpriteData::render(
 	if (texture_id.empty()) {
 		return;
 	}
-	auto *texture = AssetsManager::instance().getAssetChecked<sf::Texture>(
-		texture_id
-	);
-	if (!texture) {
+	auto *tex = texture;
+	if (!tex) {
+		tex = AssetsManager::instance().getAssetChecked<sf::Texture>(
+			texture_id
+		);
+	}
+	if (!tex) {
 		return;
 	}
-	sf::Sprite sprite(*texture);
+	sf::Sprite sprite(*tex);
 	sprite.setPosition(sf::Vector2f(x * scale, y * scale));
 	sprite.setScale(sf::Vector2f(scale, scale));
 	target.draw(sprite);
@@ -237,6 +240,7 @@ pro::proxy<DrawCmdFacade> DrawSpriteClass::invoke(
 		auto *tex = TextureClass::unwrap(ctx, argv[2]);
 		if (tex) {
 			data.texture_id = tex->id;
+			data.texture = tex->texture;
 			return pro::make_proxy<DrawCmdFacade>(std::move(data));
 		}
 	}
@@ -300,9 +304,7 @@ pro::proxy<DrawCmdFacade> DrawRectClass::invoke(
 	return pro::make_proxy<DrawCmdFacade>(std::move(data));
 }
 
-// ── Init ──
-
-void initDrawCommands(QuickJSEngine &engine, JSContext *ctx) {
+void installDrawCommands(QuickJSEngine &engine, JSContext *ctx) {
 	engine.registerClass<DrawTextClass>();
 	engine.registerClass<DrawSpriteClass>();
 	engine.registerClass<DrawRectClass>();
@@ -311,8 +313,6 @@ void initDrawCommands(QuickJSEngine &engine, JSContext *ctx) {
 	DrawSpriteClass::bindContext(ctx);
 	DrawRectClass::bindContext(ctx);
 }
-
-// ── Render dispatch ──
 
 void flushDrawCommands(
 	const std::vector<pro::proxy<DrawCmdFacade>> &cmd_buffer,
