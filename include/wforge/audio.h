@@ -24,8 +24,6 @@ struct UISounds {
 
 class BGMManager {
 public:
-	BGMManager() noexcept;
-
 	static BGMManager &instance() noexcept;
 
 	void unsetCollection();
@@ -39,6 +37,10 @@ public:
 	bool isEmpty() const noexcept;
 
 private:
+	BGMManager() noexcept;
+	BGMManager(const BGMManager &) = delete;
+	BGMManager &operator=(const BGMManager &) = delete;
+
 	float _cur_volume;
 	float _volume_delta;
 	sf::Music *_cur_bgm;

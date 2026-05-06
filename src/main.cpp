@@ -103,8 +103,8 @@ void entry(
 		initialScene(level_id, is_first_launch), scale_config
 	);
 
-	if (scene_mgr.bgm.isEmpty()) {
-		scene_mgr.bgm.setCollection("background/main-menu-music");
+	if (wf::BGMManager::instance().isEmpty()) {
+		wf::BGMManager::instance().setCollection("background/main-menu-music");
 	}
 
 	auto &window = scene_mgr.window;
