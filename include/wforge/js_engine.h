@@ -40,8 +40,9 @@ public:
 	JSClassID classId() const {
 		constexpr auto hash = T::typeHash();
 		for (const auto &entry : _class_entries) {
-			if (entry.type_hash == hash)
+			if (entry.type_hash == hash) {
 				return entry.class_id;
+			}
 		}
 		// registerClass must be called first
 		__builtin_trap();
@@ -54,7 +55,9 @@ public:
 		constexpr auto hash = T::typeHash();
 		for (auto &entry : _class_entries) {
 			if (entry.type_hash == hash) {
-				if (entry.registered) return false;
+				if (entry.registered) {
+					return false;
+				}
 				entry.registered = true;
 				T::registerClass(_rt.get());
 				return true;

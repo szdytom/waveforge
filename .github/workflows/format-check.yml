@@ -1,0 +1,26 @@
+name: Format Check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  format-check:
+    name: Check C++ formatting
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install clang-format-22
+      run: |
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/llvm.asc
+        sudo add-apt-repository -y 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main'
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends clang-format-22
+
+    - name: Format all C/C++ files
+      run: ./scripts/format-c.sh
+
+    - name: Check for unformatted code
+      run: git diff --exit-code

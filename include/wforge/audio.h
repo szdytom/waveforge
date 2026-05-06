@@ -2,8 +2,8 @@
 #define WFORGE_AUDIO_H
 
 #include "wforge/assets.h"
-#include <list>
 #include <SFML/Audio.hpp>
+#include <list>
 
 namespace wf {
 

@@ -278,8 +278,9 @@ void PixelWorld::renderToBuffer(std::span<std::uint8_t> buf) const noexcept {
 			color = laserBlendedColorOfIndex(color_idx);
 		} else if (_tags[i].electric_power >= render_electric_power_threshold) {
 			color = colorPaletteOfIndex(color_idx).active_color;
-		} else if (_tags[i].type == PixelType::Air
-		           && _static_tags[i].laser_stroke) {
+		} else if (
+			_tags[i].type == PixelType::Air && _static_tags[i].laser_stroke
+		) {
 			color = colorOfName("LaserStroke");
 		} else {
 			color = colorOfIndex(color_idx);

@@ -13,7 +13,7 @@ namespace wf {
 	JSValue Cls::name(                                             \
 		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
 	) {                                                            \
-		auto *ptr = unwrap(ctx, this_val);                              \
+		auto *ptr = unwrap(ctx, this_val);                         \
 		if (!ptr)                                                  \
 			return JS_UNDEFINED;                                   \
 		return JS_NewInt32(ctx, ptr->field);                       \
@@ -23,7 +23,7 @@ namespace wf {
 	JSValue Cls::name(                                             \
 		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
 	) {                                                            \
-		auto *ptr = unwrap(ctx, this_val);                              \
+		auto *ptr = unwrap(ctx, this_val);                         \
 		if (!ptr)                                                  \
 			return JS_UNDEFINED;                                   \
 		return JS_NewString(ctx, ptr->field);                      \
