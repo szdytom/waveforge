@@ -347,6 +347,28 @@ private:
 	int _height;
 };
 
+struct TestScene {
+	TestScene();
+
+	std::array<int, 2> size() const;
+	void setup(SceneManager &mgr);
+	void handleEvent(SceneManager &mgr, sf::Event &evt);
+	void step(SceneManager &mgr);
+	void render(
+		const SceneManager &mgr, sf::RenderTarget &target, int scale
+	) const;
+
+private:
+	const PixelFont &font;
+	sf::Texture &_duck_texture;
+
+	int _frame_count = 0;
+	int _x = 50;
+	int _y = 50;
+	int _dx = 2;
+	int _dy = 1;
+};
+
 } // namespace scene
 
 } // namespace wf

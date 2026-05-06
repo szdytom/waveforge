@@ -90,13 +90,15 @@ void entry(
 			} else {
 				return pro::make_proxy<wf::SceneFacade, wf::scene::MainMenu>();
 			}
-		} else if (level_id.starts_with("js:")) {
-			return wf::createSceneFromId(level_id);
-		} else {
-			return pro::make_proxy<wf::SceneFacade, wf::scene::LevelPlaying>(
-				level_id
-			);
 		}
+
+		try {
+			return wf::createSceneFromId(level_id);
+		} catch (const std::invalid_argument &) {}
+
+		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelPlaying>(
+			level_id
+		);
 	};
 
 	wf::SceneManager scene_mgr(

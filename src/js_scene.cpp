@@ -456,6 +456,9 @@ Scene createSceneFromId(const std::string &scene_id) {
 	if (scene_id == "level-selection") {
 		return pro::make_proxy<SceneFacade, scene::LevelSelectionMenu>();
 	}
+	if (scene_id == "test-scene") {
+		return pro::make_proxy<SceneFacade, scene::TestScene>();
+	}
 	if (scene_id == "__exit__") {
 		std::exit(0);
 	}
