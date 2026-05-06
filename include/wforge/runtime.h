@@ -1,6 +1,7 @@
 #ifndef WFORGE_RUNTIME_H
 #define WFORGE_RUNTIME_H
 
+#include "wforge/ctti.h"
 #include "wforge/js_engine.h"
 #include <SFML/Graphics/Texture.hpp>
 #include <cstdint>
@@ -10,20 +11,13 @@
 #include <string>
 #include <vector>
 
-namespace sf { class RenderTarget; }
+namespace sf {
+class RenderTarget;
+}
 
 namespace wf {
 
 class PixelFont;
-
-constexpr std::size_t fnv1a(const char *str) noexcept {
-	std::size_t hash = 0xcbf29ce484222325;
-	while (*str) {
-		hash ^= static_cast<std::size_t>(*str++);
-		hash *= 0x100000001b3;
-	}
-	return hash;
-}
 
 // CRTP base for QuickJS native classes.
 // Derived must define `static constexpr const char *className`.
@@ -46,7 +40,8 @@ public:
 
 	static Derived *unwrap(JSContext *ctx, JSValueConst obj) {
 		return static_cast<Derived *>(
-			JS_GetOpaque(obj, clsId(JS_GetRuntime(ctx))));
+			JS_GetOpaque(obj, clsId(JS_GetRuntime(ctx)))
+		);
 	}
 
 	static void registerClass(JSRuntime *rt) {
@@ -110,7 +105,9 @@ struct DrawTextData {
 	uint8_t g = 255;
 	uint8_t b = 255;
 
-	void render(sf::RenderTarget &target, const PixelFont *font, int scale) const;
+	void render(
+		sf::RenderTarget &target, const PixelFont *font, int scale
+	) const;
 	JSValue toJSValue(JSContext *ctx) const;
 };
 
@@ -119,7 +116,9 @@ struct DrawSpriteData {
 	int y = 0;
 	std::string texture_id;
 
-	void render(sf::RenderTarget &target, const PixelFont *font, int scale) const;
+	void render(
+		sf::RenderTarget &target, const PixelFont *font, int scale
+	) const;
 	JSValue toJSValue(JSContext *ctx) const;
 };
 
@@ -132,7 +131,9 @@ struct DrawRectData {
 	uint8_t g = 255;
 	uint8_t b = 255;
 
-	void render(sf::RenderTarget &target, const PixelFont *font, int scale) const;
+	void render(
+		sf::RenderTarget &target, const PixelFont *font, int scale
+	) const;
 	JSValue toJSValue(JSContext *ctx) const;
 };
 
