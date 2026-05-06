@@ -72,7 +72,7 @@ PixelType PixelShapedStructure::pixelTypeOf(int px, int py) const noexcept {
 			"for size ({}, {})\n",
 			px, py, width(), height()
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif

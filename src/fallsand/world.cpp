@@ -50,7 +50,7 @@ PixelTag PixelWorld::tagOf(int x, int y) const noexcept {
 			"{}, height = {}\n",
 			x, y, _width, _height
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif
@@ -65,7 +65,7 @@ PixelTag &PixelWorld::tagOf(int x, int y) noexcept {
 			"{}, height = {}\n",
 			x, y, _width, _height
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif
@@ -81,7 +81,7 @@ PixelElement &PixelWorld::elementOf(int x, int y) noexcept {
 			"{}, height = {}\n",
 			x, y, _width, _height
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif
@@ -96,7 +96,7 @@ StaticPixelTag PixelWorld::staticTagOf(int x, int y) const noexcept {
 			"width = {}, height = {}\n",
 			x, y, _width, _height
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif
@@ -111,7 +111,7 @@ StaticPixelTag &PixelWorld::staticTagOf(int x, int y) noexcept {
 			"width = {}, height = {}\n",
 			x, y, _width, _height
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif
@@ -249,7 +249,7 @@ void PixelWorld::renderToBuffer(std::span<std::uint8_t> buf) const noexcept {
 			"{}\n",
 			_width * _height * 4, buf.size()
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif

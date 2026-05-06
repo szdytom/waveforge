@@ -102,7 +102,7 @@ sf::Color PixelShape::colorOf(int x, int y) const noexcept {
 			"{}, height = {}\n",
 			x, y, _width, _height
 		);
-		cpptrace::generate_trace().print();
+		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
 	}
 #endif
@@ -269,9 +269,28 @@ void *AssetsManager::_getAssetRawUnchecked(
 	};
 	auto it = std::lower_bound(_assets.begin(), _assets.end(), id, cmp);
 
-	if (it == _assets.end() || it->id != id
-	    || it->type_hash != expected_type_hash) {
-		return nullptr;
+	if (it == _assets.end() || it->id != id) {
+#ifndef NDEBUG
+		std::cerr << std::format(
+			"AssetsManager: asset with id '{}' not found.\n", id
+		);
+		cpptrace::generate_trace().print(std::cerr);
+		std::abort();
+#endif
+		std::unreachable();
+	}
+
+	if (it->type_hash != expected_type_hash) {
+#ifndef NDEBUG
+		std::cerr << std::format(
+			"AssetsManager: asset with id '{}' has type hash {}, but expected "
+			"{}.\n",
+			id, it->type_hash, expected_type_hash
+		);
+		cpptrace::generate_trace().print(std::cerr);
+		std::abort();
+#endif
+		std::unreachable();
 	}
 
 	return it->asset;
