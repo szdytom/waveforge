@@ -16,9 +16,24 @@ interface Texture {
 	get height(): number;
 }
 
+/** Pre-loaded sound handle. Obtain via `new waveforge.Sound(id)`. */
+interface Sound {
+	/** Asset ID used for playback. */
+	get id(): string;
+
+	/** Duration in milliseconds. */
+	get duration(): number;
+
+	/** Play the sound (one-shot via ActiveSoundManager). */
+	play(): void;
+}
+
 interface WaveForge {
 	/** Create a pre-loaded texture handle (avoids repeated asset lookups). */
 	Texture: { new(id: string): Texture };
+
+	/** Create a pre-loaded sound handle. */
+	Sound: { new(id: string): Sound };
 
 	/** Print arguments to stderr. */
 	log(...args: unknown[]): void;
@@ -54,13 +69,6 @@ interface WaveForge {
 		x: number, y: number, w: number, h: number,
 		r: number, g: number, b: number
 	): void;
-
-	/**
-	 * Play a one-shot sound effect.
-	 * @param id Asset ID of a loaded sf::SoundBuffer
-	 *   (e.g. "sfx/forward")
-	 */
-	playSound(id: string): void;
 
 	/**
 	 * Request a scene change.

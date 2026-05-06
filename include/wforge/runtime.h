@@ -3,6 +3,7 @@
 
 #include "wforge/ctti.h"
 #include "wforge/js_engine.h"
+#include <SFML/Audio/SoundBuffer.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <cstdint>
 #include <proxy/v4/proxy.h>
@@ -16,6 +17,10 @@ class RenderTarget;
 }
 
 namespace wf {
+#define WF_JS_METHOD(name)                                                  \
+	static JSValue name(                                                    \
+		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv \
+	)
 
 class PixelFont;
 
@@ -58,22 +63,30 @@ public:
 struct TextureClass : QuickJSClass<TextureClass> {
 	static constexpr const char *className = "Texture";
 
-	static JSValue ctor(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(ctor);
 	static void bindContext(JSContext *ctx, JSValue ns);
 
-	static JSValue get_id(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_width(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_height(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(get_id);
+	WF_JS_METHOD(get_width);
+	WF_JS_METHOD(get_height);
 
 	sf::Texture *texture = nullptr; // not-owned, lifetime: 'asset-manager
+	std::string id;
+};
+
+// ── Sound class ──
+
+struct SoundClass : QuickJSClass<SoundClass> {
+	static constexpr const char *className = "Sound";
+
+	WF_JS_METHOD(ctor);
+	static void bindContext(JSContext *ctx, JSValue ns);
+
+	WF_JS_METHOD(get_id);
+	WF_JS_METHOD(get_duration);
+	WF_JS_METHOD(play);
+
+	sf::SoundBuffer *buffer = nullptr; // not-owned, lifetime: asset-manager
 	std::string id;
 };
 
@@ -152,30 +165,14 @@ struct DrawTextClass : QuickJSClass<DrawTextClass> {
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	);
 
-	static JSValue get_type(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_x(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_y(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_text(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_size(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_r(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_g(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_b(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(get_type);
+	WF_JS_METHOD(get_x);
+	WF_JS_METHOD(get_y);
+	WF_JS_METHOD(get_text);
+	WF_JS_METHOD(get_size);
+	WF_JS_METHOD(get_r);
+	WF_JS_METHOD(get_g);
+	WF_JS_METHOD(get_b);
 };
 
 struct DrawSpriteClass : QuickJSClass<DrawSpriteClass> {
@@ -190,18 +187,10 @@ struct DrawSpriteClass : QuickJSClass<DrawSpriteClass> {
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	);
 
-	static JSValue get_type(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_x(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_y(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_textureId(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(get_type);
+	WF_JS_METHOD(get_x);
+	WF_JS_METHOD(get_y);
+	WF_JS_METHOD(get_textureId);
 };
 
 struct DrawRectClass : QuickJSClass<DrawRectClass> {
@@ -216,30 +205,14 @@ struct DrawRectClass : QuickJSClass<DrawRectClass> {
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	);
 
-	static JSValue get_type(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_x(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_y(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_w(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_h(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_r(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_g(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
-	static JSValue get_b(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	);
+	WF_JS_METHOD(get_type);
+	WF_JS_METHOD(get_x);
+	WF_JS_METHOD(get_y);
+	WF_JS_METHOD(get_w);
+	WF_JS_METHOD(get_h);
+	WF_JS_METHOD(get_r);
+	WF_JS_METHOD(get_g);
+	WF_JS_METHOD(get_b);
 };
 
 // Register all draw command classes on the engine.
@@ -253,4 +226,5 @@ void flushDrawCommands(
 
 } // namespace wf
 
+#undef WF_JS_METHOD
 #endif // WFORGE_RUNTIME_H

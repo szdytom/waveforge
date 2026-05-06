@@ -1,3 +1,4 @@
+#include "helpers.h"
 #include "wforge/assets.h"
 #include "wforge/runtime.h"
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -8,31 +9,6 @@
 #include <quickjs.h>
 
 namespace wf {
-
-#define JS_INT_GETTER(Cls, name, field)                            \
-	JSValue Cls::name(                                             \
-		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
-	) {                                                            \
-		auto *ptr = unwrap(ctx, this_val);                         \
-		if (!ptr)                                                  \
-			return JS_UNDEFINED;                                   \
-		return JS_NewInt32(ctx, ptr->field);                       \
-	}
-
-#define JS_STR_GETTER(Cls, name, field)                            \
-	JSValue Cls::name(                                             \
-		JSContext *ctx, JSValueConst this_val, int, JSValueConst * \
-	) {                                                            \
-		auto *ptr = unwrap(ctx, this_val);                         \
-		if (!ptr)                                                  \
-			return JS_UNDEFINED;                                   \
-		return JS_NewString(ctx, ptr->field);                      \
-	}
-
-#define JS_CONST_GETTER(Cls, name, str)                                    \
-	JSValue Cls::name(JSContext *ctx, JSValueConst, int, JSValueConst *) { \
-		return JS_NewString(ctx, str);                                     \
-	}
 
 namespace {
 
@@ -97,61 +73,47 @@ JSValue DrawRectData::toJSValue(JSContext *ctx) const {
 	return DrawRectClass::create(ctx, *this);
 }
 
-// ── Prototype builders ──
-
 namespace {
-
-void addGetter(
-	JSContext *ctx, JSValue proto, const char *name, JSCFunction *getter
-) {
-	JSAtomGuard atom(ctx, name);
-	auto getter_val = JSValueGuard::fromCFunction(
-		ctx, getter, name, 0, JS_CFUNC_getter
-	);
-	JS_DefineProperty(
-		ctx, proto, atom.get(), JS_UNDEFINED, getter_val.get(), JS_UNDEFINED,
-		JS_PROP_CONFIGURABLE | JS_PROP_ENUMERABLE | JS_PROP_HAS_GET
-	);
-}
 
 JSValue buildTextProto(JSContext *ctx) {
 	JSValue proto = JS_NewObject(ctx);
-	addGetter(ctx, proto, "type", DrawTextClass::get_type);
-	addGetter(ctx, proto, "x", DrawTextClass::get_x);
-	addGetter(ctx, proto, "y", DrawTextClass::get_y);
-	addGetter(ctx, proto, "text", DrawTextClass::get_text);
-	addGetter(ctx, proto, "size", DrawTextClass::get_size);
-	addGetter(ctx, proto, "r", DrawTextClass::get_r);
-	addGetter(ctx, proto, "g", DrawTextClass::get_g);
-	addGetter(ctx, proto, "b", DrawTextClass::get_b);
+	AddGetter addGetter(ctx, proto);
+	addGetter("type", DrawTextClass::get_type);
+	addGetter("x", DrawTextClass::get_x);
+	addGetter("y", DrawTextClass::get_y);
+	addGetter("text", DrawTextClass::get_text);
+	addGetter("size", DrawTextClass::get_size);
+	addGetter("r", DrawTextClass::get_r);
+	addGetter("g", DrawTextClass::get_g);
+	addGetter("b", DrawTextClass::get_b);
 	return proto;
 }
 
 JSValue buildSpriteProto(JSContext *ctx) {
 	JSValue proto = JS_NewObject(ctx);
-	addGetter(ctx, proto, "type", DrawSpriteClass::get_type);
-	addGetter(ctx, proto, "x", DrawSpriteClass::get_x);
-	addGetter(ctx, proto, "y", DrawSpriteClass::get_y);
-	addGetter(ctx, proto, "textureId", DrawSpriteClass::get_textureId);
+	AddGetter addGetter(ctx, proto);
+	addGetter("type", DrawSpriteClass::get_type);
+	addGetter("x", DrawSpriteClass::get_x);
+	addGetter("y", DrawSpriteClass::get_y);
+	addGetter("textureId", DrawSpriteClass::get_textureId);
 	return proto;
 }
 
 JSValue buildRectProto(JSContext *ctx) {
 	JSValue proto = JS_NewObject(ctx);
-	addGetter(ctx, proto, "type", DrawRectClass::get_type);
-	addGetter(ctx, proto, "x", DrawRectClass::get_x);
-	addGetter(ctx, proto, "y", DrawRectClass::get_y);
-	addGetter(ctx, proto, "w", DrawRectClass::get_w);
-	addGetter(ctx, proto, "h", DrawRectClass::get_h);
-	addGetter(ctx, proto, "r", DrawRectClass::get_r);
-	addGetter(ctx, proto, "g", DrawRectClass::get_g);
-	addGetter(ctx, proto, "b", DrawRectClass::get_b);
+	AddGetter addGetter(ctx, proto);
+	addGetter("type", DrawRectClass::get_type);
+	addGetter("x", DrawRectClass::get_x);
+	addGetter("y", DrawRectClass::get_y);
+	addGetter("w", DrawRectClass::get_w);
+	addGetter("h", DrawRectClass::get_h);
+	addGetter("r", DrawRectClass::get_r);
+	addGetter("g", DrawRectClass::get_g);
+	addGetter("b", DrawRectClass::get_b);
 	return proto;
 }
 
 } // anonymous namespace
-
-// ── DrawTextClass ──
 
 JSValue DrawTextClass::create(JSContext *ctx, const DrawTextData &d) {
 	auto *ptr = new DrawTextClass();
@@ -169,14 +131,14 @@ void DrawTextClass::bindContext(JSContext *ctx) {
 	JS_SetClassProto(ctx, clsId(JS_GetRuntime(ctx)), buildTextProto(ctx));
 }
 
-JS_CONST_GETTER(DrawTextClass, get_type, "text")
-JS_INT_GETTER(DrawTextClass, get_x, data.x)
-JS_INT_GETTER(DrawTextClass, get_y, data.y)
-JS_STR_GETTER(DrawTextClass, get_text, data.text.c_str())
-JS_INT_GETTER(DrawTextClass, get_size, data.size)
-JS_INT_GETTER(DrawTextClass, get_r, data.r)
-JS_INT_GETTER(DrawTextClass, get_g, data.g)
-JS_INT_GETTER(DrawTextClass, get_b, data.b)
+WF_JS_LITERAL_GETTER(DrawTextClass, get_type, "text")
+WF_JS_INT_GETTER(DrawTextClass, get_x, data.x)
+WF_JS_INT_GETTER(DrawTextClass, get_y, data.y)
+WF_JS_STR_GETTER(DrawTextClass, get_text, data.text.c_str())
+WF_JS_INT_GETTER(DrawTextClass, get_size, data.size)
+WF_JS_INT_GETTER(DrawTextClass, get_r, data.r)
+WF_JS_INT_GETTER(DrawTextClass, get_g, data.g)
+WF_JS_INT_GETTER(DrawTextClass, get_b, data.b)
 
 pro::proxy<DrawCmdFacade> DrawTextClass::invoke(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
@@ -201,8 +163,6 @@ pro::proxy<DrawCmdFacade> DrawTextClass::invoke(
 	return pro::make_proxy<DrawCmdFacade>(std::move(data));
 }
 
-// ── DrawSpriteClass ──
-
 JSValue DrawSpriteClass::create(JSContext *ctx, const DrawSpriteData &d) {
 	auto *ptr = new DrawSpriteClass();
 	ptr->data = d;
@@ -219,10 +179,10 @@ void DrawSpriteClass::bindContext(JSContext *ctx) {
 	JS_SetClassProto(ctx, clsId(JS_GetRuntime(ctx)), buildSpriteProto(ctx));
 }
 
-JS_CONST_GETTER(DrawSpriteClass, get_type, "sprite")
-JS_INT_GETTER(DrawSpriteClass, get_x, data.x)
-JS_INT_GETTER(DrawSpriteClass, get_y, data.y)
-JS_STR_GETTER(DrawSpriteClass, get_textureId, data.texture_id.c_str())
+WF_JS_LITERAL_GETTER(DrawSpriteClass, get_type, "sprite")
+WF_JS_INT_GETTER(DrawSpriteClass, get_x, data.x)
+WF_JS_INT_GETTER(DrawSpriteClass, get_y, data.y)
+WF_JS_STR_GETTER(DrawSpriteClass, get_textureId, data.texture_id.c_str())
 
 pro::proxy<DrawCmdFacade> DrawSpriteClass::invoke(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
@@ -276,14 +236,14 @@ void DrawRectClass::bindContext(JSContext *ctx) {
 	JS_SetClassProto(ctx, clsId(JS_GetRuntime(ctx)), buildRectProto(ctx));
 }
 
-JS_CONST_GETTER(DrawRectClass, get_type, "rect")
-JS_INT_GETTER(DrawRectClass, get_x, data.x)
-JS_INT_GETTER(DrawRectClass, get_y, data.y)
-JS_INT_GETTER(DrawRectClass, get_w, data.w)
-JS_INT_GETTER(DrawRectClass, get_h, data.h)
-JS_INT_GETTER(DrawRectClass, get_r, data.r)
-JS_INT_GETTER(DrawRectClass, get_g, data.g)
-JS_INT_GETTER(DrawRectClass, get_b, data.b)
+WF_JS_LITERAL_GETTER(DrawRectClass, get_type, "rect")
+WF_JS_INT_GETTER(DrawRectClass, get_x, data.x)
+WF_JS_INT_GETTER(DrawRectClass, get_y, data.y)
+WF_JS_INT_GETTER(DrawRectClass, get_w, data.w)
+WF_JS_INT_GETTER(DrawRectClass, get_h, data.h)
+WF_JS_INT_GETTER(DrawRectClass, get_r, data.r)
+WF_JS_INT_GETTER(DrawRectClass, get_g, data.g)
+WF_JS_INT_GETTER(DrawRectClass, get_b, data.b)
 
 pro::proxy<DrawCmdFacade> DrawRectClass::invoke(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv

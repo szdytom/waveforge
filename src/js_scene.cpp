@@ -42,31 +42,6 @@ JSValue native_console_log(
 	return JS_UNDEFINED;
 }
 
-JSValue native_play_sound(
-	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
-) {
-	auto *state = getState(ctx);
-	if (!state || argc < 1) {
-		return JS_UNDEFINED;
-	}
-
-	const char *id = JS_ToCString(ctx, argv[0]);
-	if (!id) {
-		return JS_UNDEFINED;
-	}
-
-	auto *buffer = AssetsManager::instance().getAssetChecked<sf::SoundBuffer>(
-		id
-	);
-	if (buffer) {
-		ActiveSoundManager::instance().play(*buffer);
-	} else {
-		std::cerr << "playSound: sound buffer not found: " << id << "\n";
-	}
-
-	JS_FreeCString(ctx, id);
-	return JS_UNDEFINED;
-}
 
 JSValue native_change_scene(
 	JSContext *ctx, JSValueConst /*this_val*/, int argc, JSValueConst *argv
@@ -294,12 +269,15 @@ void JSScene::Impl::installConsole() {
 	};
 	setFn("log", native_console_log, 1);
 	setFn("setupScene", native_setup_scene, 1);
-	setFn("playSound", native_play_sound, 1);
 	setFn("changeScene", native_change_scene, 1);
 
 	// Register Texture class and constructor
 	engine.registerClass<TextureClass>();
 	TextureClass::bindContext(ctx, wf);
+
+	// Register Sound class and constructor
+	engine.registerClass<SoundClass>();
+	SoundClass::bindContext(ctx, wf);
 
 	// Register draw command classes
 	installDrawCommands(engine, ctx);

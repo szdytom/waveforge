@@ -1,3 +1,4 @@
+#include "helpers.h"
 #include "wforge/assets.h"
 #include "wforge/runtime.h"
 #include <memory>
@@ -9,20 +10,10 @@ namespace {
 
 JSValue buildProto(JSContext *ctx) {
 	JSValue proto = JS_NewObject(ctx);
-	auto configure_getter = [&](const char *name, JSCFunction *getter) {
-		JSAtomGuard atom(ctx, name);
-		auto getter_val = JSValueGuard::fromCFunction(
-			ctx, getter, name, 0, JS_CFUNC_getter
-		);
-		JS_DefineProperty(
-			ctx, proto, atom.get(), JS_UNDEFINED, getter_val.get(),
-			JS_UNDEFINED,
-			JS_PROP_CONFIGURABLE | JS_PROP_ENUMERABLE | JS_PROP_HAS_GET
-		);
-	};
-	configure_getter("id", TextureClass::get_id);
-	configure_getter("width", TextureClass::get_width);
-	configure_getter("height", TextureClass::get_height);
+	AddGetter add(ctx, proto);
+	add("id", TextureClass::get_id);
+	add("width", TextureClass::get_width);
+	add("height", TextureClass::get_height);
 	return proto;
 }
 
@@ -73,15 +64,7 @@ void TextureClass::bindContext(JSContext *ctx, JSValue ns) {
 	);
 }
 
-JSValue TextureClass::get_id(
-	JSContext *ctx, JSValueConst this_val, int /*argc*/, JSValueConst * /*argv*/
-) {
-	auto *ptr = unwrap(ctx, this_val);
-	if (!ptr) {
-		return JS_ThrowTypeError(ctx, "Invalid Texture object");
-	}
-	return JS_NewString(ctx, ptr->id.c_str());
-}
+WF_JS_STR_GETTER(TextureClass, get_id, id.c_str())
 
 JSValue TextureClass::get_width(
 	JSContext *ctx, JSValueConst this_val, int /*argc*/, JSValueConst * /*argv*/
