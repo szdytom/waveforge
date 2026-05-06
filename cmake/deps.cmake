@@ -1,14 +1,7 @@
 include(FetchContent)
 
-# SFML
-FetchContent_Declare(SFML
-    GIT_REPOSITORY https://github.com/SFML/SFML.git
-    GIT_TAG 3.1.0
-    GIT_SHALLOW ON
-    EXCLUDE_FROM_ALL SYSTEM
-)
-option(SFML_USE_SYSTEM_DEPS ON)
-FetchContent_MakeAvailable(SFML)
+# For some reasons, msft_proxy4's CMakeLists.txt is not compatible with SFML's CMakeLists.txt
+# Therefore, msft_proxy4 must be made available before SFML.
 
 # msft_proxy
 FetchContent_Declare(msft_proxy4
@@ -18,6 +11,16 @@ FetchContent_Declare(msft_proxy4
     EXCLUDE_FROM_ALL SYSTEM
 )
 FetchContent_MakeAvailable(msft_proxy4)
+
+# SFML
+FetchContent_Declare(SFML
+    GIT_REPOSITORY https://github.com/SFML/SFML.git
+    GIT_TAG 3.1.0
+    GIT_SHALLOW ON
+    EXCLUDE_FROM_ALL SYSTEM
+)
+option(SFML_USE_SYSTEM_DEPS ON)
+FetchContent_MakeAvailable(SFML)
 
 # cpptrace
 FetchContent_Declare(
