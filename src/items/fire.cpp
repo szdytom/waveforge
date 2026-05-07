@@ -5,9 +5,9 @@ namespace wf::item {
 
 FireBrush::FireBrush() noexcept: BrushSizeChangableItem(3) {}
 
-bool FireBrush::use(Level &level, int x, int y, int scale) noexcept {
+bool FireBrush::use(Level &level, int x, int y) noexcept {
 	auto &world = level.fallsand;
-	auto [tx, ty] = brushTopLeft(x, y, scale);
+	auto [tx, ty] = brushTopLeft(x, y);
 	auto size = brushSize();
 	for (int dx = 0; dx < size; dx++) {
 		int wx = tx + dx;

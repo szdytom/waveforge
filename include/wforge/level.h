@@ -29,7 +29,7 @@ PRO_DEF_MEM_DISPATCH(MemName, name);
 /* clang-format off */
 // See microsoft/proxy library for the semantics of proxy and facade
 struct ItemFacade : pro::facade_builder
-	::add_convention<_dispatch::MemUse, bool(Level &level, int x, int y, int scale) noexcept>
+	::add_convention<_dispatch::MemUse, bool(Level &level, int x, int y) noexcept>
 	::add_convention<_dispatch::MemRender, void(sf::RenderTarget &target, int x, int y, int scale) const>
 	::add_convention<_dispatch::MemChangeBrushSize, void(int delta) noexcept>
 	::add_convention<_dispatch::MemName, std::string_view() const noexcept>
@@ -154,7 +154,7 @@ struct Level {
 	}
 
 	ItemStack *activeItemStack() noexcept;
-	void useActiveItem(int x, int y, int scale) noexcept;
+	void useActiveItem(int x, int y) noexcept;
 	void changeActiveItemBrushSize(int delta) noexcept;
 	void selectItem(int index) noexcept;
 	void prevItem() noexcept;
@@ -211,7 +211,7 @@ struct BrushSizeChangableItem {
 
 protected:
 	int brushSize() const noexcept;
-	std::array<int, 2> brushTopLeft(int x, int y, int scale) const noexcept;
+	std::array<int, 2> brushTopLeft(int x, int y) const noexcept;
 
 private:
 	int _brush_size;
@@ -221,7 +221,7 @@ private:
 struct WaterBrush : BrushSizeChangableItem {
 	WaterBrush(bool is_large_brush) noexcept;
 
-	bool use(Level &level, int x, int y, int scale) noexcept;
+	bool use(Level &level, int x, int y) noexcept;
 	std::string_view name() const noexcept;
 
 	static Item create() noexcept;
@@ -234,7 +234,7 @@ private:
 struct OilBrush : BrushSizeChangableItem {
 	OilBrush(bool is_large_brush) noexcept;
 
-	bool use(Level &level, int x, int y, int scale) noexcept;
+	bool use(Level &level, int x, int y) noexcept;
 	std::string_view name() const noexcept;
 
 	static Item create() noexcept;
@@ -247,7 +247,7 @@ private:
 struct FireBrush : BrushSizeChangableItem {
 	FireBrush() noexcept;
 
-	bool use(Level &level, int x, int y, int scale) noexcept;
+	bool use(Level &level, int x, int y) noexcept;
 	std::string_view name() const noexcept;
 
 	static Item create() noexcept;
@@ -256,7 +256,7 @@ struct FireBrush : BrushSizeChangableItem {
 struct CopperBrush : BrushSizeChangableItem {
 	CopperBrush() noexcept;
 
-	bool use(Level &level, int x, int y, int scale) noexcept;
+	bool use(Level &level, int x, int y) noexcept;
 	std::string_view name() const noexcept;
 
 	static Item create() noexcept;

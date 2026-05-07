@@ -217,7 +217,7 @@ void LevelPlaying::handleEvent(SceneManager &mgr, sf::Event &ev) {
 	if (auto mb = ev.getIf<sf::Event::MouseButtonPressed>()) {
 		auto mouse_pos = mgr.mousePosition();
 		if (mb->button == sf::Mouse::Button::Left) {
-			_level.useActiveItem(mouse_pos.x, mouse_pos.y, mgr.scale());
+			_level.useActiveItem(mouse_pos.x, mouse_pos.y);
 		}
 	}
 
