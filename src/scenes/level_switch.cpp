@@ -60,7 +60,7 @@ std::array<int, 2> LevelComplete::size() const {
 }
 
 void LevelComplete::setup(SceneManager &mgr) {
-	mgr.bgm.unsetCollection();
+	BGMManager::instance().unsetCollection();
 	if (SaveData::instance().user_settings.skip_animations) {
 		_current_step = _step_positions.size() - 1;
 		_display_text = true;
@@ -129,7 +129,7 @@ std::array<int, 2> LevelLoading::size() const {
 }
 
 void LevelLoading::setup(SceneManager &mgr) {
-	mgr.bgm.fadeOutCurrent(_total_duration);
+	BGMManager::instance().fadeOutCurrent(_total_duration);
 }
 
 void LevelLoading::handleEvent(SceneManager &mgr, sf::Event &evt) {}

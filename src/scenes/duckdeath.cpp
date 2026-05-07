@@ -75,7 +75,7 @@ std::array<int, 2> DuckDeath::size() const {
 }
 
 void DuckDeath::setup(SceneManager &mgr) {
-	mgr.bgm.unsetCollection();
+	BGMManager::instance().unsetCollection();
 	if (SaveData::instance().user_settings.skip_animations) {
 		_tick = _total_duration;
 	}

@@ -127,7 +127,7 @@ void SceneManager::tick() {
 		return;
 	}
 
-	bgm.step();
+	BGMManager::instance().step();
 	window.clear(sf::Color::White);
 	_current_scene->render(*this, window, _scale);
 

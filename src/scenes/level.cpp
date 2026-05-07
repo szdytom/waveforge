@@ -107,21 +107,21 @@ void LevelPlaying::setup(SceneManager &mgr) {
 		)
 	);
 	_level.selectItem(0);
-	mgr.bgm.setCollection("background/level-music");
+	BGMManager::instance().setCollection("background/level-music");
 	const auto &bgm_fade = FadeIOConfig::load();
-	mgr.bgm.fadeInCurrent(
+	BGMManager::instance().fadeInCurrent(
 		bgm_fade.fade_in_ticks, bgm_fade.fade_in_starting_volume
 	);
 }
 
 void LevelPlaying::pause(SceneManager &mgr) noexcept {
 	_paused = true;
-	mgr.bgm.setVolume(0.15f);
+	BGMManager::instance().setVolume(0.15f);
 }
 
 void LevelPlaying::unpause(SceneManager &mgr) noexcept {
 	_paused = false;
-	mgr.bgm.setVolume(1.0f);
+	BGMManager::instance().setVolume(1.0f);
 }
 
 void LevelPlaying::handleEvent(SceneManager &mgr, sf::Event &ev) {

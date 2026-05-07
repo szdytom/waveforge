@@ -74,7 +74,7 @@ std::array<int, 2> MainMenu::size() const {
 
 void MainMenu::setup(SceneManager &mgr) {
 	mgr.setWindowTitle("Waveforge " WAVEFORGE_VERSION);
-	mgr.bgm.setCollection("background/main-menu-music");
+	BGMManager::instance().setCollection("background/main-menu-music");
 }
 
 void MainMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
