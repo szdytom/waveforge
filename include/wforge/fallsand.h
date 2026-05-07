@@ -71,7 +71,7 @@ enum class PixelType : std::uint8_t {
 	_count
 };
 
-static_assert(static_cast<std::uint8_t>(PixelType::_count) <= 64);
+static_assert(std::to_underlying(PixelType::_count) <= 64);
 
 bool isDenser(PixelType a, PixelType b) noexcept;
 bool isDenserOrEqual(PixelType a, PixelType b) noexcept;

@@ -3,6 +3,7 @@
 
 #include <array>
 #include <generator>
+#include <utility>
 
 namespace wf {
 
@@ -40,15 +41,11 @@ inline constexpr int yDeltaOf(FacingDirection dir) noexcept {
 }
 
 inline constexpr FacingDirection rotate90CW(FacingDirection dir) noexcept {
-	return static_cast<FacingDirection>(
-		(static_cast<std::uint8_t>(dir) + 1) % 4
-	);
+	return static_cast<FacingDirection>((std::to_underlying(dir) + 1) % 4);
 }
 
 inline constexpr FacingDirection rotate90CCW(FacingDirection dir) noexcept {
-	return static_cast<FacingDirection>(
-		(static_cast<std::uint8_t>(dir) + 3) % 4
-	);
+	return static_cast<FacingDirection>((std::to_underlying(dir) + 3) % 4);
 }
 
 // All tiles from start to end inclusively

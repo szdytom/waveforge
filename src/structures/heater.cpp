@@ -14,7 +14,7 @@ PixelShape &heaterShape(FacingDirection dir) {
 				  .getAsset<std::array<PixelShape, 4>>("heater/shapes")
 				  .data();
 	}
-	return ptr[static_cast<std::uint8_t>(dir)];
+	return ptr[std::to_underlying(dir)];
 }
 
 } // namespace

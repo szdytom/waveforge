@@ -513,9 +513,7 @@ void fImageAllRotated(
 
 	auto imgs = new std::array<sf::Image, 4>;
 	for (int i = 0; i < 4; ++i) {
-		imgs->at(i) = rotateImageTo(
-			img, static_cast<FacingDirection>(static_cast<std::uint8_t>(i))
-		);
+		imgs->at(i) = rotateImageTo(img, static_cast<FacingDirection>(i));
 	}
 
 	mgr.cacheAsset(id, imgs);
@@ -655,7 +653,7 @@ void fLevelSequence(
 		auto level_metadata = &mgr.getAsset<LevelMetadata>(
 			level_id.get<std::string_view>()
 		);
-		level_metadata->index = static_cast<int>(level_seq->levels.size());
+		level_metadata->index = level_seq->levels.size();
 		level_seq->levels.push_back(level_metadata);
 	}
 

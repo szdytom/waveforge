@@ -16,7 +16,7 @@ PixelShape &laserEmitterShape(FacingDirection dir) {
 				  .getAsset<std::array<PixelShape, 4>>("laser-emitter/shapes")
 				  .data();
 	}
-	return ptr[static_cast<std::uint8_t>(dir)];
+	return ptr[std::to_underlying(dir)];
 }
 
 PixelShape &laserReceiverShape(FacingDirection dir) {
@@ -26,7 +26,7 @@ PixelShape &laserReceiverShape(FacingDirection dir) {
 				  .getAsset<std::array<PixelShape, 4>>("laser-receiver/shapes")
 				  .data();
 	}
-	return ptr[static_cast<std::uint8_t>(dir)];
+	return ptr[std::to_underlying(dir)];
 }
 
 PixelShape &mirrorShape(FacingDirection dir) {
@@ -36,7 +36,7 @@ PixelShape &mirrorShape(FacingDirection dir) {
 				  .getAsset<std::array<PixelShape, 4>>("mirror/shapes")
 				  .data();
 	}
-	return ptr[static_cast<std::uint8_t>(dir)];
+	return ptr[std::to_underlying(dir)];
 }
 
 void shootLaserBeam(

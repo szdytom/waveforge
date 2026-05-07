@@ -13,7 +13,7 @@ PixelShape &loadWaterTapShape(FacingDirection dir) {
 				  .getAsset<std::array<PixelShape, 4>>("water-tap/shapes")
 				  .data();
 	}
-	return ptr[static_cast<std::uint8_t>(dir)];
+	return ptr[std::to_underlying(dir)];
 }
 
 PixelShape &loadOilTapShape(FacingDirection dir) {

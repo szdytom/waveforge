@@ -16,7 +16,7 @@ PixelShape &gateShape(FacingDirection dir) {
 				  .getAsset<std::array<PixelShape, 4>>("gate/shapes")
 				  .data();
 	}
-	return ptr[static_cast<std::uint8_t>(dir)];
+	return ptr[std::to_underlying(dir)];
 }
 
 PixelShape &gateWallShape(FacingDirection dir) {
@@ -26,7 +26,7 @@ PixelShape &gateWallShape(FacingDirection dir) {
 				  .getAsset<std::array<PixelShape, 4>>("gate/wall/shapes")
 				  .data();
 	}
-	return ptr[static_cast<std::uint8_t>(dir)];
+	return ptr[std::to_underlying(dir)];
 }
 
 } // namespace
