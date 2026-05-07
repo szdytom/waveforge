@@ -21,7 +21,7 @@ struct SaveData {
 	void save() const;
 	void resetSettings();
 	void resetAll();
-	bool is_first_launch() const noexcept;
+	bool isFirstLaunch() const noexcept;
 
 	SaveData(const SaveData &) = delete;
 	SaveData &operator=(const SaveData &) = delete;

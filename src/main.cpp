@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 	CPPTRACE_TRY {
 		entry(
 			program.get<std::string>("level"), program.get<int>("--scale"),
-			save.is_first_launch()
+			save.isFirstLaunch()
 		);
 	}
 	CPPTRACE_CATCH(const std::exception &e) {

@@ -143,7 +143,7 @@ void SaveData::resetAll() {
 	save();
 }
 
-bool SaveData::is_first_launch() const noexcept {
+bool SaveData::isFirstLaunch() const noexcept {
 	return completed_levels == 0;
 }
 

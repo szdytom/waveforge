@@ -160,7 +160,7 @@ void MainMenu::render(
 
 	auto &save = SaveData::instance();
 	renderButton(
-		save.is_first_launch() ? "New Game" : "Play", _play_button,
+		save.isFirstLaunch() ? "New Game" : "Play", _play_button,
 		_current_button_index == MainMenuButton::PLAY
 	);
 
