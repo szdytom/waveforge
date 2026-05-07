@@ -535,13 +535,15 @@ void fPixelShapeAllRotated(
 	const nlohmann::json &entry, const fs::path &assets_root, AssetsManager &mgr
 ) {
 	const std::string &input_id = entry.at("input");
-	auto &img = mgr.getAsset<std::array<sf::Image, 4>>(input_id);
+	const auto &img = mgr.getAsset<std::array<sf::Image, 4>>(input_id);
 	const std::string &id = entry.at("id");
 
-	auto shapes = new PixelShape[4];
-	for (int i = 0; i < 4; ++i) {
-		shapes[i] = PixelShape(img[i]);
-	}
+	auto shapes = new std::array<PixelShape, 4>{
+		PixelShape{img[0]},
+		PixelShape{img[1]},
+		PixelShape{img[2]},
+		PixelShape{img[3]},
+	};
 
 	mgr.cacheAsset(id, shapes);
 }
