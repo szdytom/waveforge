@@ -97,7 +97,7 @@ struct AnalysisContext {
 		if (it == edge_idx_map.end()) {
 #ifndef NDEBUG
 			std::cerr << "No edge from " << u << " to " << v << "\n";
-			cpptrace::generate_trace().print();
+			cpptrace::generate_trace().print(std::cerr);
 			std::abort();
 #endif
 			std::unreachable();
