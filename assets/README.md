@@ -158,6 +158,22 @@ Load a music file from disk.
 }
 ```
 
+### `js`
+Load a JavaScript source file from disk. The file contents are stored as a string that can be evaluated by the QuickJS runtime.
+
+**Additional fields:**
+- **`file`** (string, required): Path to the JavaScript file, relative to the assets directory.
+
+**Example:**
+```json
+{
+  "id": "scripts/enemy",
+  "type": "js",
+  "file": "scripts/enemy.js",
+  "description": "Loading enemy script"
+}
+```
+
 ### `level-metadata`
 
 Load level metadata from a JSON file.

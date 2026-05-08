@@ -133,6 +133,11 @@ sf::Image trimImage(const sf::Image &img);
 // Assumes the input image is facing North
 sf::Image rotateImageTo(const sf::Image &img, FacingDirection dir) noexcept;
 
+struct Script {
+	std::string source;
+	std::string filename;
+};
+
 struct MusicCollection {
 	std::string id;
 	std::vector<sf::Music *> music;
