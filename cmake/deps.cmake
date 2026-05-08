@@ -51,9 +51,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(argparse)
 
 # QuickJS: Next Generation
-# IMPORTANTE NOTE ON FUTURE UPDATES: The "js_hacks.h" header heavily relies on the internal 
-# structure of QuickJS, so it MUST BE REVIEWED after updating the QuickJS submodule, even for 
-# minor updates.
+# IMPORTANTE NOTE ON FUTURE UPDATES: The "src/runtime/hacks.h" header heavily relies 
+# on the internal structure of QuickJS, so it MUST BE REVIEWED after updating the 
+# QuickJS submodule, even for minor updates.
 FetchContent_Declare(
 	quickjs
 	GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git
