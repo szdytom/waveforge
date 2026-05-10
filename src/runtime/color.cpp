@@ -182,11 +182,13 @@ JSValue Color::ctor(
 	}
 
 	auto self = std::make_unique<Color>(c);
-	if (JS_SetOpaque(this_val, self.get()) < 0) {
-		return JS_ThrowTypeError(ctx, "Internal error");
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
 	}
+	JS_SetOpaque(obj, self.get());
 	self.release();
-	return JS_UNDEFINED;
+	return obj;
 }
 
 std::expected<sf::Color, const char *> Color::interpret(

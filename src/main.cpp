@@ -14,7 +14,10 @@
 #include <iostream>
 #include <proxy/proxy.h>
 
-void entry(const std::string &level_id, int scale_config, bool is_first_launch);
+void entry(
+	const std::string &level_id, int scale_config, bool is_first_launch,
+	const std::string &debug_js_scene = ""
+);
 
 std::filesystem::path wf::_executable_path;
 int main(int argc, char **argv) {
@@ -56,6 +59,10 @@ int main(int argc, char **argv) {
 		.default_value(save.user_settings.scale)
 		.scan<'i', int>();
 
+	program.add_argument("--debug-js-scene")
+		.help("Load a ScriptedScene from a JS asset ID")
+		.default_value(std::string(""));
+
 	try {
 		program.parse_args(argc, argv);
 	} catch (const std::exception &e) {
@@ -67,7 +74,7 @@ int main(int argc, char **argv) {
 	CPPTRACE_TRY {
 		entry(
 			program.get<std::string>("level"), program.get<int>("--scale"),
-			save.isFirstLaunch()
+			save.isFirstLaunch(), program.get<std::string>("--debug-js-scene")
 		);
 	}
 	CPPTRACE_CATCH(const std::exception &e) {
@@ -80,9 +87,15 @@ int main(int argc, char **argv) {
 }
 
 void entry(
-	const std::string &level_id, int scale_config, bool is_first_launch
+	const std::string &level_id, int scale_config, bool is_first_launch,
+	const std::string &debug_js_scene
 ) {
 	auto initialScene = [&](const std::string &level_id, bool is_first_launch) {
+		if (!debug_js_scene.empty()) {
+			return pro::make_proxy<wf::SceneFacade, wf::ScriptedScene>(
+				debug_js_scene
+			);
+		}
 		if (level_id == "-") {
 			if (is_first_launch) {
 				return pro::make_proxy<wf::SceneFacade, wf::scene::Help>();

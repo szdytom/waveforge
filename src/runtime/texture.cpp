@@ -38,14 +38,13 @@ JSValue Texture::ctor(
 	}
 
 	auto self = std::make_unique<Texture>(tex, id);
-	if (JS_SetOpaque(this_val, self.get()) < 0) {
-		return JS_ThrowTypeError(
-			ctx, "Internal error: failed to set opaque for Texture('%s')",
-			id.c_str()
-		);
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
 	}
+	JS_SetOpaque(obj, self.get());
 	self.release();
-	return JS_UNDEFINED;
+	return obj;
 }
 
 int Texture::width() const noexcept {

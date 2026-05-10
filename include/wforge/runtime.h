@@ -21,6 +21,10 @@ class RenderTarget;
 
 namespace wf::js {
 
+// Minimal replacement for quickjs-libc's js_std_dump_error.
+// Prints the current exception and its stack trace to stderr.
+void dumpJSError(JSContext *ctx);
+
 struct RuntimeDeleter {
 	void operator()(JSRuntime *rt) const noexcept;
 };
