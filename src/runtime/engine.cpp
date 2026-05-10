@@ -6,6 +6,27 @@
 
 namespace wf::js {
 
+void dumpJSError(JSContext *ctx) {
+	JSValue exception_val = JS_GetException(ctx);
+	const char *str = JS_ToCString(ctx, exception_val);
+	if (str) {
+		fprintf(stderr, "%s\n", str);
+		JS_FreeCString(ctx, str);
+	}
+	if (JS_IsError(exception_val)) {
+		JSValue stack = JS_GetPropertyStr(ctx, exception_val, "stack");
+		if (!JS_IsUndefined(stack)) {
+			str = JS_ToCString(ctx, stack);
+			if (str) {
+				fprintf(stderr, "%s\n", str);
+				JS_FreeCString(ctx, str);
+			}
+			JS_FreeValue(ctx, stack);
+		}
+	}
+	JS_FreeValue(ctx, exception_val);
+}
+
 void RuntimeDeleter::operator()(JSRuntime *rt) const noexcept {
 	if (rt) {
 		JS_FreeRuntime(rt);

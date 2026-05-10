@@ -957,6 +957,12 @@
 				"level/auto"
 			],
 			"description": "Creating level sequence"
+		},
+		{
+			"id": "scripts/test_scene",
+			"type": "js",
+			"file": "bundled-js/test_scene.js",
+			"description": "Loading test script for ScriptedScene"
 		}
 	]
 }

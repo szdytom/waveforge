@@ -203,11 +203,13 @@ JSValue DrawTextCmd::ctor(
 		self->color = *result;
 	}
 
-	if (JS_SetOpaque(this_val, self.get()) < 0) {
-		return JS_ThrowTypeError(ctx, "Internal error");
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
 	}
+	JS_SetOpaque(obj, self.get());
 	self.release();
-	return JS_UNDEFINED;
+	return obj;
 }
 
 DrawSpriteCmd::DrawSpriteCmd(
@@ -269,12 +271,14 @@ JSValue DrawSpriteCmd::ctor(
 		tex_guard.get(), texObj->texture, x, y
 	);
 
-	if (JS_SetOpaque(this_val, self.get()) < 0) {
-		return JS_ThrowTypeError(ctx, "Internal error");
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
 	}
+	JS_SetOpaque(obj, self.get());
 	self.release();
 	tex_guard.release();
-	return JS_UNDEFINED;
+	return obj;
 }
 
 DrawRectCmd::DrawRectCmd(int x, int y, int width, int height) noexcept
@@ -323,11 +327,13 @@ JSValue DrawRectCmd::ctor(
 		self->color = *result;
 	}
 
-	if (JS_SetOpaque(this_val, self.get()) < 0) {
-		return JS_ThrowTypeError(ctx, "Internal error");
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
 	}
+	JS_SetOpaque(obj, self.get());
 	self.release();
-	return JS_UNDEFINED;
+	return obj;
 }
 
 void DrawCmdList::render(sf::RenderTarget &target, int scale) const {
@@ -365,11 +371,13 @@ JSValue DrawCmdList::ctor(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
 	auto self = std::make_unique<DrawCmdList>();
-	if (JS_SetOpaque(this_val, self.get()) < 0) {
-		return JS_ThrowTypeError(ctx, "Internal error");
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
 	}
+	JS_SetOpaque(obj, self.get());
 	self.release();
-	return JS_UNDEFINED;
+	return obj;
 }
 
 void DrawCmdListIter::gcMark(
