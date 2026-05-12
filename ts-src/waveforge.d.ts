@@ -3,7 +3,7 @@ declare namespace waveforge {
 
 	function setupScene(scene: SceneConfig): void;
 
-	function commitDraw(cmds: DrawCmdBuffer): void;
+	function commitDraw(cmds: DrawCmdList): void;
 
 	class Texture {
 		readonly width: number;
@@ -60,7 +60,7 @@ declare namespace waveforge {
 		constructor(x: number, y: number, width: number, height: number, color?: Color);
 	}
 
-	class DrawCmdBuffer {
+	class DrawCmdList {
 		push(cmd: DrawTextCmd | DrawSpriteCmd | DrawRectCmd): void;
 		[Symbol.iterator](): Iterator<DrawTextCmd | DrawSpriteCmd | DrawRectCmd>;
 	}

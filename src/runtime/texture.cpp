@@ -29,6 +29,10 @@ JSValue Texture::ctor(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
 	const char *id_cstr = JS_ToCString(ctx, argv[0]);
+	if (!id_cstr) {
+		return JS_ThrowTypeError(ctx, "Failed to convert texture id to string");
+	}
+
 	std::string id(id_cstr);
 	JS_FreeCString(ctx, id_cstr);
 

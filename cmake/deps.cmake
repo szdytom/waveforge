@@ -51,7 +51,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(argparse)
 
 # QuickJS: Next Generation
-# IMPORTANTE NOTE ON FUTURE UPDATES: The "src/runtime/hacks.h" header heavily relies 
+# IMPORTANT NOTE ON FUTURE UPDATES: The "src/runtime/hacks.h" header heavily relies 
 # on the internal structure of QuickJS, so it MUST BE REVIEWED after updating the 
 # QuickJS submodule, even for minor updates.
 FetchContent_Declare(
