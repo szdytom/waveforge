@@ -5,6 +5,7 @@ assets/bundled-js
 .cache
 perf*
 report.svg
+asan*
 *.webm
 *.dat
 *.mp4

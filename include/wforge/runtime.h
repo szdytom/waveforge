@@ -83,9 +83,9 @@ private:
 		JSClassID class_id;
 	};
 
+	std::vector<ClassEntry> _cls;
 	RuntimePtr _runtime;
 	std::vector<ContextPtr> _contexts;
-	std::vector<ClassEntry> _cls;
 };
 
 // RAII wrapper for JSValue to ensure JS_FreeValue is called
