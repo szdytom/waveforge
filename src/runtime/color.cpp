@@ -2,9 +2,12 @@
 #include "helper.h"
 #include "wforge/runtime.h"
 #include <bit>
+#include <cpptrace/cpptrace.hpp>
 #include <cstdio>
 #include <cstring>
 #include <expected>
+#include <iostream>
+#include <optional>
 #include <string_view>
 
 namespace wf::js {
@@ -112,7 +115,7 @@ WF_JS_METHOD(Color, toPrimitive, {
 		JSValue hint = argv[0];
 		if (JS_IsString(hint)) {
 			const char *hint_str = JS_ToCString(ctx, hint);
-			if (std::strcmp(hint_str, "string") == 0) {
+			if (hint_str && std::strcmp(hint_str, "string") == 0) {
 				hint_string = true;
 			}
 			JS_FreeCString(ctx, hint_str);
@@ -200,6 +203,14 @@ std::expected<sf::Color, const char *> Color::interpret(
 
 	if (JS_IsString(val)) {
 		const char *str = JS_ToCString(ctx, val);
+		if (!str) {
+#ifndef NDEBUG
+			std::cerr << "Failed to convert color string to C string\n";
+			cpptrace::generate_trace().print(std::cerr);
+			std::abort();
+#endif
+			return std::unexpected("Internal error converting color string");
+		}
 		auto result = parseHex(str);
 		JS_FreeCString(ctx, str);
 		return result;
@@ -229,6 +240,11 @@ std::expected<sf::Color, const char *> Color::interpret(
 	if (JS_IsNumber(val)) {
 		uint32_t packed;
 		if (JS_ToUint32(ctx, &packed, val) < 0) {
+#ifndef NDEBUG
+			std::cerr << "Failed to convert color number to uint32\n";
+			cpptrace::generate_trace().print(std::cerr);
+			std::abort();
+#endif
 			return std::unexpected("Failed to convert color value to uint32");
 		}
 		return sf::Color(packed);

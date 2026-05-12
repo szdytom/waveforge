@@ -1,10 +1,12 @@
+/// <reference path="./waveforge.d.ts" />
+
 const WIDTH = 256;
 const HEIGHT = 192;
 let frameCount = 0;
 let x = 50, y = 50, dx = 2, dy = 1;
 
 const duck = new waveforge.Texture("duck/texture");
-const cmds = new waveforge.DrawCmdBuffer();
+const cmds = new waveforge.DrawCmdList();
 const drawDuckCmd = new waveforge.DrawSpriteCmd(duck, x, y);
 const bgRect = new waveforge.DrawRectCmd(0, 0, WIDTH, HEIGHT, new waveforge.Color(200, 220, 255));
 const redRect = new waveforge.DrawRectCmd(10, 10, 40, 30, new waveforge.Color(255, 100, 100));

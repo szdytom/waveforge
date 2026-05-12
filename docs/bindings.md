@@ -3,7 +3,7 @@
 ## Header (`include/wforge/runtime.h`)
 
 ```cpp
-// Binding always use struct (all public) and extend BindingBase CRTP template
+// Bindings always use struct (all public) and extends BindingBase CRTP template
 struct MyClass final : BindingBase<MyClass> {
     // -- Required --
     static constexpr const char *CLASS_NAME = "MyClass";
@@ -108,7 +108,7 @@ JSValue MyClass::ctor(
 
 To simplify the implementation of getters/setters/methods, you can use the helper macros defined in `helper.h`. See the file for detailed usage.
 
-Note on `WF_JS_METHOD`: marcos only protect commas inside parentheses, so if you write commas outside parentheses, you need to wrap the somehow. A common error is the capture list of a lambda:
+Note on `WF_JS_METHOD`: macros only protect commas inside parentheses, so if you write commas outside parentheses, you need to wrap the somehow. A common error is the capture list of a lambda:
 
 ```cpp
 WF_JS_METHOD(MyClass, doStuff, {
@@ -169,4 +169,4 @@ void MyClass::finalize(JSRuntime *rt, JSValue val) noexcept {
 }
 ```
 
-Sometimes you may want to store both a C++ object and its JS wrapper in the same class, this is OK. But be careful, the C++ object must be kept as a "borrowed" reference (e.g. raw pointer, `pro::proxy_view`), not owned reference (e.g. `std::unique_ptr`, `pro::proxy`). The lifecycle of the C++ object is automatically managed by the JS Egine, and you should do nothing to it.
+Sometimes you may want to store both a C++ object and its JS wrapper in the same class, this is OK. But be careful, the C++ object must be kept as a "borrowed" reference (e.g. raw pointer, `pro::proxy_view`), not owned reference (e.g. `std::unique_ptr`, `pro::proxy`). The lifecycle of the C++ object is automatically managed by the JS Engine, and you should do nothing to it.
