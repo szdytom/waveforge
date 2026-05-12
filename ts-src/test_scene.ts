@@ -42,6 +42,10 @@ waveforge.setupScene({
         fpsText.text = "FRAME: " + frameCount;
     },
 
+    handleEvent(event: waveforge.SceneEvent) {
+        waveforge.log("Event: " + event.type + ("code" in event ? " code=" + event.code : ""));
+    },
+
     render() {
         waveforge.commitDraw(cmds);
     },

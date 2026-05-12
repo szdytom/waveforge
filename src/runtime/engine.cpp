@@ -99,16 +99,16 @@ void bindContextImpl(
 		parent_proto = JS_GetPropertyStr(ctx, parent_ctor, "prototype");
 	}
 
-	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, class_id);
 	ValueGuard parent_ctor_guard(ctx, parent_ctor);
 	ValueGuard parent_proto_guard(ctx, parent_proto);
-	ValueGuard proto_guard(ctx, proto);
 
+	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, class_id);
 	if (JS_IsException(proto)) {
 		throw std::runtime_error(
 			std::format("Failed to create prototype for class '{}'", class_name)
 		);
 	}
+	ValueGuard proto_guard(ctx, proto);
 
 	if (JS_SetPropertyFunctionList(
 			ctx, proto, proto_fields.data(), proto_fields.size()
@@ -154,7 +154,9 @@ void bindContextImpl(
 		);
 	}
 
+	// JS_SetClassProto takes ownership of proto
 	JS_SetClassProto(ctx, class_id, proto);
+	proto_guard.release();
 
 	if (!JS_IsUndefined(ns)) {
 		if (JS_DefinePropertyValueStr(
@@ -177,9 +179,7 @@ void bindContextImplNoCtor(
 	CFunctionList fields
 ) {
 	if (JS_IsUndefined(parent_proto)) {
-		parent_proto = JS_GetPropertyStr(
-			ctx, JS_GetGlobalObject(ctx), "Object"
-		);
+		parent_proto = getObjectProto(ctx);
 	}
 
 	ValueGuard parent_proto_guard(ctx, parent_proto);
@@ -190,7 +190,6 @@ void bindContextImplNoCtor(
 			std::format("Failed to create prototype for class '{}'", class_name)
 		);
 	}
-
 	ValueGuard proto_guard(ctx, proto);
 
 	if (JS_SetPropertyFunctionList(ctx, proto, fields.data(), fields.size())) {
@@ -201,7 +200,9 @@ void bindContextImplNoCtor(
 		);
 	}
 
+	// JS_SetClassProto takes ownership of proto
 	JS_SetClassProto(ctx, class_id, proto);
+	proto_guard.release();
 }
 
 } // namespace wf::js
