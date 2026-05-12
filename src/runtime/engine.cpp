@@ -102,7 +102,7 @@ void bindContextImpl(
 	ValueGuard parent_ctor_guard(ctx, parent_ctor);
 	ValueGuard parent_proto_guard(ctx, parent_proto);
 
-	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, class_id);
+	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, CLASS_ID_OBJECT);
 	if (JS_IsException(proto)) {
 		throw std::runtime_error(
 			std::format("Failed to create prototype for class '{}'", class_name)
@@ -184,7 +184,7 @@ void bindContextImplNoCtor(
 
 	ValueGuard parent_proto_guard(ctx, parent_proto);
 
-	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, class_id);
+	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, CLASS_ID_OBJECT);
 	if (JS_IsException(proto)) {
 		throw std::runtime_error(
 			std::format("Failed to create prototype for class '{}'", class_name)
