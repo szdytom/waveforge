@@ -10,16 +10,20 @@ namespace wf {
 
 namespace {
 
+// script engine instance for all scripted scenes
 js::Engine &scriptEngine() {
-	static js::Engine engine;
-	return engine;
+	static std::unique_ptr<js::Engine> engine;
+	if (!engine) {
+		engine = std::make_unique<js::Engine>();
+	}
+	return *engine;
 }
 
 } // namespace
 
 struct ScriptedScene::Impl {
 	JSContext *ctx;
-	const Script *script;
+	const Script *script; // not owned, managed by AssetsManager
 
 	JSValue setup_obj = JS_NULL;
 	JSValue size_fn = JS_NULL;
@@ -31,8 +35,8 @@ struct ScriptedScene::Impl {
 	JSValue cmds_val = JS_NULL;
 	js::DrawCmdList *cmds = nullptr;
 
-	int width = 256;
-	int height = 192;
+	int width;
+	int height;
 
 	explicit Impl(const std::string &script_id);
 	~Impl();
@@ -62,6 +66,18 @@ JSValue f_setupScene(
 		return JS_ThrowTypeError(ctx, "setupScene expects an object");
 	}
 
+	JS_FreeValue(ctx, impl->setup_obj);
+	JS_FreeValue(ctx, impl->size_fn);
+	JS_FreeValue(ctx, impl->setup_fn);
+	JS_FreeValue(ctx, impl->step_fn);
+	JS_FreeValue(ctx, impl->render_fn);
+	JS_FreeValue(ctx, impl->handle_event_fn);
+	impl->size_fn = JS_NULL;
+	impl->setup_fn = JS_NULL;
+	impl->step_fn = JS_NULL;
+	impl->render_fn = JS_NULL;
+	impl->handle_event_fn = JS_NULL;
+
 	impl->setup_obj = JS_DupValue(ctx, obj);
 
 	JSValue size_fn = JS_GetPropertyStr(ctx, obj, "size");
@@ -69,6 +85,7 @@ JSValue f_setupScene(
 		impl->size_fn = size_fn;
 	} else {
 		JS_FreeValue(ctx, size_fn);
+		return JS_ThrowTypeError(ctx, "Missing size()");
 	}
 
 	JSValue setup_fn = JS_GetPropertyStr(ctx, obj, "setup");
@@ -76,6 +93,7 @@ JSValue f_setupScene(
 		impl->setup_fn = setup_fn;
 	} else {
 		JS_FreeValue(ctx, setup_fn);
+		impl->setup_fn = JS_NULL;
 	}
 
 	JSValue step_fn = JS_GetPropertyStr(ctx, obj, "step");
@@ -83,6 +101,7 @@ JSValue f_setupScene(
 		impl->step_fn = step_fn;
 	} else {
 		JS_FreeValue(ctx, step_fn);
+		impl->step_fn = JS_NULL;
 	}
 
 	JSValue render_fn = JS_GetPropertyStr(ctx, obj, "render");
@@ -90,6 +109,7 @@ JSValue f_setupScene(
 		impl->render_fn = render_fn;
 	} else {
 		JS_FreeValue(ctx, render_fn);
+		impl->render_fn = JS_NULL;
 	}
 
 	JSValue handle_event_fn = JS_GetPropertyStr(ctx, obj, "handleEvent");
@@ -97,22 +117,25 @@ JSValue f_setupScene(
 		impl->handle_event_fn = handle_event_fn;
 	} else {
 		JS_FreeValue(ctx, handle_event_fn);
+		impl->handle_event_fn = JS_NULL;
 	}
 
-	if (JS_IsFunction(ctx, impl->size_fn)) {
-		js::ValueGuard result_guard(
-			ctx, JS_Call(ctx, impl->size_fn, impl->setup_obj, 0, nullptr)
-		);
-		JSValue result = result_guard.get();
-		if (!JS_IsException(result)) {
-			js::ValueGuard w_guard(ctx, JS_GetPropertyUint32(ctx, result, 0));
-			js::ValueGuard h_guard(ctx, JS_GetPropertyUint32(ctx, result, 1));
-			int32_t w, h;
-			JS_ToInt32(ctx, &w, w_guard.get());
-			JS_ToInt32(ctx, &h, h_guard.get());
-			impl->width = w;
-			impl->height = h;
+	js::ValueGuard result_guard(
+		ctx, JS_Call(ctx, impl->size_fn, impl->setup_obj, 0, nullptr)
+	);
+	JSValue result = result_guard.get();
+	if (!JS_IsException(result)) {
+		js::ValueGuard w_guard(ctx, JS_GetPropertyUint32(ctx, result, 0));
+		js::ValueGuard h_guard(ctx, JS_GetPropertyUint32(ctx, result, 1));
+		int32_t w, h;
+		if (JS_ToInt32(ctx, &w, w_guard.get()) < 0) {
+			return JS_ThrowTypeError(ctx, "Failed to convert width to int32");
 		}
+		if (JS_ToInt32(ctx, &h, h_guard.get()) < 0) {
+			return JS_ThrowTypeError(ctx, "Failed to convert height to int32");
+		}
+		impl->width = w;
+		impl->height = h;
 	}
 
 	return JS_UNDEFINED;
@@ -128,12 +151,10 @@ JSValue f_commitDraw(
 
 	auto *dc_list = js::DrawCmdList::unwrap(ctx, argv[0]);
 	if (!dc_list) {
-		return JS_ThrowTypeError(ctx, "commitDraw expects a DrawCmdBuffer");
+		return JS_ThrowTypeError(ctx, "commitDraw expects a DrawCmdList");
 	}
 
-	if (!JS_IsNull(impl->cmds_val)) {
-		JS_FreeValue(ctx, impl->cmds_val);
-	}
+	JS_FreeValue(ctx, impl->cmds_val);
 	impl->cmds_val = JS_DupValue(ctx, argv[0]);
 	impl->cmds = dc_list;
 
@@ -141,21 +162,20 @@ JSValue f_commitDraw(
 }
 
 JSValue createJSEvent(JSContext *ctx, const sf::Event &evt) noexcept {
-	if (const auto *keyPressed = evt.getIf<sf::Event::KeyPressed>()) {
-		return js::KeyEvent::from(ctx, *keyPressed);
+	if (const auto *e = evt.getIf<sf::Event::KeyPressed>()) {
+		return js::KeyEvent::from(ctx, *e);
 	}
-	if (const auto *keyReleased = evt.getIf<sf::Event::KeyReleased>()) {
-		return js::KeyEvent::from(ctx, *keyReleased);
+	if (const auto *e = evt.getIf<sf::Event::KeyReleased>()) {
+		return js::KeyEvent::from(ctx, *e);
 	}
-	if (const auto *mousePressed = evt.getIf<sf::Event::MouseButtonPressed>()) {
-		return js::MouseButtonEvent::from(ctx, *mousePressed);
+	if (const auto *e = evt.getIf<sf::Event::MouseButtonPressed>()) {
+		return js::MouseButtonEvent::from(ctx, *e);
 	}
-	if (const auto
-	        *mouseReleased = evt.getIf<sf::Event::MouseButtonReleased>()) {
-		return js::MouseButtonEvent::from(ctx, *mouseReleased);
+	if (const auto *e = evt.getIf<sf::Event::MouseButtonReleased>()) {
+		return js::MouseButtonEvent::from(ctx, *e);
 	}
-	if (const auto *mouseMoved = evt.getIf<sf::Event::MouseMoved>()) {
-		return js::MouseMoveEvent::from(ctx, *mouseMoved);
+	if (const auto *e = evt.getIf<sf::Event::MouseMoved>()) {
+		return js::MouseMoveEvent::from(ctx, *e);
 	}
 	return JS_NULL;
 }
@@ -175,12 +195,6 @@ void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 	js::MouseButtonEvent::bindContext(ctx, ns);
 	js::MouseMoveEvent::bindContext(ctx, ns);
 
-	JSValue alias = JS_GetPropertyStr(ctx, ns, "DrawCmdList");
-	JS_DefinePropertyValueStr(
-		ctx, ns, "DrawCmdBuffer", alias, JS_PROP_CONFIGURABLE
-	);
-	JS_FreeValue(ctx, alias);
-
 	JS_SetPropertyStr(ctx, ns, "log", JS_NewCFunction(ctx, f_log, "log", 1));
 	JS_SetPropertyStr(
 		ctx, ns, "setupScene",
@@ -191,7 +205,8 @@ void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 		JS_NewCFunction(ctx, f_commitDraw, "commitDraw", 1)
 	);
 
-	JS_SetPropertyStr(ctx, JS_GetGlobalObject(ctx), "waveforge", ns);
+	js::ValueGuard global(ctx, JS_GetGlobalObject(ctx));
+	JS_SetPropertyStr(ctx, global.get(), "waveforge", ns);
 }
 
 } // namespace
@@ -215,16 +230,12 @@ ScriptedScene::Impl::Impl(const std::string &script_id)
 
 	initJSContext(ctx, this);
 
-	auto *script_ptr = AssetsManager::instance().getAssetChecked<Script>(
-		script_id
-	);
-	if (!script_ptr) {
+	script = AssetsManager::instance().getAssetChecked<Script>(script_id);
+	if (!script) {
 		throw std::runtime_error(
 			std::format("ScriptedScene: script '{}' not found", script_id)
 		);
 	}
-	script = script_ptr;
-
 	js::ValueGuard eval_guard(
 		ctx,
 		JS_Eval(
@@ -346,6 +357,9 @@ void ScriptedScene::step(SceneManager &mgr) {
 void ScriptedScene::render(
 	const SceneManager &mgr, sf::RenderTarget &target, int scale
 ) const {
+	JS_FreeValue(_impl->ctx, _impl->cmds_val);
+	this->_impl->cmds_val = JS_NULL;
+	this->_impl->cmds = nullptr;
 	if (JS_IsFunction(_impl->ctx, _impl->render_fn)) {
 		js::ValueGuard result_guard(
 			_impl->ctx,

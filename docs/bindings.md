@@ -94,9 +94,11 @@ JSValue MyClass::ctor(
 	// unique_ptr makes early return here safe
 
 	// Attach C++ object to JS object. The following 5 line is fixed boilerplate
-    if (JS_SetOpaque(this_val, self.get()) < 0) {
-        return JS_ThrowTypeError(ctx, "Internal error");
-    }
+    JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if 	(JS_IsException(obj)) {
+		return obj;
+	}
+	JS_SetOpaque(obj, self.get());
     self.release();
     return JS_UNDEFINED;
 }
