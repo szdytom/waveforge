@@ -12,14 +12,16 @@
 
 namespace wf::js {
 
+// 1 is the class ID of Object, internal to QuickJS, unlikely to change
+constexpr int CLASS_ID_OBJECT = 1;
+
 inline JSValue getObjectProto(JSContext *ctx) noexcept {
-	// 1 is the class ID of Object, internal to QuickJS
-	return JS_GetClassProto(ctx, 1);
+	return JS_GetClassProto(ctx, CLASS_ID_OBJECT);
 }
 
 inline JSValue getIteratorProto(JSContext *ctx) noexcept {
-	// 40 is the class ID of Iterator, internal to QuickJS, subject to change
-	// without notice
+	// 40 is the class ID of Iterator, internal to QuickJS
+	// very likely to change
 	return JS_GetClassProto(ctx, 40);
 }
 
