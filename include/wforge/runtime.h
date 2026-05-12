@@ -3,6 +3,7 @@
 
 #include "ctti.h"
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Window/Event.hpp>
 #include <concepts>
 #include <exception>
 #include <expected>
@@ -376,6 +377,84 @@ struct DrawCmdListIter final : BindingBase<DrawCmdListIter> {
 	std::size_t index;
 	DrawCmdList *list;
 	JSValue list_val;
+};
+
+struct KeyEvent final : BindingBase<KeyEvent> {
+	enum class Type {
+		KeyDown,
+		KeyUp
+	};
+
+	static constexpr const char *CLASS_NAME = "KeyEvent";
+	static const CFunctionList PROTO_FIELDS;
+
+	static JSValue parentProto(JSContext *ctx) noexcept;
+
+	Type type;
+	std::string code;
+	bool alt;
+	bool control;
+	bool shift;
+	bool system;
+
+	KeyEvent(
+		Type type, std::string code, bool alt, bool control, bool shift,
+		bool system
+	) noexcept;
+
+	static JSValue from(
+		JSContext *ctx, const sf::Event::KeyPressed &evt
+	) noexcept;
+	static JSValue from(
+		JSContext *ctx, const sf::Event::KeyReleased &evt
+	) noexcept;
+};
+
+struct MouseButtonEvent final : BindingBase<MouseButtonEvent> {
+	enum class Type {
+		MouseDown,
+		MouseUp
+	};
+
+	static constexpr const char *CLASS_NAME = "MouseButtonEvent";
+	static const CFunctionList PROTO_FIELDS;
+
+	static JSValue parentProto(JSContext *ctx) noexcept;
+
+	Type type;
+	int button;
+	int x;
+	int y;
+
+	MouseButtonEvent(Type type, int button, int x, int y) noexcept;
+
+	static JSValue from(
+		JSContext *ctx, const sf::Event::MouseButtonPressed &evt
+	) noexcept;
+	static JSValue from(
+		JSContext *ctx, const sf::Event::MouseButtonReleased &evt
+	) noexcept;
+};
+
+struct MouseMoveEvent final : BindingBase<MouseMoveEvent> {
+	enum class Type {
+		MouseMove
+	};
+
+	static constexpr const char *CLASS_NAME = "MouseMoveEvent";
+	static const CFunctionList PROTO_FIELDS;
+
+	static JSValue parentProto(JSContext *ctx) noexcept;
+
+	Type type;
+	int x;
+	int y;
+
+	MouseMoveEvent(Type type, int x, int y) noexcept;
+
+	static JSValue from(
+		JSContext *ctx, const sf::Event::MouseMoved &evt
+	) noexcept;
 };
 
 } // namespace wf::js

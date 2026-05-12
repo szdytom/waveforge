@@ -4,6 +4,7 @@
 #include <SFML/Window/Event.hpp>
 #include <format>
 #include <iostream>
+#include <utility>
 
 namespace wf {
 
@@ -25,6 +26,7 @@ struct ScriptedScene::Impl {
 	JSValue setup_fn = JS_NULL;
 	JSValue step_fn = JS_NULL;
 	JSValue render_fn = JS_NULL;
+	JSValue handle_event_fn = JS_NULL;
 
 	JSValue cmds_val = JS_NULL;
 	js::DrawCmdList *cmds = nullptr;
@@ -90,6 +92,13 @@ JSValue f_setupScene(
 		JS_FreeValue(ctx, render_fn);
 	}
 
+	JSValue handle_event_fn = JS_GetPropertyStr(ctx, obj, "handleEvent");
+	if (JS_IsFunction(ctx, handle_event_fn)) {
+		impl->handle_event_fn = handle_event_fn;
+	} else {
+		JS_FreeValue(ctx, handle_event_fn);
+	}
+
 	if (JS_IsFunction(ctx, impl->size_fn)) {
 		js::ValueGuard result_guard(
 			ctx, JS_Call(ctx, impl->size_fn, impl->setup_obj, 0, nullptr)
@@ -131,6 +140,26 @@ JSValue f_commitDraw(
 	return JS_UNDEFINED;
 }
 
+JSValue createJSEvent(JSContext *ctx, const sf::Event &evt) noexcept {
+	if (const auto *keyPressed = evt.getIf<sf::Event::KeyPressed>()) {
+		return js::KeyEvent::from(ctx, *keyPressed);
+	}
+	if (const auto *keyReleased = evt.getIf<sf::Event::KeyReleased>()) {
+		return js::KeyEvent::from(ctx, *keyReleased);
+	}
+	if (const auto *mousePressed = evt.getIf<sf::Event::MouseButtonPressed>()) {
+		return js::MouseButtonEvent::from(ctx, *mousePressed);
+	}
+	if (const auto
+	        *mouseReleased = evt.getIf<sf::Event::MouseButtonReleased>()) {
+		return js::MouseButtonEvent::from(ctx, *mouseReleased);
+	}
+	if (const auto *mouseMoved = evt.getIf<sf::Event::MouseMoved>()) {
+		return js::MouseMoveEvent::from(ctx, *mouseMoved);
+	}
+	return JS_NULL;
+}
+
 void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 	JS_SetContextOpaque(ctx, impl);
 
@@ -142,6 +171,9 @@ void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 	js::DrawSpriteCmd::bindContext(ctx, ns);
 	js::DrawRectCmd::bindContext(ctx, ns);
 	js::DrawCmdList::bindContext(ctx, ns);
+	js::KeyEvent::bindContext(ctx, ns);
+	js::MouseButtonEvent::bindContext(ctx, ns);
+	js::MouseMoveEvent::bindContext(ctx, ns);
 
 	JSValue alias = JS_GetPropertyStr(ctx, ns, "DrawCmdList");
 	JS_DefinePropertyValueStr(
@@ -175,6 +207,9 @@ ScriptedScene::Impl::Impl(const std::string &script_id)
 	engine.registerClass<js::DrawRectCmd>();
 	engine.registerClass<js::DrawCmdList>();
 	engine.registerClass<js::DrawCmdListIter>();
+	engine.registerClass<js::KeyEvent>();
+	engine.registerClass<js::MouseButtonEvent>();
+	engine.registerClass<js::MouseMoveEvent>();
 
 	ctx = engine.createContext();
 
@@ -234,6 +269,7 @@ ScriptedScene::Impl::~Impl() {
 	freeVal(setup_fn);
 	freeVal(step_fn);
 	freeVal(render_fn);
+	freeVal(handle_event_fn);
 	freeVal(cmds_val);
 
 	scriptEngine().destroyContext(ctx);
@@ -265,7 +301,31 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	}
 }
 
-void ScriptedScene::handleEvent(SceneManager &mgr, sf::Event &evt) {}
+void ScriptedScene::handleEvent(SceneManager &mgr, sf::Event &evt) {
+	auto *ctx = _impl->ctx;
+	if (!JS_IsFunction(ctx, _impl->handle_event_fn)) {
+		return;
+	}
+
+	js::ValueGuard evt_guard(ctx, createJSEvent(ctx, evt));
+	JSValue event_val = evt_guard.get();
+	if (JS_IsNull(event_val)) {
+		return;
+	}
+
+	js::ValueGuard result_guard(
+		ctx,
+		JS_Call(ctx, _impl->handle_event_fn, _impl->setup_obj, 1, &event_val)
+	);
+	JSValue result = result_guard.get();
+	if (JS_IsException(result)) {
+		js::ValueGuard exc_guard(ctx, JS_GetException(ctx));
+		const char *str = JS_ToCString(ctx, exc_guard.get());
+		std::cerr << "[JS] handleEvent error: " << (str ? str : "unknown")
+				  << "\n";
+		JS_FreeCString(ctx, str);
+	}
+}
 
 void ScriptedScene::step(SceneManager &mgr) {
 	if (JS_IsFunction(_impl->ctx, _impl->step_fn)) {
