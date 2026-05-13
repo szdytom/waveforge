@@ -75,12 +75,12 @@ declare namespace waveforge {
 		flexShrink: number;
 
 		// content
-		content: TextContent | SpriteContent | RectContent | null;
+		content: TextContent | SpriteContent | null;
 		margin: number | { top?: number; right?: number; bottom?: number; left?: number };
 		padding: number | { top?: number; right?: number; bottom?: number; left?: number };
 
 		// background
-		backgroundColor: Color;
+		backgroundColor: ColorLike;
 
 		// tree
 		appendChild(child: LayoutNode): void;
@@ -89,13 +89,20 @@ declare namespace waveforge {
 		constructor();
 	}
 
+	type ColorLike =
+		| Color
+		| string
+		| number
+		| [number, number, number]
+		| [number, number, number, number];
+
 	class Color {
 		r: number;
 		g: number;
 		b: number;
 		a: number;
 
-		constructor(color: string | number | [number, number, number] | [number, number, number, number]);
+		constructor(color: ColorLike);
 		constructor(r: number, g: number, b: number, a?: number);
 
 		toString(): string;
@@ -105,10 +112,11 @@ declare namespace waveforge {
 	class TextContent {
 		text: string;
 		size: number;
-		color: Color;
+		color: ColorLike;
 
-		constructor(text: string, size?: number, color?: Color);
+		constructor(text: string, size?: number, color?: ColorLike);
 	}
+
 
 	class SpriteContent {
 		texture: Texture;
@@ -117,23 +125,14 @@ declare namespace waveforge {
 		constructor(texture: Texture, size?: number);
 	}
 
-	class RectContent {
-		color: Color;
-
-		constructor(color?: Color);
-	}
-
 	class DrawTextCmd {
 		text: string;
 		x: number;
 		y: number;
 		size: number;
-		r: number;
-		g: number;
-		b: number;
-		a: number;
+		color: ColorLike;
 
-		constructor(text: string, x: number, y: number, size?: number, color?: Color);
+		constructor(text: string, x: number, y: number, size?: number, color?: ColorLike);
 	}
 
 	class DrawSpriteCmd {
@@ -149,12 +148,9 @@ declare namespace waveforge {
 		y: number;
 		width: number;
 		height: number;
-		r: number;
-		g: number;
-		b: number;
-		a: number;
+		color: ColorLike;
 
-		constructor(x: number, y: number, width: number, height: number, color?: Color);
+		constructor(x: number, y: number, width: number, height: number, color?: ColorLike);
 	}
 
 	class DrawCmdList {

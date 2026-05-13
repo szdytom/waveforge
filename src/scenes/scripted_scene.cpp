@@ -372,9 +372,9 @@ void ScriptedScene::render(
 		_impl->layout_root->calculateLayout(
 			static_cast<float>(_impl->width), static_cast<float>(_impl->height)
 		);
-		_impl->layout_root->render(target, scale);
+		_impl->layout_root->render(target, _impl->ctx.get(), scale);
 	} else if (_impl->cmds) {
-		_impl->cmds->render(target, scale);
+		_impl->cmds->render(target, _impl->ctx.get(), scale);
 	}
 }
 
