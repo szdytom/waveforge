@@ -61,6 +61,12 @@ void Engine::releaseContext(JSContext *ctx) noexcept {
 		return;
 	}
 
+	// Quick path for createContext/releaseContext pairs
+	if (_contexts.back().get() == ctx) {
+		_contexts.pop_back();
+		return;
+	}
+
 	for (auto it = _contexts.begin(); it != _contexts.end(); ++it) {
 		if (it->get() == ctx) {
 			it->release();
