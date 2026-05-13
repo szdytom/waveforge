@@ -47,6 +47,7 @@ function buildLayout(): waveforge.LayoutNode {
 
     const duckNode = new waveforge.LayoutNode();
     duckNode.content = new waveforge.SpriteContent(duck, 2);
+	duckNode.marginBottom = 4;
     leftPanel.appendChild(duckNode);
 
     const duckLabel = new waveforge.LayoutNode();
@@ -73,10 +74,10 @@ function buildLayout(): waveforge.LayoutNode {
         row.alignItems = "center";
 
         const dot = new waveforge.LayoutNode();
-        dot.width = 5;
-		dot.height = 5;
+        dot.width = 6;
+		dot.height = 6;
         dot.backgroundColor = elementColors[i];
-        dot.margin = { right: 4 };
+        dot.marginRight = 1;
         row.appendChild(dot);
 
         const label = new waveforge.LayoutNode();
@@ -101,7 +102,10 @@ function buildLayout(): waveforge.LayoutNode {
     for (const label of buttons) {
         const btn = new waveforge.LayoutNode();
         btn.content = new waveforge.TextContent(label, 1, "#b4c8f0");
-        btn.padding = { top: 2, right: 6, bottom: 2, left: 6 };
+        btn.paddingTop = 2;
+        btn.paddingRight = 6;
+        btn.paddingBottom = 2;
+        btn.paddingLeft = 6;
         btn.backgroundColor = "#3c465a";
         footer.appendChild(btn);
     }
