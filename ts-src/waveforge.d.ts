@@ -5,12 +5,88 @@ declare namespace waveforge {
 
 	function commitDraw(cmds: DrawCmdList): void;
 
+	function commitLayout(root: LayoutNode): void;
+
 	class Texture {
 		readonly width: number;
 		readonly height: number;
 		readonly id: string;
 
 		constructor(id: string);
+	}
+
+	class LayoutNode {
+		// size (number for points, string for "auto" or "<n>%", undefined for unset)
+		width: number | string | undefined;
+		height: number | string | undefined;
+		minWidth: number | string | undefined;
+		maxWidth: number | string | undefined;
+		minHeight: number | string | undefined;
+		maxHeight: number | string | undefined;
+
+		// flexbox layout (set with string values e.g. "row", "center")
+		direction: "inherit" | "ltr" | "rtl";
+		flexDirection: "column" | "columnReverse" | "row" | "rowReverse";
+		justifyContent:
+			| "flexStart"
+			| "center"
+			| "flexEnd"
+			| "spaceBetween"
+			| "spaceAround"
+			| "spaceEvenly";
+		alignItems:
+			| "auto"
+			| "flexStart"
+			| "center"
+			| "flexEnd"
+			| "stretch"
+			| "baseline"
+			| "spaceBetween"
+			| "spaceAround"
+			| "spaceEvenly";
+		alignSelf:
+			| "auto"
+			| "flexStart"
+			| "center"
+			| "flexEnd"
+			| "stretch"
+			| "baseline"
+			| "spaceBetween"
+			| "spaceAround"
+			| "spaceEvenly";
+		alignContent:
+			| "auto"
+			| "flexStart"
+			| "center"
+			| "flexEnd"
+			| "stretch"
+			| "baseline"
+			| "spaceBetween"
+			| "spaceAround"
+			| "spaceEvenly";
+		flexWrap: "noWrap" | "wrap" | "wrapReverse";
+		overflow: "visible" | "hidden" | "scroll";
+		display: "flex" | "none" | "contents";
+		positionType: "static" | "relative" | "absolute";
+
+		// flex
+		flex: number;
+		flexGrow: number;
+		flexShrink: number;
+
+		// content
+		content: TextContent | SpriteContent | RectContent | null;
+		margin: number | { top?: number; right?: number; bottom?: number; left?: number };
+		padding: number | { top?: number; right?: number; bottom?: number; left?: number };
+
+		// background
+		backgroundColor: Color;
+
+		// tree
+		appendChild(child: LayoutNode): void;
+		removeChild(child: LayoutNode): void;
+
+		constructor();
 	}
 
 	class Color {
@@ -24,6 +100,27 @@ declare namespace waveforge {
 
 		toString(): string;
 		valueOf(): number;
+	}
+
+	class TextContent {
+		text: string;
+		size: number;
+		color: Color;
+
+		constructor(text: string, size?: number, color?: Color);
+	}
+
+	class SpriteContent {
+		texture: Texture;
+		size: number;
+
+		constructor(texture: Texture, size?: number);
+	}
+
+	class RectContent {
+		color: Color;
+
+		constructor(color?: Color);
 	}
 
 	class DrawTextCmd {

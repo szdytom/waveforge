@@ -33,6 +33,7 @@ add_executable(waveforge
 	src/runtime/draw.cpp
 	src/runtime/engine.cpp
 	src/runtime/event.cpp
+	src/runtime/layout.cpp
 	src/runtime/texture.cpp
     src/scenes/duckdeath.cpp
     src/scenes/help.cpp
@@ -85,4 +86,5 @@ target_link_libraries(waveforge PRIVATE
     nlohmann_json::nlohmann_json
     argparse::argparse
     qjs
+    yogacore
 )

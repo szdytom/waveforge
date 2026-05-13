@@ -45,6 +45,9 @@ waveforge.setupScene({
     },
 
     handleEvent(event: waveforge.SceneEvent) {
+		if (event.type === "mousemove") {
+			return; // Too noisy
+		}
         waveforge.log("Event: " + event.type + ("code" in event ? " code=" + event.code : ""));
     },
 
