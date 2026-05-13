@@ -110,7 +110,7 @@ WF_JS_METHOD(DrawCmdList, iter, {
 	iter->list = self;
 	iter->list_val = JS_DupValue(ctx, this_val);
 
-	ValueGuard list_guard(ctx, iter->list_val);
+	Value list_guard(ctx, iter->list_val);
 
 	JSValue obj = JS_NewObjectClass(
 		ctx, DrawCmdListIter::clsId(JS_GetRuntime(ctx))
@@ -123,8 +123,8 @@ WF_JS_METHOD(DrawCmdList, iter, {
 		return JS_ThrowTypeError(ctx, "Internal error");
 	}
 
-	iter.release();
-	list_guard.release();
+	(void)iter.release();
+	(void)list_guard.release();
 	return obj;
 })
 
@@ -266,9 +266,9 @@ JSValue DrawSpriteCmd::ctor(
 		return JS_ThrowTypeError(ctx, "Expected integer for y");
 	}
 
-	ValueGuard tex_guard(ctx, JS_DupValue(ctx, argv[0]));
+	Value tex_guard(ctx, JS_DupValue(ctx, argv[0]));
 	auto self = std::make_unique<DrawSpriteCmd>(
-		tex_guard.get(), texObj->texture, x, y
+		*tex_guard, texObj->texture, x, y
 	);
 
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));

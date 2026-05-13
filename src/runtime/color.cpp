@@ -41,7 +41,9 @@ JSValue colorToString(JSContext *ctx, const sf::Color &color) {
 	}
 }
 
-std::expected<sf::Color, const char *> parseHex(std::string_view str) {
+[[nodiscard]] std::expected<sf::Color, const char *> parseHex(
+	std::string_view str
+) {
 	if (str.empty() || str[0] != '#') {
 		return std::unexpected("Color hex string must start with '#'");
 	}
@@ -194,7 +196,7 @@ JSValue Color::ctor(
 	return obj;
 }
 
-std::expected<sf::Color, const char *> Color::interpret(
+[[nodiscard]] std::expected<sf::Color, const char *> Color::interpret(
 	JSContext *ctx, JSValueConst val
 ) {
 	if (auto *self = Color::unwrap(ctx, val)) {
