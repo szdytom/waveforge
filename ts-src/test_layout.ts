@@ -6,8 +6,7 @@ const H = 192;
 let frameCount = 0;
 let layoutRoot: waveforge.LayoutNode;
 
-const fpsText = new waveforge.DrawTextCmd("FPS: 0", 4, 178, 1,
-    "#646464");
+const fpsText = new waveforge.DrawTextCmd("FRAME: 0", 4, 160, 1, "#ffffff");
 
 const duck = new waveforge.Texture("duck/texture");
 const cmds = new waveforge.DrawCmdList();
@@ -28,8 +27,7 @@ function buildLayout(): waveforge.LayoutNode {
     header.justifyContent = "center";
 
     const headText = new waveforge.LayoutNode();
-    headText.content = new waveforge.TextContent("WAVEFORGE LAYOUT TEST", 1,
-        "#dcdcdc");
+    headText.content = new waveforge.TextContent("WAVEFORGE LAYOUT TEST", 1, "#dcdcdc");
     header.appendChild(headText);
 
     // ── 2. Main content (side-by-side panels) ──
@@ -51,8 +49,7 @@ function buildLayout(): waveforge.LayoutNode {
     leftPanel.appendChild(duckNode);
 
     const duckLabel = new waveforge.LayoutNode();
-    duckLabel.content = new waveforge.TextContent("rubber duck", 1,
-        "#c8c8c8");
+    duckLabel.content = new waveforge.TextContent("rubber duck", 1, "#c8c8c8");
     leftPanel.appendChild(duckLabel);
 
     // right panel: column, space-evenly items
@@ -127,7 +124,7 @@ waveforge.setupScene({
 
     step() {
         frameCount++;
-        fpsText.text = "FPS: " + frameCount;
+        fpsText.text = `FRAME: ${frameCount}`;
     },
 
     render() {
