@@ -192,8 +192,14 @@ void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 } // namespace
 
 ScriptedScene::Impl::Impl(const std::string &script_id): script(nullptr) {
-	auto &engine = scriptEngine();
+	script = AssetsManager::instance().getAssetChecked<Script>(script_id);
+	if (!script) {
+		throw std::runtime_error(
+			std::format("ScriptedScene: script '{}' not found", script_id)
+		);
+	}
 
+	auto &engine = scriptEngine();
 	SceneBindings::registerClass(engine);
 
 	auto *raw_ctx = engine.createContext();
@@ -202,12 +208,6 @@ ScriptedScene::Impl::Impl(const std::string &script_id): script(nullptr) {
 
 	initJSContext(ctx.get(), this);
 
-	script = AssetsManager::instance().getAssetChecked<Script>(script_id);
-	if (!script) {
-		throw std::runtime_error(
-			std::format("ScriptedScene: script '{}' not found", script_id)
-		);
-	}
 	js::Value eval_guard(
 		ctx.get(),
 		JS_Eval(
