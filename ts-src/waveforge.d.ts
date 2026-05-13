@@ -76,8 +76,14 @@ declare namespace waveforge {
 
 		// content
 		content: TextContent | SpriteContent | null;
-		margin: number | { top?: number; right?: number; bottom?: number; left?: number };
-		padding: number | { top?: number; right?: number; bottom?: number; left?: number };
+		marginLeft: number | string | undefined;
+		marginRight: number | string | undefined;
+		marginTop: number | string | undefined;
+		marginBottom: number | string | undefined;
+		paddingLeft: number | string | undefined;
+		paddingRight: number | string | undefined;
+		paddingTop: number | string | undefined;
+		paddingBottom: number | string | undefined;
 
 		// background
 		backgroundColor: ColorLike;
