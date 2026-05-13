@@ -1,3 +1,4 @@
+#include "wforge/layout.h"
 #include "wforge/runtime.h"
 #include "wforge/scene.h"
 #include <SFML/Graphics/RenderTarget.hpp>
@@ -34,6 +35,9 @@ struct ScriptedScene::Impl {
 
 	js::Value cmds_val;
 	js::DrawCmdList *cmds = nullptr;
+
+	js::Value layout_root_val;
+	js::LayoutNode *layout_root = nullptr;
 
 	int width;
 	int height;
@@ -125,6 +129,25 @@ JSValue f_setupScene(
 	return JS_UNDEFINED;
 }
 
+JSValue f_commitLayout(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	if (!impl) {
+		return JS_UNDEFINED;
+	}
+
+	auto *root = js::LayoutNode::unwrap(ctx, argv[0]);
+	if (!root) {
+		return JS_ThrowTypeError(ctx, "commitLayout expects a LayoutNode");
+	}
+
+	impl->layout_root_val = js::Value(ctx, JS_DupValue(ctx, argv[0]));
+	impl->layout_root = root;
+
+	return JS_UNDEFINED;
+}
+
 JSValue f_commitDraw(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
@@ -164,9 +187,9 @@ JSValue createJSEvent(JSContext *ctx, const sf::Event &evt) noexcept {
 }
 
 using SceneBindings = js::BindingList<
-	js::Texture, js::Color, js::DrawTextCmd, js::DrawSpriteCmd, js::DrawRectCmd,
-	js::DrawCmdList, js::DrawCmdListIter, js::KeyEvent, js::MouseButtonEvent,
-	js::MouseMoveEvent>;
+	js::Texture, js::Color, js::TextContent, js::SpriteContent, js::DrawTextCmd,
+	js::DrawSpriteCmd, js::DrawRectCmd, js::DrawCmdList, js::DrawCmdListIter,
+	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent>;
 
 void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 	JS_SetContextOpaque(ctx, impl);
@@ -183,6 +206,10 @@ void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 	JS_SetPropertyStr(
 		ctx, ns, "commitDraw",
 		JS_NewCFunction(ctx, f_commitDraw, "commitDraw", 1)
+	);
+	JS_SetPropertyStr(
+		ctx, ns, "commitLayout",
+		JS_NewCFunction(ctx, f_commitLayout, "commitLayout", 1)
 	);
 
 	js::Value global(ctx, JS_GetGlobalObject(ctx));
@@ -319,6 +346,8 @@ void ScriptedScene::render(
 ) const {
 	this->_impl->cmds_val = js::Value();
 	this->_impl->cmds = nullptr;
+	this->_impl->layout_root_val = js::Value();
+	this->_impl->layout_root = nullptr;
 	if (JS_IsFunction(_impl->ctx.get(), *_impl->render_fn)) {
 		js::Value result_guard(
 			_impl->ctx.get(),
@@ -339,7 +368,12 @@ void ScriptedScene::render(
 		}
 	}
 
-	if (_impl->cmds) {
+	if (_impl->layout_root) {
+		_impl->layout_root->calculateLayout(
+			static_cast<float>(_impl->width), static_cast<float>(_impl->height)
+		);
+		_impl->layout_root->render(target, scale);
+	} else if (_impl->cmds) {
 		_impl->cmds->render(target, scale);
 	}
 }

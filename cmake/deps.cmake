@@ -62,3 +62,13 @@ FetchContent_Declare(
 	EXCLUDE_FROM_ALL SYSTEM
 )
 FetchContent_MakeAvailable(quickjs)
+
+# Yoga
+FetchContent_Declare(
+	yoga
+	GIT_REPOSITORY https://github.com/facebook/yoga.git
+	GIT_TAG v3.2.1
+	GIT_SHALLOW ON
+	EXCLUDE_FROM_ALL SYSTEM
+)
+FetchContent_MakeAvailable(yoga)

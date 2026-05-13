@@ -963,6 +963,12 @@
 			"type": "js",
 			"file": "bundled-js/test_scene.js",
 			"description": "Loading test script for ScriptedScene"
+		},
+		{
+			"id": "scripts/test_layout",
+			"type": "js",
+			"file": "bundled-js/test_layout.js",
+			"description": "Loading layout test script for ScriptedScene"
 		}
 	]
 }
