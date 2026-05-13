@@ -19,7 +19,7 @@ cmds.push(redRect);
 cmds.push(drawDuckCmd);
 cmds.push(fpsText);
 
-waveforge.log("Loaded " + duck.width + "x" + duck.height + " duck texture");
+waveforge.log(`Loaded ${duck.width}x${duck.height} duck texture`);
 waveforge.log("Test scene loading...");
 
 waveforge.setupScene({
@@ -39,14 +39,14 @@ waveforge.setupScene({
         if (y <= 0 || y >= HEIGHT - duck.height) dy = -dy;
         drawDuckCmd.x = x;
         drawDuckCmd.y = y;
-        fpsText.text = "FRAME: " + frameCount;
+        fpsText.text = `FRAME: ${frameCount}`;
     },
 
     handleEvent(event: waveforge.SceneEvent) {
 		if (event.type === "mousemove") {
 			return; // Too noisy
 		}
-        waveforge.log("Event: " + event.type + ("code" in event ? " code=" + event.code : ""));
+        waveforge.log(`Event: ${event.type}${"code" in event ? ` code=${event.code}` : ""}`);
     },
 
     render() {

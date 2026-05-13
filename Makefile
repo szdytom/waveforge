@@ -9,7 +9,7 @@ all: $(JS_FILES)
 
 $(BUNDLED_JS_DIR)/%.js: $(TS_SRC_DIR)/%.ts
 	@mkdir -p $(BUNDLED_JS_DIR)
-	esbuild $< --outfile=$@ --target=es2020
+	esbuild $< --outfile=$@ --target=es2020 --minify --platform=neutral --tree-shaking
 
 clean:
 	rm -rf $(BUNDLED_JS_DIR)
