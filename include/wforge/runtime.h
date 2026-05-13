@@ -45,6 +45,7 @@ public:
 
 	JSContext *createContext();
 	void destroyContext(JSContext *ctx) noexcept;
+	void releaseContext(JSContext *ctx) noexcept;
 
 	JSRuntime *runtime() const noexcept {
 		return _runtime.get();
@@ -89,33 +90,22 @@ private:
 };
 
 // RAII wrapper for JSValue to ensure JS_FreeValue is called
-// Use as function local variable only, do not return or store in class fields
-class ValueGuard {
+class Value {
 public:
-	ValueGuard() noexcept: _ctx(nullptr), _value(JS_UNDEFINED) {}
-	ValueGuard(JSContext *ctx, JSValue value) noexcept
-		: _ctx(ctx), _value(value) {}
+	Value() noexcept;
+	Value(JSContext *ctx, JSValue value) noexcept;
+	~Value() noexcept;
 
-	~ValueGuard() noexcept {
-		if (_ctx) {
-			JS_FreeValue(_ctx, _value);
-		}
-	}
+	Value(Value &&other) noexcept;
+	Value &operator=(Value &&other) noexcept;
 
-	JSValue get() const noexcept {
-		return _value;
-	}
+	Value(const Value &) = delete;
+	Value &operator=(const Value &) = delete;
 
-	JSValue release() noexcept {
-		auto tmp = _value;
-		_value = JS_UNDEFINED;
-		return tmp;
-	}
+	[[nodiscard]] Value dup() const;
 
-	ValueGuard(const ValueGuard &) = delete;
-	ValueGuard &operator=(const ValueGuard &) = delete;
-	ValueGuard(ValueGuard &&other) = delete;
-	ValueGuard &operator=(ValueGuard &&other) = delete;
+	[[nodiscard]] JSValue operator*() const noexcept;
+	JSValue release() noexcept;
 
 private:
 	JSContext *_ctx;
@@ -164,24 +154,28 @@ struct BindingBase {
 	static constexpr CFunctionList CTOR_FIELDS{};
 	static constexpr CFunctionList PROTO_FIELDS{};
 
-	static JSValue parentCtor(JSContext *ctx) noexcept {
+	[[nodiscard]] static JSValue parentCtor(JSContext *ctx) noexcept {
 		return JS_UNDEFINED;
 	}
 
-	static constexpr std::size_t typeHash() noexcept {
+	[[nodiscard]] static constexpr std::size_t typeHash() noexcept {
 		return fnv1a(Derived::CLASS_NAME);
 	}
 
-	static JSClassID clsId(JSRuntime *rt) noexcept {
+	[[nodiscard]] static JSClassID clsId(JSRuntime *rt) noexcept {
 		return static_cast<Engine *>(JS_GetRuntimeOpaque(rt))
 			->template clsId<Derived>();
 	}
 
-	static Derived *unwrap(JSRuntime *rt, JSValueConst val) noexcept {
+	[[nodiscard]] static Derived *unwrap(
+		JSRuntime *rt, JSValueConst val
+	) noexcept {
 		return static_cast<Derived *>(JS_GetOpaque(val, clsId(rt)));
 	}
 
-	static Derived *unwrap(JSContext *ctx, JSValueConst val) noexcept {
+	[[nodiscard]] static Derived *unwrap(
+		JSContext *ctx, JSValueConst val
+	) noexcept {
 		return unwrap(JS_GetRuntime(ctx), val);
 	}
 
@@ -189,7 +183,7 @@ struct BindingBase {
 		delete unwrap(rt, val);
 	}
 
-	static JSClassGCMark *gcMarkFunc() noexcept {
+	[[nodiscard]] static JSClassGCMark *gcMarkFunc() noexcept {
 		if constexpr (HasGCMark<Derived>) {
 			return Derived::gcMark;
 		} else {
@@ -229,14 +223,14 @@ struct Texture final : BindingBase<Texture> {
 	static constexpr int CTOR_LENGTH = 1;
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue ctor(
+	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
 	Texture(sf::Texture *tex, std::string id) noexcept;
 
-	int width() const noexcept;
-	int height() const noexcept;
+	[[nodiscard]] int width() const noexcept;
+	[[nodiscard]] int height() const noexcept;
 
 	sf::Texture *texture; // not owned, managed by AssetsManager
 	std::string id;
@@ -247,7 +241,7 @@ struct Color final : BindingBase<Color> {
 	static constexpr int CTOR_LENGTH = 1;
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue ctor(
+	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
@@ -255,7 +249,7 @@ struct Color final : BindingBase<Color> {
 
 	sf::Color color;
 
-	static std::expected<sf::Color, const char *> interpret(
+	[[nodiscard]] static std::expected<sf::Color, const char *> interpret(
 		JSContext *ctx, JSValueConst val
 	);
 };
@@ -278,7 +272,7 @@ struct DrawTextCmd final : BindingBase<DrawTextCmd> {
 	static constexpr int CTOR_LENGTH = 3;
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue ctor(
+	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
@@ -298,7 +292,7 @@ struct DrawSpriteCmd final : BindingBase<DrawSpriteCmd> {
 	static constexpr int CTOR_LENGTH = 3;
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue ctor(
+	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
@@ -324,7 +318,7 @@ struct DrawRectCmd final : BindingBase<DrawRectCmd> {
 	static constexpr int CTOR_LENGTH = 4;
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue ctor(
+	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
@@ -344,7 +338,7 @@ struct DrawCmdList final : BindingBase<DrawCmdList> {
 	static constexpr int CTOR_LENGTH = 0;
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue ctor(
+	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
@@ -367,7 +361,7 @@ struct DrawCmdListIter final : BindingBase<DrawCmdListIter> {
 	static constexpr const char *CLASS_NAME = "DrawCmdListIter";
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue parentProto(JSContext *ctx) noexcept;
+	[[nodiscard]] static JSValue parentProto(JSContext *ctx) noexcept;
 
 	static void gcMark(
 		JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
@@ -388,7 +382,7 @@ struct KeyEvent final : BindingBase<KeyEvent> {
 	static constexpr const char *CLASS_NAME = "KeyEvent";
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue parentProto(JSContext *ctx) noexcept;
+	[[nodiscard]] static JSValue parentProto(JSContext *ctx) noexcept;
 
 	Type type;
 	std::string code;
@@ -402,10 +396,11 @@ struct KeyEvent final : BindingBase<KeyEvent> {
 		bool system
 	) noexcept;
 
-	static JSValue from(
+	[[nodiscard]] static JSValue from(
 		JSContext *ctx, const sf::Event::KeyPressed &evt
 	) noexcept;
-	static JSValue from(
+
+	[[nodiscard]] static JSValue from(
 		JSContext *ctx, const sf::Event::KeyReleased &evt
 	) noexcept;
 };
@@ -419,7 +414,7 @@ struct MouseButtonEvent final : BindingBase<MouseButtonEvent> {
 	static constexpr const char *CLASS_NAME = "MouseButtonEvent";
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue parentProto(JSContext *ctx) noexcept;
+	[[nodiscard]] static JSValue parentProto(JSContext *ctx) noexcept;
 
 	Type type;
 	int button;
@@ -428,10 +423,11 @@ struct MouseButtonEvent final : BindingBase<MouseButtonEvent> {
 
 	MouseButtonEvent(Type type, int button, int x, int y) noexcept;
 
-	static JSValue from(
+	[[nodiscard]] static JSValue from(
 		JSContext *ctx, const sf::Event::MouseButtonPressed &evt
 	) noexcept;
-	static JSValue from(
+
+	[[nodiscard]] static JSValue from(
 		JSContext *ctx, const sf::Event::MouseButtonReleased &evt
 	) noexcept;
 };
@@ -444,7 +440,7 @@ struct MouseMoveEvent final : BindingBase<MouseMoveEvent> {
 	static constexpr const char *CLASS_NAME = "MouseMoveEvent";
 	static const CFunctionList PROTO_FIELDS;
 
-	static JSValue parentProto(JSContext *ctx) noexcept;
+	[[nodiscard]] static JSValue parentProto(JSContext *ctx) noexcept;
 
 	Type type;
 	int x;
@@ -452,9 +448,20 @@ struct MouseMoveEvent final : BindingBase<MouseMoveEvent> {
 
 	MouseMoveEvent(Type type, int x, int y) noexcept;
 
-	static JSValue from(
+	[[nodiscard]] static JSValue from(
 		JSContext *ctx, const sf::Event::MouseMoved &evt
 	) noexcept;
+};
+
+template<typename... Ts>
+struct BindingList {
+	static void registerClass(Engine &engine) noexcept {
+		(engine.registerClass<Ts>(), ...);
+	}
+
+	static void bindContext(JSContext *ctx, JSValueConst ns) {
+		(Ts::bindContext(ctx, ns), ...);
+	}
 };
 
 } // namespace wf::js

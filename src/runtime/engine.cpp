@@ -56,6 +56,26 @@ JSContext *Engine::createContext() {
 	return ctx;
 }
 
+void Engine::releaseContext(JSContext *ctx) noexcept {
+	if (!ctx) {
+		return;
+	}
+
+	for (auto it = _contexts.begin(); it != _contexts.end(); ++it) {
+		if (it->get() == ctx) {
+			it->release();
+			_contexts.erase(it);
+			return;
+		}
+	}
+
+	std::cerr << "Context not found in engine's context list. Double free or "
+				 "corruption."
+			  << std::endl;
+	cpptrace::generate_trace().print(std::cerr);
+	std::abort();
+}
+
 void Engine::destroyContext(JSContext *ctx) noexcept {
 	if (ctx == nullptr) {
 		return;
@@ -99,8 +119,8 @@ void bindContextImpl(
 		parent_proto = JS_GetPropertyStr(ctx, parent_ctor, "prototype");
 	}
 
-	ValueGuard parent_ctor_guard(ctx, parent_ctor);
-	ValueGuard parent_proto_guard(ctx, parent_proto);
+	Value parent_ctor_guard(ctx, parent_ctor);
+	Value parent_proto_guard(ctx, parent_proto);
 
 	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, CLASS_ID_OBJECT);
 	if (JS_IsException(proto)) {
@@ -108,7 +128,7 @@ void bindContextImpl(
 			std::format("Failed to create prototype for class '{}'", class_name)
 		);
 	}
-	ValueGuard proto_guard(ctx, proto);
+	Value proto_guard(ctx, proto);
 
 	if (JS_SetPropertyFunctionList(
 			ctx, proto, proto_fields.data(), proto_fields.size()
@@ -124,7 +144,7 @@ void bindContextImpl(
 		ctx, ctor_func, class_name, ctor_length, JS_CFUNC_constructor, 0,
 		parent_ctor, ctor_fields.size() + 3
 	);
-	ValueGuard ctor_guard(ctx, ctor);
+	Value ctor_guard(ctx, ctor);
 
 	if (JS_IsException(ctor)) {
 		throw std::runtime_error(
@@ -182,7 +202,7 @@ void bindContextImplNoCtor(
 		parent_proto = getObjectProto(ctx);
 	}
 
-	ValueGuard parent_proto_guard(ctx, parent_proto);
+	Value parent_proto_guard(ctx, parent_proto);
 
 	JSValue proto = JS_NewObjectProtoClass(ctx, parent_proto, CLASS_ID_OBJECT);
 	if (JS_IsException(proto)) {
@@ -190,7 +210,7 @@ void bindContextImplNoCtor(
 			std::format("Failed to create prototype for class '{}'", class_name)
 		);
 	}
-	ValueGuard proto_guard(ctx, proto);
+	Value proto_guard(ctx, proto);
 
 	if (JS_SetPropertyFunctionList(ctx, proto, fields.data(), fields.size())) {
 		throw std::runtime_error(
@@ -203,6 +223,51 @@ void bindContextImplNoCtor(
 	// JS_SetClassProto takes ownership of proto
 	JS_SetClassProto(ctx, class_id, proto);
 	proto_guard.release();
+}
+
+Value::Value() noexcept: _ctx(nullptr), _value(JS_UNDEFINED) {}
+
+Value::Value(JSContext *ctx, JSValue value) noexcept
+	: _ctx(ctx), _value(value) {}
+
+Value::~Value() noexcept {
+	if (_ctx) {
+		JS_FreeValue(_ctx, _value);
+	}
+}
+
+Value::Value(Value &&other) noexcept
+	: _ctx(std::exchange(other._ctx, nullptr))
+	, _value(std::exchange(other._value, JS_UNDEFINED)) {}
+
+Value &Value::operator=(Value &&other) noexcept {
+	if (this != &other) {
+		if (_ctx) {
+			JS_FreeValue(_ctx, _value);
+		}
+		_ctx = other._ctx;
+		_value = other._value;
+		other._ctx = nullptr;
+		other._value = JS_UNDEFINED;
+	}
+	return *this;
+}
+
+Value Value::dup() const {
+	if (_ctx) {
+		return Value(_ctx, JS_DupValue(_ctx, _value));
+	}
+	return Value();
+}
+
+JSValue Value::operator*() const noexcept {
+	return _value;
+}
+
+JSValue Value::release() noexcept {
+	auto tmp = _value;
+	_value = JS_UNDEFINED;
+	return tmp;
 }
 
 } // namespace wf::js
