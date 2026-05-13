@@ -9,6 +9,7 @@ namespace wf::js {
 
 namespace {
 
+// -- DrawTextCmd --
 WF_JS_DEF_GETTER_STR(DrawTextCmd, getText, self->text.c_str())
 WF_JS_DEF_SETTER_STR(DrawTextCmd, setText, text)
 WF_JS_DEF_GETTER_I32(DrawTextCmd, getX, self->x)
@@ -17,19 +18,38 @@ WF_JS_DEF_GETTER_I32(DrawTextCmd, getY, self->y)
 WF_JS_DEF_SETTER_I32(DrawTextCmd, setY, y)
 WF_JS_DEF_GETTER_I32(DrawTextCmd, getSize, self->size)
 WF_JS_DEF_SETTER_I32(DrawTextCmd, setSize, size)
-WF_JS_DEF_GETTER_I32(DrawTextCmd, getR, self->color.r)
-WF_JS_DEF_SETTER_U8(DrawTextCmd, setR, color.r)
-WF_JS_DEF_GETTER_I32(DrawTextCmd, getG, self->color.g)
-WF_JS_DEF_SETTER_U8(DrawTextCmd, setG, color.g)
-WF_JS_DEF_GETTER_I32(DrawTextCmd, getB, self->color.b)
-WF_JS_DEF_SETTER_U8(DrawTextCmd, setB, color.b)
-WF_JS_DEF_GETTER_I32(DrawTextCmd, getA, self->color.a)
-WF_JS_DEF_SETTER_U8(DrawTextCmd, setA, color.a)
+
+JSValue DrawTextCmd_getColor(JSContext *ctx, JSValueConst this_val) noexcept {
+	auto *self = DrawTextCmd::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+	return JS_DupValue(ctx, self->color);
+}
+
+JSValue DrawTextCmd_setColor(
+	JSContext *ctx, JSValueConst this_val, JSValueConst val
+) noexcept {
+	auto *self = DrawTextCmd::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+
+	auto color_object = Color::interpretAsValue(ctx, val);
+	if (!color_object) {
+		return JS_ThrowTypeError(ctx, "%s", color_object.error());
+	}
+
+	JS_FreeValue(ctx, self->color);
+	self->color = *color_object;
+	return JS_UNDEFINED;
+}
 
 WF_JS_METHOD(DrawTextCmd, toString, {
 	return JS_NewString(ctx, self->text.c_str());
 })
 
+// -- DrawSpriteCmd --
 JSValue DrawSpriteCmd_getTexture(
 	JSContext *ctx, JSValueConst this_val
 ) noexcept {
@@ -64,6 +84,7 @@ WF_JS_DEF_SETTER_I32(DrawSpriteCmd, setX, x)
 WF_JS_DEF_GETTER_I32(DrawSpriteCmd, getY, self->y)
 WF_JS_DEF_SETTER_I32(DrawSpriteCmd, setY, y)
 
+// -- DrawRectCmd --
 WF_JS_DEF_GETTER_I32(DrawRectCmd, getX, self->x)
 WF_JS_DEF_SETTER_I32(DrawRectCmd, setX, x)
 WF_JS_DEF_GETTER_I32(DrawRectCmd, getY, self->y)
@@ -72,15 +93,34 @@ WF_JS_DEF_GETTER_I32(DrawRectCmd, getWidth, self->width)
 WF_JS_DEF_SETTER_I32(DrawRectCmd, setWidth, width)
 WF_JS_DEF_GETTER_I32(DrawRectCmd, getHeight, self->height)
 WF_JS_DEF_SETTER_I32(DrawRectCmd, setHeight, height)
-WF_JS_DEF_GETTER_I32(DrawRectCmd, getR, self->color.r)
-WF_JS_DEF_SETTER_U8(DrawRectCmd, setR, color.r)
-WF_JS_DEF_GETTER_I32(DrawRectCmd, getG, self->color.g)
-WF_JS_DEF_SETTER_U8(DrawRectCmd, setG, color.g)
-WF_JS_DEF_GETTER_I32(DrawRectCmd, getB, self->color.b)
-WF_JS_DEF_SETTER_U8(DrawRectCmd, setB, color.b)
-WF_JS_DEF_GETTER_I32(DrawRectCmd, getA, self->color.a)
-WF_JS_DEF_SETTER_U8(DrawRectCmd, setA, color.a)
 
+JSValue DrawRectCmd_getColor(JSContext *ctx, JSValueConst this_val) noexcept {
+	auto *self = DrawRectCmd::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+	return JS_DupValue(ctx, self->color);
+}
+
+JSValue DrawRectCmd_setColor(
+	JSContext *ctx, JSValueConst this_val, JSValueConst val
+) noexcept {
+	auto *self = DrawRectCmd::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+
+	auto color_object = Color::interpretAsValue(ctx, val);
+	if (!color_object) {
+		return JS_ThrowTypeError(ctx, "%s", color_object.error());
+	}
+
+	JS_FreeValue(ctx, self->color);
+	self->color = *color_object;
+	return JS_UNDEFINED;
+}
+
+// -- DrawCmdList --
 WF_JS_METHOD(DrawCmdList, push, {
 	auto pushCmd = ([ctx, self](JSValueConst arg, auto *cmd) noexcept {
 		DrawCmdList::DrawCmdEntry entry;
@@ -144,11 +184,17 @@ JSValue DrawCmdListIter_next(
 } // namespace
 
 DrawTextCmd::DrawTextCmd(std::string text, int x, int y) noexcept
-	: text(std::move(text)), x(x), y(y), size(1), color(sf::Color::Black) {}
+	: text(std::move(text)), x(x), y(y), size(1) {}
 
-void DrawTextCmd::render(sf::RenderTarget &target, int scale) const {
+sf::Color DrawTextCmd::nativeColor(JSContext *ctx) const noexcept {
+	return Color::fromValue(ctx, color).value_or(sf::Color::Black);
+}
+
+void DrawTextCmd::render(
+	sf::RenderTarget &target, JSContext *ctx, int scale
+) const {
 	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
-	font.renderText(target, text, color, x, y, scale, size);
+	font.renderText(target, text, nativeColor(ctx), x, y, scale, size);
 }
 
 static const JSCFunctionListEntry DRAW_TEXT_CMD_PROTO[] = {
@@ -156,10 +202,7 @@ static const JSCFunctionListEntry DRAW_TEXT_CMD_PROTO[] = {
 	cGetSetDef("x", DrawTextCmd_getX, DrawTextCmd_setX),
 	cGetSetDef("y", DrawTextCmd_getY, DrawTextCmd_setY),
 	cGetSetDef("size", DrawTextCmd_getSize, DrawTextCmd_setSize),
-	cGetSetDef("r", DrawTextCmd_getR, DrawTextCmd_setR),
-	cGetSetDef("g", DrawTextCmd_getG, DrawTextCmd_setG),
-	cGetSetDef("b", DrawTextCmd_getB, DrawTextCmd_setB),
-	cGetSetDef("a", DrawTextCmd_getA, DrawTextCmd_setA),
+	cGetSetDef("color", DrawTextCmd_getColor, DrawTextCmd_setColor),
 	cFuncDef("toString", 0, DrawTextCmd_toString),
 	propStringDef("[Symbol.toStringTag]", "DrawTextCmd", JS_PROP_CONFIGURABLE),
 };
@@ -196,11 +239,11 @@ JSValue DrawTextCmd::ctor(
 	}
 
 	if (argc >= 5) {
-		auto result = Color::interpret(ctx, argv[4]);
-		if (!result) {
-			return JS_ThrowTypeError(ctx, "%s", result.error());
+		auto cv = Color::interpretAsValue(ctx, argv[4]);
+		if (!cv) {
+			return JS_ThrowTypeError(ctx, "%s", cv.error());
 		}
-		self->color = *result;
+		self->color = *cv;
 	}
 
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
@@ -212,12 +255,30 @@ JSValue DrawTextCmd::ctor(
 	return obj;
 }
 
+DrawRectCmd::DrawRectCmd(int x, int y, int width, int height) noexcept
+	: x(x), y(y), width(width), height(height) {}
+
+sf::Color DrawRectCmd::nativeColor(JSContext *ctx) const noexcept {
+	return Color::fromValue(ctx, color).value_or(sf::Color::Black);
+}
+
+void DrawRectCmd::render(
+	sf::RenderTarget &target, JSContext *ctx, int scale
+) const {
+	sf::RectangleShape rect(sf::Vector2f(width * scale, height * scale));
+	rect.setPosition(sf::Vector2f(x * scale, y * scale));
+	rect.setFillColor(nativeColor(ctx));
+	target.draw(rect);
+}
+
 DrawSpriteCmd::DrawSpriteCmd(
 	JSValue textureVal, sf::Texture *texture, int x, int y
 ) noexcept
 	: textureVal(textureVal), texture(texture), x(x), y(y) {}
 
-void DrawSpriteCmd::render(sf::RenderTarget &target, int scale) const {
+void DrawSpriteCmd::render(
+	sf::RenderTarget &target, JSContext * /*ctx*/, int scale
+) const {
 	sf::Sprite sprite(*texture);
 	sprite.setPosition(sf::Vector2f(x * scale, y * scale));
 	sprite.setScale(sf::Vector2f(scale, scale));
@@ -281,14 +342,17 @@ JSValue DrawSpriteCmd::ctor(
 	return obj;
 }
 
-DrawRectCmd::DrawRectCmd(int x, int y, int width, int height) noexcept
-	: x(x), y(y), width(width), height(height), color(sf::Color::White) {}
+void DrawTextCmd::gcMark(
+	JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
+) noexcept {
+	auto *self = unwrap(rt, val);
+	JS_MarkValue(rt, self->color, mark_func);
+}
 
-void DrawRectCmd::render(sf::RenderTarget &target, int scale) const {
-	sf::RectangleShape rect(sf::Vector2f(width * scale, height * scale));
-	rect.setPosition(sf::Vector2f(x * scale, y * scale));
-	rect.setFillColor(color);
-	target.draw(rect);
+void DrawTextCmd::finalize(JSRuntime *rt, JSValue val) noexcept {
+	auto *self = unwrap(rt, val);
+	JS_FreeValueRT(rt, self->color);
+	delete self;
 }
 
 static const JSCFunctionListEntry DRAW_RECT_CMD_PROTO[] = {
@@ -296,10 +360,7 @@ static const JSCFunctionListEntry DRAW_RECT_CMD_PROTO[] = {
 	cGetSetDef("y", DrawRectCmd_getY, DrawRectCmd_setY),
 	cGetSetDef("width", DrawRectCmd_getWidth, DrawRectCmd_setWidth),
 	cGetSetDef("height", DrawRectCmd_getHeight, DrawRectCmd_setHeight),
-	cGetSetDef("r", DrawRectCmd_getR, DrawRectCmd_setR),
-	cGetSetDef("g", DrawRectCmd_getG, DrawRectCmd_setG),
-	cGetSetDef("b", DrawRectCmd_getB, DrawRectCmd_setB),
-	cGetSetDef("a", DrawRectCmd_getA, DrawRectCmd_setA),
+	cGetSetDef("color", DrawRectCmd_getColor, DrawRectCmd_setColor),
 	propStringDef("[Symbol.toStringTag]", "DrawRectCmd", JS_PROP_CONFIGURABLE),
 };
 
@@ -320,11 +381,11 @@ JSValue DrawRectCmd::ctor(
 	auto self = std::make_unique<DrawRectCmd>(x, y, width, height);
 
 	if (argc >= 5) {
-		auto result = Color::interpret(ctx, argv[4]);
-		if (!result) {
-			return JS_ThrowTypeError(ctx, "%s", result.error());
+		auto cv = Color::interpretAsValue(ctx, argv[4]);
+		if (!cv) {
+			return JS_ThrowTypeError(ctx, "%s", cv.error());
 		}
-		self->color = *result;
+		self->color = *cv;
 	}
 
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
@@ -336,9 +397,24 @@ JSValue DrawRectCmd::ctor(
 	return obj;
 }
 
-void DrawCmdList::render(sf::RenderTarget &target, int scale) const {
+void DrawRectCmd::gcMark(
+	JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
+) noexcept {
+	auto *self = unwrap(rt, val);
+	JS_MarkValue(rt, self->color, mark_func);
+}
+
+void DrawRectCmd::finalize(JSRuntime *rt, JSValue val) noexcept {
+	auto *self = unwrap(rt, val);
+	JS_FreeValueRT(rt, self->color);
+	delete self;
+}
+
+void DrawCmdList::render(
+	sf::RenderTarget &target, JSContext *ctx, int scale
+) const {
 	for (const auto &entry : cmds) {
-		entry.cmd->render(target, scale);
+		entry.cmd->render(target, ctx, scale);
 	}
 }
 

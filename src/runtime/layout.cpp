@@ -98,15 +98,20 @@ YGSize TextContent::measure(
 }
 
 void TextContent::render(
-	sf::RenderTarget &target, int scale, float x, float y, float w, float h
+	sf::RenderTarget &target, JSContext *ctx, int scale, float x, float y,
+	float w, float h
 ) const {
 	(void)w;
 	(void)h;
 	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
 	font.renderText(
-		target, text, color, static_cast<int>(x), static_cast<int>(y), scale,
-		size
+		target, text, nativeColor(ctx), static_cast<int>(x),
+		static_cast<int>(y), scale, size
 	);
+}
+
+sf::Color TextContent::nativeColor(JSContext *ctx) const noexcept {
+	return Color::fromValue(ctx, color).value_or(sf::Color::Black);
 }
 
 YGSize SpriteContent::measure(
@@ -121,7 +126,8 @@ YGSize SpriteContent::measure(
 }
 
 void SpriteContent::render(
-	sf::RenderTarget &target, int scale, float x, float y, float w, float h
+	sf::RenderTarget &target, JSContext * /*ctx*/, int scale, float x, float y,
+	float w, float h
 ) const {
 	sf::Sprite sprite(*texture);
 	sprite.setPosition(sf::Vector2f(x * scale, y * scale));
@@ -132,21 +138,6 @@ void SpriteContent::render(
 		)
 	);
 	target.draw(sprite);
-}
-
-YGSize RectContent::measure(
-	YGMeasureMode, float, YGMeasureMode, float
-) const noexcept {
-	return {0, 0};
-}
-
-void RectContent::render(
-	sf::RenderTarget &target, int scale, float x, float y, float w, float h
-) const {
-	sf::RectangleShape rect(sf::Vector2f(w * scale, h * scale));
-	rect.setPosition(sf::Vector2f(x * scale, y * scale));
-	rect.setFillColor(color);
-	target.draw(rect);
 }
 
 // ===== LayoutNode =====
@@ -178,12 +169,15 @@ void LayoutNode::calculateLayout(float availWidth, float availHeight) {
 	YGNodeCalculateLayout(&yogaNode, availWidth, availHeight, YGDirectionLTR);
 }
 
-void LayoutNode::render(sf::RenderTarget &target, int scale) const {
-	render(target, scale, 0, 0);
+void LayoutNode::render(
+	sf::RenderTarget &target, JSContext *ctx, int scale
+) const {
+	render(target, ctx, scale, 0, 0);
 }
 
 void LayoutNode::render(
-	sf::RenderTarget &target, int scale, float parentX, float parentY
+	sf::RenderTarget &target, JSContext *ctx, int scale, float parentX,
+	float parentY
 ) const {
 	using namespace facebook::yoga;
 	auto &layout = yogaNode.getLayout();
@@ -192,20 +186,21 @@ void LayoutNode::render(
 	float w = layout.dimension(Dimension::Width);
 	float h = layout.dimension(Dimension::Height);
 
-	if (backgroundColor.a > 0) {
+	if (auto bg_color = Color::fromValue(ctx, backgroundColor);
+	    bg_color && bg_color->a > 0) {
 		sf::RectangleShape bg(sf::Vector2f(w * scale, h * scale));
 		bg.setPosition(sf::Vector2f(absX * scale, absY * scale));
-		bg.setFillColor(backgroundColor);
+		bg.setFillColor(*bg_color);
 		target.draw(bg);
 	}
 
 	if (!JS_IsNull(contentVal)) {
-		content->render(target, scale, absX, absY, w, h);
+		content->render(target, ctx, scale, absX, absY, w, h);
 	}
 
 	for (auto *childNode : yogaNode.getChildren()) {
 		auto *child = static_cast<LayoutNode *>(childNode->getContext());
-		child->render(target, scale, absX, absY);
+		child->render(target, ctx, scale, absX, absY);
 	}
 }
 
@@ -243,13 +238,7 @@ JSValue TextContent_getColor(JSContext *ctx, JSValueConst this_val) noexcept {
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	auto *colorPtr = new Color(self->color);
-	JSValue obj = JS_NewObjectClass(ctx, Color::clsId(JS_GetRuntime(ctx)));
-	if (JS_IsException(obj)) {
-		return obj;
-	}
-	JS_SetOpaque(obj, colorPtr);
-	return obj;
+	return JS_DupValue(ctx, self->color);
 }
 
 JSValue TextContent_setColor(
@@ -259,11 +248,16 @@ JSValue TextContent_setColor(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	auto result = Color::interpret(ctx, val);
-	if (!result) {
-		return JS_ThrowTypeError(ctx, "%s", result.error());
+
+	auto color_object = Color::interpretAsValue(ctx, val);
+	if (!color_object) {
+		return JS_ThrowTypeError(ctx, "%s", color_object.error());
 	}
-	self->color = *result;
+
+	JS_FreeValue(ctx, self->color);
+	self->color = *color_object;
+	auto opt = Color::fromValue(ctx, *color_object);
+	self->_nativeColor = opt.value_or(sf::Color::Black);
 	return JS_UNDEFINED;
 }
 
@@ -294,11 +288,16 @@ JSValue TextContent::ctor(
 		JS_ToInt32(ctx, &v, argv[1]);
 		self->size = std::max(1, v);
 	}
+	self->color = Color::toValue(ctx, sf::Color::Black);
 	if (argc > 2) {
-		auto result = Color::interpret(ctx, argv[2]);
-		if (result) {
-			self->color = *result;
+		auto cv = Color::interpretAsValue(ctx, argv[2]);
+		if (!cv) {
+			return JS_ThrowTypeError(ctx, "%s", cv.error());
 		}
+		JS_FreeValue(ctx, self->color);
+		self->color = *cv;
+		auto opt = Color::fromValue(ctx, *cv);
+		self->_nativeColor = opt.value_or(sf::Color::Black);
 	}
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
@@ -306,6 +305,25 @@ JSValue TextContent::ctor(
 	}
 	JS_SetOpaque(obj, self.release());
 	return obj;
+}
+
+void TextContent::gcMark(
+	JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
+) noexcept {
+	auto *self = unwrap(rt, val);
+	if (!self) {
+		return;
+	}
+	JS_MarkValue(rt, self->color, mark_func);
+}
+
+void TextContent::finalize(JSRuntime *rt, JSValue val) noexcept {
+	auto *self = unwrap(rt, val);
+	if (!self) {
+		return;
+	}
+	JS_FreeValueRT(rt, self->color);
+	delete self;
 }
 
 // -- SpriteContent bindings --
@@ -351,41 +369,6 @@ static const JSCFunctionListEntry SPRITE_CONTENT_PROTO[] = {
 	propStringDef(
 		"[Symbol.toStringTag]", "SpriteContent", JS_PROP_CONFIGURABLE
 	),
-};
-
-// -- RectContent bindings --
-JSValue RectContent_getColor(JSContext *ctx, JSValueConst this_val) noexcept {
-	auto *self = RectContent::unwrap(ctx, this_val);
-	if (!self) {
-		return JS_UNDEFINED;
-	}
-	auto *colorPtr = new Color(self->color);
-	JSValue obj = JS_NewObjectClass(ctx, Color::clsId(JS_GetRuntime(ctx)));
-	if (JS_IsException(obj)) {
-		return obj;
-	}
-	JS_SetOpaque(obj, colorPtr);
-	return obj;
-}
-
-JSValue RectContent_setColor(
-	JSContext *ctx, JSValueConst this_val, JSValueConst val
-) noexcept {
-	auto *self = RectContent::unwrap(ctx, this_val);
-	if (!self) {
-		return JS_UNDEFINED;
-	}
-	auto result = Color::interpret(ctx, val);
-	if (!result) {
-		return JS_ThrowTypeError(ctx, "%s", result.error());
-	}
-	self->color = *result;
-	return JS_UNDEFINED;
-}
-
-static const JSCFunctionListEntry RECT_CONTENT_PROTO[] = {
-	cGetSetDef("color", RectContent_getColor, RectContent_setColor),
-	propStringDef("[Symbol.toStringTag]", "RectContent", JS_PROP_CONFIGURABLE),
 };
 
 } // anonymous namespace
@@ -435,26 +418,6 @@ void SpriteContent::finalize(JSRuntime *rt, JSValue val) noexcept {
 	}
 	JS_FreeValueRT(rt, self->textureVal);
 	delete self;
-}
-
-const CFunctionList RectContent::PROTO_FIELDS{RECT_CONTENT_PROTO};
-
-JSValue RectContent::ctor(
-	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-) noexcept {
-	auto self = std::make_unique<RectContent>();
-	if (argc > 0) {
-		auto result = Color::interpret(ctx, argv[0]);
-		if (result) {
-			self->color = *result;
-		}
-	}
-	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
-	if (JS_IsException(obj)) {
-		return obj;
-	}
-	JS_SetOpaque(obj, self.release());
-	return obj;
 }
 
 namespace {
@@ -1070,9 +1033,6 @@ JSValue LayoutNode_setContent(
 		self->content = tc;
 	} else if (auto *sc = SpriteContent::unwrap(ctx, val)) {
 		self->content = sc;
-	} else if (auto *rc = RectContent::unwrap(ctx, val)) {
-		self->content = rc;
-		canMeasure = false;
 	} else {
 		self->content.reset();
 		canMeasure = false;
@@ -1100,13 +1060,7 @@ JSValue LayoutNode_getBgColor(JSContext *ctx, JSValueConst this_val) noexcept {
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	auto *colorPtr = new Color(self->backgroundColor);
-	JSValue obj = JS_NewObjectClass(ctx, Color::clsId(JS_GetRuntime(ctx)));
-	if (JS_IsException(obj)) {
-		return obj;
-	}
-	JS_SetOpaque(obj, colorPtr);
-	return obj;
+	return JS_DupValue(ctx, self->backgroundColor);
 }
 
 JSValue LayoutNode_setBgColor(
@@ -1116,11 +1070,14 @@ JSValue LayoutNode_setBgColor(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	auto result = Color::interpret(ctx, val);
-	if (!result) {
-		return JS_ThrowTypeError(ctx, "%s", result.error());
+
+	auto color_object = Color::interpretAsValue(ctx, val);
+	if (!color_object) {
+		return JS_ThrowTypeError(ctx, "%s", color_object.error());
 	}
-	self->backgroundColor = *result;
+
+	JS_FreeValue(ctx, self->backgroundColor);
+	self->backgroundColor = *color_object;
 	return JS_UNDEFINED;
 }
 
@@ -1323,6 +1280,7 @@ void LayoutNode::gcMark(
 		return;
 	}
 	JS_MarkValue(rt, self->contentVal, mark_func);
+	JS_MarkValue(rt, self->backgroundColor, mark_func);
 	for (const auto &child : self->children) {
 		JS_MarkValue(rt, child.val, mark_func);
 	}
@@ -1334,6 +1292,7 @@ void LayoutNode::finalize(JSRuntime *rt, JSValue val) noexcept {
 		return;
 	}
 	JS_FreeValueRT(rt, self->contentVal);
+	JS_FreeValueRT(rt, self->backgroundColor);
 	for (auto &child : self->children) {
 		JS_FreeValueRT(rt, child.val);
 	}

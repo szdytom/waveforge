@@ -13,22 +13,22 @@
 
 namespace wf::js {
 
-namespace _layout_dispatch {
+namespace _dispatch {
 
 PRO_DEF_MEM_DISPATCH(MemContentMeasure, measure);
 PRO_DEF_MEM_DISPATCH(MemContentRender, render);
 
-} // namespace _layout_dispatch
+} // namespace _dispatch
 
 /* clang-format off */
 struct ContentFacade : pro::facade_builder
 	::add_convention<
-		_layout_dispatch::MemContentMeasure,
+		_dispatch::MemContentMeasure,
 		YGSize(YGMeasureMode, float, YGMeasureMode, float) const
 	>
 	::add_convention<
-		_layout_dispatch::MemContentRender,
-		void(sf::RenderTarget&, int, float, float, float, float) const
+		_dispatch::MemContentRender,
+		void(sf::RenderTarget&, JSContext*, int, float, float, float, float) const
 	>
 	::support_relocation<pro::constraint_level::nontrivial>
 	::build {};
@@ -42,17 +42,25 @@ struct TextContent final : BindingBase<TextContent> {
 	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
+	static void gcMark(
+		JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
+	) noexcept;
+	static void finalize(JSRuntime *rt, JSValue val) noexcept;
 
 	std::string text;
 	int size = 1;
-	sf::Color color{0, 0, 0};
+	JSValue color = JS_NULL;
+	sf::Color _nativeColor{0, 0, 0};
 
 	// ContentFacade implementation
 	[[nodiscard]] int charWidth() const noexcept;
 	[[nodiscard]] int charHeight() const noexcept;
 
+	[[nodiscard]] sf::Color nativeColor(JSContext *ctx) const noexcept;
 	YGSize measure(YGMeasureMode, float, YGMeasureMode, float) const noexcept;
-	void render(sf::RenderTarget &, int, float, float, float, float) const;
+	void render(
+		sf::RenderTarget &, JSContext *, int, float, float, float, float
+	) const;
 };
 
 struct SpriteContent final : BindingBase<SpriteContent> {
@@ -75,23 +83,9 @@ struct SpriteContent final : BindingBase<SpriteContent> {
 
 	// ContentFacade implementation
 	YGSize measure(YGMeasureMode, float, YGMeasureMode, float) const noexcept;
-	void render(sf::RenderTarget &, int, float, float, float, float) const;
-};
-
-struct RectContent final : BindingBase<RectContent> {
-	static constexpr const char *CLASS_NAME = "RectContent";
-	static constexpr int CTOR_LENGTH = 1;
-	static const CFunctionList PROTO_FIELDS;
-
-	[[nodiscard]] static JSValue ctor(
-		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-	) noexcept;
-
-	sf::Color color{0, 0, 0, 0};
-
-	// ContentFacade implementation
-	YGSize measure(YGMeasureMode, float, YGMeasureMode, float) const noexcept;
-	void render(sf::RenderTarget &, int, float, float, float, float) const;
+	void render(
+		sf::RenderTarget &, JSContext *, int, float, float, float, float
+	) const;
 };
 
 struct LayoutNode final : BindingBase<LayoutNode> {
@@ -116,15 +110,15 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 	void removeChild(JSContext *, LayoutNode *);
 
 	void calculateLayout(float availWidth, float availHeight);
-	void render(sf::RenderTarget &, int) const;
-	void render(sf::RenderTarget &, int, float, float) const;
+	void render(sf::RenderTarget &, JSContext *, int) const;
+	void render(sf::RenderTarget &, JSContext *, int, float, float) const;
 
 	// -- data members --
 	facebook::yoga::Node yogaNode;
 
 	pro::proxy_view<ContentFacade> content;
 	JSValue contentVal = JS_NULL;
-	sf::Color backgroundColor{0, 0, 0, 0};
+	JSValue backgroundColor = JS_NULL;
 	std::vector<ChildEntry> children;
 };
 

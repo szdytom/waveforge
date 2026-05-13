@@ -140,6 +140,36 @@ WF_JS_METHOD(Color, toString, { return colorToString(ctx, self->color); })
 
 Color::Color(sf::Color color) noexcept: color(color) {}
 
+std::optional<sf::Color> Color::fromValue(JSContext *ctx, JSValueConst val) {
+	if (auto *self = Color::unwrap(ctx, val)) {
+		return self->color;
+	}
+	return std::nullopt;
+}
+
+std::expected<JSValue, const char *> Color::interpretAsValue(
+	JSContext *ctx, JSValueConst val
+) {
+	if (auto *self = Color::unwrap(ctx, val)) {
+		return JS_DupValue(ctx, val);
+	}
+
+	return interpret(ctx, val).transform([ctx](sf::Color c) {
+		return toValue(ctx, c);
+	});
+}
+
+JSValue Color::toValue(JSContext *ctx, sf::Color color) {
+	auto self = std::make_unique<Color>(color);
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
+	}
+	JS_SetOpaque(obj, self.get());
+	self.release();
+	return obj;
+}
+
 static const JSCFunctionListEntry PROTO_FIELDS_DATA[] = {
 	cGetSetDef("r", Color_getR, Color_setR),
 	cGetSetDef("g", Color_getG, Color_setG),
@@ -186,14 +216,7 @@ JSValue Color::ctor(
 		);
 	}
 
-	auto self = std::make_unique<Color>(c);
-	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
-	if (JS_IsException(obj)) {
-		return obj;
-	}
-	JS_SetOpaque(obj, self.get());
-	self.release();
-	return obj;
+	return toValue(ctx, c);
 }
 
 [[nodiscard]] std::expected<sf::Color, const char *> Color::interpret(

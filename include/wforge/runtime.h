@@ -252,6 +252,14 @@ struct Color final : BindingBase<Color> {
 	[[nodiscard]] static std::expected<sf::Color, const char *> interpret(
 		JSContext *ctx, JSValueConst val
 	);
+	[[nodiscard]] static std::expected<JSValue, const char *> interpretAsValue(
+		JSContext *ctx, JSValueConst val
+	);
+
+	[[nodiscard]] static std::optional<sf::Color> fromValue(
+		JSContext *ctx, JSValueConst val
+	);
+	[[nodiscard]] static JSValue toValue(JSContext *ctx, sf::Color color);
 };
 
 namespace _dispatch {
@@ -262,7 +270,7 @@ PRO_DEF_MEM_DISPATCH(MemDrawRender, render);
 
 /* clang-format off */
 struct DrawCmdFacade : pro::facade_builder
-	::add_convention<_dispatch::MemDrawRender, void(sf::RenderTarget&, int) const>
+	::add_convention<_dispatch::MemDrawRender, void(sf::RenderTarget&, JSContext*, int) const>
 	::support_relocation<pro::constraint_level::nontrivial>
 	::build {};
 /* clang-format on */
@@ -275,16 +283,21 @@ struct DrawTextCmd final : BindingBase<DrawTextCmd> {
 	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
+	static void gcMark(
+		JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
+	) noexcept;
+	static void finalize(JSRuntime *rt, JSValue val) noexcept;
 
 	std::string text;
 	int x;
 	int y;
 	int size;
-	sf::Color color;
+	JSValue color = JS_NULL;
 
 	DrawTextCmd(std::string text, int x, int y) noexcept;
 
-	void render(sf::RenderTarget &target, int scale) const;
+	[[nodiscard]] sf::Color nativeColor(JSContext *ctx) const noexcept;
+	void render(sf::RenderTarget &target, JSContext *ctx, int scale) const;
 };
 
 struct DrawSpriteCmd final : BindingBase<DrawSpriteCmd> {
@@ -310,7 +323,7 @@ struct DrawSpriteCmd final : BindingBase<DrawSpriteCmd> {
 		JSValue textureVal, sf::Texture *texture, int x, int y
 	) noexcept;
 
-	void render(sf::RenderTarget &target, int scale) const;
+	void render(sf::RenderTarget &target, JSContext *ctx, int scale) const;
 };
 
 struct DrawRectCmd final : BindingBase<DrawRectCmd> {
@@ -321,16 +334,21 @@ struct DrawRectCmd final : BindingBase<DrawRectCmd> {
 	[[nodiscard]] static JSValue ctor(
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
+	static void gcMark(
+		JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
+	) noexcept;
+	static void finalize(JSRuntime *rt, JSValue val) noexcept;
 
 	int x;
 	int y;
 	int width;
 	int height;
-	sf::Color color;
+	JSValue color = JS_NULL;
 
 	DrawRectCmd(int x, int y, int width, int height) noexcept;
 
-	void render(sf::RenderTarget &target, int scale) const;
+	[[nodiscard]] sf::Color nativeColor(JSContext *ctx) const noexcept;
+	void render(sf::RenderTarget &target, JSContext *ctx, int scale) const;
 };
 
 struct DrawCmdList final : BindingBase<DrawCmdList> {
@@ -352,7 +370,7 @@ struct DrawCmdList final : BindingBase<DrawCmdList> {
 		pro::proxy_view<DrawCmdFacade> cmd;
 	};
 
-	void render(sf::RenderTarget &target, int scale) const;
+	void render(sf::RenderTarget &target, JSContext *ctx, int scale) const;
 
 	std::vector<DrawCmdEntry> cmds;
 };
