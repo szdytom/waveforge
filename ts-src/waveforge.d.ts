@@ -105,8 +105,13 @@ declare namespace waveforge {
 		backgroundColor: ColorLike;
 
 		// tree
+		readonly childCount: number;
+		readonly firstChild: LayoutNode | undefined;
+		readonly lastChild: LayoutNode | undefined;
 		appendChild(child: LayoutNode): void;
 		removeChild(child: LayoutNode): void;
+		insertBefore(newChild: LayoutNode, referenceChild?: LayoutNode): void;
+		replaceChild(newChild: LayoutNode, oldChild: LayoutNode): void;
 
 		constructor();
 	}

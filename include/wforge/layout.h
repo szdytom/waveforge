@@ -109,6 +109,8 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 
 	void appendChild(JSContext *, LayoutNode *, JSValue);
 	void removeChild(JSContext *, LayoutNode *);
+	void insertBefore(JSContext *, LayoutNode *, JSValue, LayoutNode *);
+	void replaceChild(JSContext *, LayoutNode *, JSValue, LayoutNode *);
 
 	void calculateLayout(float avail_width, float avail_height);
 	void render(sf::RenderTarget &, JSContext *, int) const;
