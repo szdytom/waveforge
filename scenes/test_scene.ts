@@ -1,5 +1,3 @@
-/// <reference path="./waveforge.d.ts" />
-import { setTimeout } from "./timer";
 
 const WIDTH = 256;
 const HEIGHT = 192;
@@ -27,17 +25,6 @@ queueMicrotask(() => {
 });
 
 // setTimeout demo: after 2s, turn background red
-setTimeout(() => {
-	waveforge.log("2 seconds elapsed — changing background to red");
-	bgRect.color = "#ff6464";
-}, 2000);
-
-// setTimeout demo: after 5s, restore background and schedule interval
-setTimeout(() => {
-	waveforge.log("5 seconds elapsed — restoring background, setting interval");
-	bgRect.color = "#dcf0ff";
-}, 5000);
-
 waveforge.addEventListener('step', () => {
 	frameCount++;
 	x += dx;
@@ -60,3 +47,5 @@ waveforge.addEventListener('key', (event) => {
 waveforge.addEventListener('mousebutton', (event) => {
 	waveforge.log(`Mouse ${event.type} at (${event.x}, ${event.y})`);
 });
+
+export {};

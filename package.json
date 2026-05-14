@@ -1,0 +1,18 @@
+{
+  "name": "waveforge-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "format": "./scripts/format-c.sh",
+    "clean": "rm -rf assets/bundled-js/*"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0"
+  }
+}

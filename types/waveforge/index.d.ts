@@ -1,3 +1,10 @@
+// ── *.txt module declaration ──
+declare module '*.txt' {
+	const content: string;
+	export default content;
+}
+
+// ── waveforge runtime namespace (exposed by C++ host) ──
 declare namespace waveforge {
 	function log(message: string): void;
 
@@ -31,7 +38,6 @@ declare namespace waveforge {
 		| [number, number, number, number];
 
 	class LayoutNode {
-		// size (number for points, string for "auto" or "<n>%", undefined for unset)
 		width: number | string | undefined;
 		height: number | string | undefined;
 		minWidth: number | string | undefined;
@@ -39,7 +45,6 @@ declare namespace waveforge {
 		minHeight: number | string | undefined;
 		maxHeight: number | string | undefined;
 
-		// flexbox layout (set with string values e.g. "row", "center")
 		direction: "inherit" | "ltr" | "rtl";
 		flexDirection: "column" | "columnReverse" | "row" | "rowReverse";
 		justifyContent:
@@ -84,12 +89,10 @@ declare namespace waveforge {
 		display: "flex" | "none" | "contents";
 		positionType: "static" | "relative" | "absolute";
 
-		// flex
 		flex: number;
 		flexGrow: number;
 		flexShrink: number;
 
-		// content
 		content: TextContent | SpriteContent | null;
 		contentAlignH: "left" | "center" | "right";
 		contentAlignV: "top" | "horizon" | "bottom";
@@ -102,13 +105,11 @@ declare namespace waveforge {
 		paddingTop: number | string | undefined;
 		paddingBottom: number | string | undefined;
 
-		// position
 		left: number | string | undefined;
 		right: number | string | undefined;
 		top: number | string | undefined;
 		bottom: number | string | undefined;
 
-		// border
 		borderLeft: number | undefined;
 		borderRight: number | undefined;
 		borderTop: number | undefined;
@@ -123,11 +124,9 @@ declare namespace waveforge {
 		get borderBottomColor(): Color | undefined;
 		set borderBottomColor(value: ColorLike | undefined);
 
-		// background
 		get backgroundColor(): Color | undefined;
 		set backgroundColor(value: ColorLike | undefined);
 
-		// tree
 		readonly childCount: number;
 		readonly firstChild: LayoutNode | undefined;
 		readonly lastChild: LayoutNode | undefined;
@@ -168,7 +167,6 @@ declare namespace waveforge {
 
 		constructor(text: string, size?: number, color?: ColorLike);
 	}
-
 
 	class SpriteContent {
 		texture: Texture;
@@ -253,14 +251,8 @@ declare namespace waveforge {
 	type SceneEvent = KeyEvent | MouseButtonEvent | MouseMoveEvent;
 }
 
+// ── performance API ──
 interface Performance {
 	now(): number;
 }
 declare var performance: Performance;
-
-declare module "./timer" {
-	export function setTimeout(callback: () => void, delayMs?: number): number;
-	export function clearTimeout(id: number): void;
-	export function setInterval(callback: () => void, intervalMs?: number): number;
-	export function clearInterval(id: number): void;
-}

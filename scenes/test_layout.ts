@@ -1,4 +1,3 @@
-/// <reference path="./waveforge.d.ts" />
 
 const W = 256;
 const H = 192;
@@ -178,3 +177,5 @@ waveforge.addEventListener('step', () => {
 waveforge.addEventListener('mousebutton', (event) => {
 	handleClick(event);
 });
+
+export {};
