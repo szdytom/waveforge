@@ -145,15 +145,16 @@ void SpriteContent::render(
 // ===== LayoutNode =====
 
 LayoutNode::LayoutNode() {
-	yoga_node.setContext(this);
+	YGNodeSetContext(&yoga_node, this);
 }
 
 void LayoutNode::appendChild(
 	JSContext *ctx, LayoutNode *child, JSValue childVal
 ) {
 	children.push_back({JS_DupValue(ctx, childVal), child});
-	yoga_node.insertChild(&child->yoga_node, yoga_node.getChildCount());
-	child->yoga_node.setOwner(&yoga_node);
+	YGNodeInsertChild(
+		&yoga_node, &child->yoga_node, YGNodeGetChildCount(&yoga_node)
+	);
 }
 
 void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
@@ -164,7 +165,42 @@ void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
 			break;
 		}
 	}
-	yoga_node.removeChild(&child->yoga_node);
+	YGNodeRemoveChild(&yoga_node, &child->yoga_node);
+}
+
+void LayoutNode::insertBefore(
+	JSContext *ctx, LayoutNode *newChild, JSValue newChildVal,
+	LayoutNode *referenceChild
+) {
+	if (referenceChild) {
+		for (size_t i = 0; i < children.size(); i++) {
+			if (children[i].node == referenceChild) {
+				children.insert(
+					children.begin() + static_cast<ssize_t>(i),
+					{JS_DupValue(ctx, newChildVal), newChild}
+				);
+				YGNodeInsertChild(&yoga_node, &newChild->yoga_node, i);
+				return;
+			}
+		}
+	}
+	// referenceChild not found or null → append
+	appendChild(ctx, newChild, newChildVal);
+}
+
+void LayoutNode::replaceChild(
+	JSContext *ctx, LayoutNode *newChild, JSValue newChildVal,
+	LayoutNode *oldChild
+) {
+	for (size_t i = 0; i < children.size(); i++) {
+		if (children[i].node == oldChild) {
+			JS_FreeValue(ctx, children[i].val);
+			children[i] = {JS_DupValue(ctx, newChildVal), newChild};
+			YGNodeRemoveChild(&yoga_node, &oldChild->yoga_node);
+			YGNodeInsertChild(&yoga_node, &newChild->yoga_node, i);
+			return;
+		}
+	}
 }
 
 void LayoutNode::calculateLayout(float availWidth, float availHeight) {
@@ -181,12 +217,10 @@ void LayoutNode::render(
 	sf::RenderTarget &target, JSContext *ctx, int scale, float parentX,
 	float parentY
 ) const {
-	using namespace facebook::yoga;
-	auto &layout = yoga_node.getLayout();
-	float abs_x = parentX + layout.position(PhysicalEdge::Left);
-	float abs_y = parentY + layout.position(PhysicalEdge::Top);
-	float w = layout.dimension(Dimension::Width);
-	float h = layout.dimension(Dimension::Height);
+	float abs_x = parentX + YGNodeLayoutGetLeft(&yoga_node);
+	float abs_y = parentY + YGNodeLayoutGetTop(&yoga_node);
+	float w = YGNodeLayoutGetWidth(&yoga_node);
+	float h = YGNodeLayoutGetHeight(&yoga_node);
 
 	if (auto bg_color = Color::fromValue(ctx, background_color);
 	    bg_color && bg_color->a > 0) {
@@ -244,8 +278,10 @@ void LayoutNode::render(
 		content->render(target, ctx, scale, abs_x, abs_y, w, h);
 	}
 
-	for (auto *childNode : yoga_node.getChildren()) {
-		auto *child = static_cast<LayoutNode *>(childNode->getContext());
+	for (size_t i = 0, n = YGNodeGetChildCount(&yoga_node); i < n; i++) {
+		auto *child = static_cast<LayoutNode *>(YGNodeGetContext(
+			YGNodeGetChild(const_cast<facebook::yoga::Node *>(&yoga_node), i)
+		));
 		child->render(target, ctx, scale, abs_x, abs_y);
 	}
 }
@@ -258,8 +294,7 @@ YGSize yogaMeasureFunc(
 	YGNodeConstRef node, float width, YGMeasureMode width_mode, float height,
 	YGMeasureMode height_mode
 ) noexcept {
-	auto *yoga_node = facebook::yoga::resolveRef(node);
-	auto *self = static_cast<LayoutNode *>(yoga_node->getContext());
+	auto *self = static_cast<LayoutNode *>(YGNodeGetContext(node));
 	if (self->content.has_value()) {
 		return self->content->measure(width_mode, width, height_mode, height);
 	}
@@ -1337,7 +1372,32 @@ JSValue LayoutNode_setEdgeProp(
 	);
 }
 
-// -- tree --
+// -- tree getters --
+WF_JS_DEF_GETTER_I32(
+	LayoutNode, getChildCount, static_cast<int32_t>(self->children.size())
+)
+
+JSValue LayoutNode_getFirstChild(
+	JSContext *ctx, JSValueConst this_val
+) noexcept {
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self || self->children.empty()) {
+		return JS_UNDEFINED;
+	}
+	return JS_DupValue(ctx, self->children.front().val);
+}
+
+JSValue LayoutNode_getLastChild(
+	JSContext *ctx, JSValueConst this_val
+) noexcept {
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self || self->children.empty()) {
+		return JS_UNDEFINED;
+	}
+	return JS_DupValue(ctx, self->children.back().val);
+}
+
+// -- tree methods --
 WF_JS_METHOD(LayoutNode, appendChild, {
 	auto *child = LayoutNode::unwrap(ctx, argv[0]);
 	if (!child) {
@@ -1353,6 +1413,37 @@ WF_JS_METHOD(LayoutNode, removeChild, {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
 	self->removeChild(ctx, child);
+	return JS_UNDEFINED;
+})
+
+WF_JS_METHOD(LayoutNode, insertBefore, {
+	auto *newChild = LayoutNode::unwrap(ctx, argv[0]);
+	if (!newChild) {
+		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
+	}
+	LayoutNode *referenceChild = nullptr;
+	if (argc > 1 && !JS_IsUndefined(argv[1]) && !JS_IsNull(argv[1])) {
+		referenceChild = LayoutNode::unwrap(ctx, argv[1]);
+		if (!referenceChild) {
+			return JS_ThrowTypeError(
+				ctx, "Expected a LayoutNode as second argument"
+			);
+		}
+	}
+	self->insertBefore(ctx, newChild, argv[0], referenceChild);
+	return JS_UNDEFINED;
+})
+
+WF_JS_METHOD(LayoutNode, replaceChild, {
+	auto *newChild = LayoutNode::unwrap(ctx, argv[0]);
+	if (!newChild) {
+		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
+	}
+	auto *oldChild = LayoutNode::unwrap(ctx, argv[1]);
+	if (!oldChild) {
+		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
+	}
+	self->replaceChild(ctx, newChild, argv[0], oldChild);
 	return JS_UNDEFINED;
 })
 
@@ -1529,6 +1620,15 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 
 	cFuncDef("appendChild", 1, LayoutNode_appendChild),
 	cFuncDef("removeChild", 1, LayoutNode_removeChild),
+
+	// tree getters (read-only, no setter)
+	cGetSetDef("childCount", LayoutNode_getChildCount, nullptr),
+	cGetSetDef("firstChild", LayoutNode_getFirstChild, nullptr),
+	cGetSetDef("lastChild", LayoutNode_getLastChild, nullptr),
+
+	// tree methods
+	cFuncDef("insertBefore", 2, LayoutNode_insertBefore),
+	cFuncDef("replaceChild", 2, LayoutNode_replaceChild),
 
 	propStringDef("[Symbol.toStringTag]", "LayoutNode", JS_PROP_CONFIGURABLE),
 };
