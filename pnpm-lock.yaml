@@ -20,6 +20,9 @@ importers:
       '@waveforge/renderer':
         specifier: workspace:*
         version: link:../renderer
+      '@waveforge/styles':
+        specifier: workspace:*
+        version: link:../styles
       react:
         specifier: ^19.0.0
         version: 19.2.6
@@ -47,6 +50,8 @@ importers:
         specifier: ^0.31.0
         version: 0.31.0(@types/react@19.2.14)
 
+  packages/styles: {}
+
   packages/timer: {}
 
   scenes:
@@ -57,6 +62,9 @@ importers:
       '@waveforge/renderer':
         specifier: workspace:*
         version: link:../packages/renderer
+      '@waveforge/styles':
+        specifier: workspace:*
+        version: link:../packages/styles
       '@waveforge/timer':
         specifier: workspace:*
         version: link:../packages/timer

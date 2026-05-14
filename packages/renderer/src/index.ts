@@ -220,7 +220,12 @@ function setupEngine(): void {
 
 // ── Public API ──
 
-export function render(element: any, rootNode: waveforge.LayoutNode): any {
+export function render(element: any, rootNode?: waveforge.LayoutNode): any {
+	if (!rootNode) {
+		rootNode = new waveforge.LayoutNode();
+		rootNode.width = waveforge.width;
+		rootNode.height = waveforge.height;
+	}
 	_currentRoot = rootNode;
 	setupEngine();
 

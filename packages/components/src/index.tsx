@@ -1,18 +1,13 @@
 import React from 'react';
 import { View, Text } from '@waveforge/renderer';
+import { style, padding, contentAlignH, contentAlignV } from '@waveforge/styles';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'accent';
 
-const VARIANT_STYLES: Record<ButtonVariant, Record<string, any>> = {
-	primary: {
-		backgroundColor: '#4ecdc4',
-	},
-	secondary: {
-		backgroundColor: '#ff6b6b',
-	},
-	accent: {
-		backgroundColor: '#ffd93d',
-	},
+const VARIANT_BG: Record<ButtonVariant, string> = {
+	primary: '#4ecdc4',
+	secondary: '#ff6b6b',
+	accent: '#ffd93d',
 };
 
 export interface ButtonProps {
@@ -22,23 +17,17 @@ export interface ButtonProps {
 	style?: Record<string, any>;
 }
 
-export function Button({ label, onClick, variant = 'primary', style }: ButtonProps) {
-	const merged = {
-		...VARIANT_STYLES[variant],
-		...style,
-	};
+export function Button({ label, onClick, variant = 'primary', style: extra }: ButtonProps) {
 	return (
 		<View
 			onClick={onClick}
-			style={{
-				paddingTop: 4,
-				paddingRight: 14,
-				paddingBottom: 4,
-				paddingLeft: 14,
-				contentAlignH: 'center',
-				contentAlignV: 'horizon',
-				...merged,
-			}}
+			style={style(
+				padding(4, 14),
+				contentAlignH('center'),
+				contentAlignV('horizon'),
+				{ backgroundColor: VARIANT_BG[variant] },
+				extra,
+			)}
 		>
 			<Text>{label}</Text>
 		</View>
