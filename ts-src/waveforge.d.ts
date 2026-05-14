@@ -83,6 +83,8 @@ declare namespace waveforge {
 
 		// content
 		content: TextContent | SpriteContent | null;
+		contentAlignH: "left" | "center" | "right";
+		contentAlignV: "top" | "horizon" | "bottom";
 		marginLeft: number | string | undefined;
 		marginRight: number | string | undefined;
 		marginTop: number | string | undefined;

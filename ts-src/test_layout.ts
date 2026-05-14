@@ -12,9 +12,7 @@ const duck = new waveforge.Texture("duck/texture");
 const cmds = new waveforge.DrawCmdList();
 cmds.push(fpsText);
 
-function createNode(
-	props: Partial<waveforge.LayoutNode>,
-): waveforge.LayoutNode {
+function createNode(props: any): waveforge.LayoutNode {
 	const node = new waveforge.LayoutNode();
 	Object.assign(node, props);
 	return node;
@@ -119,6 +117,8 @@ function buildLayout(): waveforge.LayoutNode {
 			paddingBottom: 2,
 			paddingLeft: 6,
 			backgroundColor: "#3c465a",
+			contentAlignH: "center",
+			contentAlignV: "horizon",
 		});
 		footer.appendChild(btn);
 		buttonNodes.push(btn);
@@ -164,7 +164,9 @@ function handleClick(event: waveforge.MouseButtonEvent): void {
 	// Check if a button was clicked
 	const btnIndex = buttonNodes.indexOf(target);
 	if (btnIndex >= 0) {
-		waveforge.log(`  → BUTTON "${["PLAY", "HELP", "EXIT"][btnIndex]}" clicked!`);
+		waveforge.log(
+			`  → BUTTON "${["PLAY", "HELP", "EXIT"][btnIndex]}" clicked!`,
+		);
 	}
 }
 

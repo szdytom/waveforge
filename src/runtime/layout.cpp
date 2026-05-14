@@ -26,10 +26,6 @@ float resolveDim(float intrinsic, float avail, YGMeasureMode mode) noexcept {
 	}
 }
 
-} // namespace
-
-namespace {
-
 YGConfigRef pixelConfig() noexcept {
 	static YGConfigRef config = []() noexcept {
 		YGConfigRef cfg = YGConfigNew();
@@ -116,7 +112,37 @@ void TextContent::render(
 	sf::RenderTarget &target, JSContext *ctx, LayoutParameters lp
 ) const {
 	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
-	font.renderText(target, text, nativeColor(ctx), lp.x, lp.y, lp.scale, size);
+
+	auto align = lp.align;
+	int textW = static_cast<int>(text.length()) * charWidth();
+	int textH = charHeight();
+
+	int dx = 0;
+	switch (align.h) {
+	case ContentAlignH::Center:
+		dx = (lp.w - textW) / 2;
+		break;
+	case ContentAlignH::Right:
+		dx = lp.w - textW;
+		break;
+	default:
+		break;
+	}
+	int dy = 0;
+	switch (align.v) {
+	case ContentAlignV::Horizon:
+		dy = (lp.h - textH) / 2;
+		break;
+	case ContentAlignV::Bottom:
+		dy = lp.h - textH;
+		break;
+	default:
+		break;
+	}
+
+	font.renderText(
+		target, text, nativeColor(ctx), lp.x + dx, lp.y + dy, lp.scale, size
+	);
 }
 
 sf::Color TextContent::nativeColor(JSContext *ctx) const noexcept {
@@ -138,8 +164,37 @@ YGSize SpriteContent::measure(
 void SpriteContent::render(
 	sf::RenderTarget &target, JSContext * /*ctx*/, LayoutParameters lp
 ) const {
+	auto align = lp.align;
+	int spriteW = static_cast<int>(texture->getSize().x) * size;
+	int spriteH = static_cast<int>(texture->getSize().y) * size;
+
+	int dx = 0;
+	switch (align.h) {
+	case ContentAlignH::Center:
+		dx = (lp.w - spriteW) / 2;
+		break;
+	case ContentAlignH::Right:
+		dx = lp.w - spriteW;
+		break;
+	default:
+		break;
+	}
+	int dy = 0;
+	switch (align.v) {
+	case ContentAlignV::Horizon:
+		dy = (lp.h - spriteH) / 2;
+		break;
+	case ContentAlignV::Bottom:
+		dy = lp.h - spriteH;
+		break;
+	default:
+		break;
+	}
+
 	sf::Sprite sprite(*texture);
-	sprite.setPosition(sf::Vector2f(lp.x * lp.scale, lp.y * lp.scale));
+	sprite.setPosition(
+		sf::Vector2f((lp.x + dx) * lp.scale, (lp.y + dy) * lp.scale)
+	);
 	sprite.setScale(sf::Vector2f(size * lp.scale, size * lp.scale));
 	target.draw(sprite);
 }
@@ -277,7 +332,11 @@ void LayoutNode::_drawBackground(
 void LayoutNode::_drawBorders(
 	sf::RenderTarget &target, JSContext *ctx, const LayoutParameters &lp
 ) const {
-	auto &[scale, abs_x, abs_y, w, h] = lp;
+	const auto &scale = lp.scale;
+	const auto &abs_x = lp.x;
+	const auto &abs_y = lp.y;
+	const auto &w = lp.w;
+	const auto &h = lp.h;
 
 	static constexpr YGEdge BORDER_EDGES[4] = {
 		YGEdgeLeft,
@@ -330,7 +389,27 @@ void LayoutNode::render(
 	_drawBorders(target, ctx, lp);
 
 	if (content.has_value()) {
-		content->render(target, ctx, lp);
+		auto padLeft = static_cast<int>(
+			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeLeft))
+		);
+		auto padTop = static_cast<int>(
+			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeTop))
+		);
+		auto padRight = static_cast<int>(
+			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeRight))
+		);
+		auto padBottom = static_cast<int>(
+			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeBottom))
+		);
+		LayoutParameters content_lp{
+			.scale = lp.scale,
+			.x = lp.x + padLeft,
+			.y = lp.y + padTop,
+			.w = std::max(0, lp.w - padLeft - padRight),
+			.h = std::max(0, lp.h - padTop - padBottom),
+			.align = content_align,
+		};
+		content->render(target, ctx, content_lp);
 	}
 
 	for (size_t i = 0, n = YGNodeGetChildCount(&yoga_node); i < n; i++) {
@@ -781,6 +860,8 @@ enum class LayoutProp {
 	Flex,
 	FlexGrow,
 	FlexShrink,
+	ContentAlignH,
+	ContentAlignV,
 };
 
 // -- string conversion helpers for enum properties --
@@ -1018,6 +1099,48 @@ YGPositionType stringToPositionType(std::string_view s) noexcept {
 	return YGPositionTypeStatic;
 }
 
+constexpr const char *contentAlignHToString(ContentAlignH v) noexcept {
+	switch (v) {
+	case ContentAlignH::Center:
+		return "center";
+	case ContentAlignH::Right:
+		return "right";
+	default:
+		return "left";
+	}
+}
+
+ContentAlignH stringToContentAlignH(std::string_view s) noexcept {
+	if (s == "center") {
+		return ContentAlignH::Center;
+	}
+	if (s == "right") {
+		return ContentAlignH::Right;
+	}
+	return ContentAlignH::Left;
+}
+
+constexpr const char *contentAlignVToString(ContentAlignV v) noexcept {
+	switch (v) {
+	case ContentAlignV::Horizon:
+		return "horizon";
+	case ContentAlignV::Bottom:
+		return "bottom";
+	default:
+		return "top";
+	}
+}
+
+ContentAlignV stringToContentAlignV(std::string_view s) noexcept {
+	if (s == "horizon") {
+		return ContentAlignV::Horizon;
+	}
+	if (s == "bottom") {
+		return ContentAlignV::Bottom;
+	}
+	return ContentAlignV::Top;
+}
+
 JSValue LayoutNode_getEnumProp(
 	JSContext *ctx, JSValueConst this_val, int magic
 ) noexcept {
@@ -1074,6 +1197,10 @@ JSValue LayoutNode_getEnumProp(
 		return JS_NewFloat64(ctx, YGNodeStyleGetFlexGrow(&self->yoga_node));
 	case LayoutProp::FlexShrink:
 		return JS_NewFloat64(ctx, YGNodeStyleGetFlexShrink(&self->yoga_node));
+	case LayoutProp::ContentAlignH:
+		return JS_NewString(ctx, contentAlignHToString(self->content_align.h));
+	case LayoutProp::ContentAlignV:
+		return JS_NewString(ctx, contentAlignVToString(self->content_align.v));
 	}
 	return JS_UNDEFINED;
 }
@@ -1123,6 +1250,12 @@ JSValue LayoutNode_setEnumPropStr(
 		break;
 	case LayoutProp::PositionType:
 		YGNodeStyleSetPositionType(&self->yoga_node, stringToPositionType(sv));
+		break;
+	case LayoutProp::ContentAlignH:
+		self->content_align.h = stringToContentAlignH(sv);
+		break;
+	case LayoutProp::ContentAlignV:
+		self->content_align.v = stringToContentAlignV(sv);
 		break;
 	default:
 		break;
@@ -1743,6 +1876,16 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 	cGetSetDef("content", LayoutNode_getContent, LayoutNode_setContent),
 
 	cGetSetDef("backgroundColor", LayoutNode_getBgColor, LayoutNode_setBgColor),
+
+	cGetSetMagicDef(
+		"contentAlignH", LayoutNode_getEnumProp, LayoutNode_setEnumPropStr,
+		static_cast<int16_t>(LayoutProp::ContentAlignH)
+	),
+	cGetSetMagicDef(
+		"contentAlignV", LayoutNode_getEnumProp, LayoutNode_setEnumPropStr,
+		static_cast<int16_t>(LayoutProp::ContentAlignV)
+	),
+
 	cGetSetMagicDef(
 		"marginLeft", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
 		toMagic(EdgeType::Margin, YGEdgeLeft)
