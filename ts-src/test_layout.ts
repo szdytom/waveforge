@@ -20,6 +20,9 @@ function createNode(
 	return node;
 }
 
+// Store references to button nodes for click testing
+const buttonNodes: waveforge.LayoutNode[] = [];
+
 function buildLayout(): waveforge.LayoutNode {
 	const root = createNode({ width: W, height: H, flexDirection: "column" });
 
@@ -109,16 +112,16 @@ function buildLayout(): waveforge.LayoutNode {
 
 	const buttons = ["PLAY", "HELP", "EXIT"];
 	for (const label of buttons) {
-		footer.appendChild(
-			createNode({
-				content: new waveforge.TextContent(label, 1, "#b4c8f0"),
-				paddingTop: 2,
-				paddingRight: 6,
-				paddingBottom: 2,
-				paddingLeft: 6,
-				backgroundColor: "#3c465a",
-			}),
-		);
+		const btn = createNode({
+			content: new waveforge.TextContent(label, 1, "#b4c8f0"),
+			paddingTop: 2,
+			paddingRight: 6,
+			paddingBottom: 2,
+			paddingLeft: 6,
+			backgroundColor: "#3c465a",
+		});
+		footer.appendChild(btn);
+		buttonNodes.push(btn);
 	}
 
 	root.appendChild(header);
@@ -126,6 +129,43 @@ function buildLayout(): waveforge.LayoutNode {
 	root.appendChild(footer);
 
 	return root;
+}
+
+function handleClick(event: waveforge.MouseButtonEvent): void {
+	waveforge.log(`Click at (${event.x}, ${event.y})`);
+
+	const target = layoutRoot.hitTest(event.x, event.y);
+	if (!target) {
+		waveforge.log("  → no node hit");
+		return;
+	}
+
+	const bounds = target.getComputedBounds();
+	if (bounds) {
+		waveforge.log(
+			`  → hit node bounds=(${bounds.x},${bounds.y} ${bounds.width}x${bounds.height})`,
+		);
+	}
+
+	waveforge.log(`  → hasChildNodes: ${target.hasChildNodes()}`);
+
+	const root = target.getRootNode();
+	waveforge.log(`  → root node === layoutRoot: ${root === layoutRoot}`);
+
+	if (target.parent) {
+		const pb = target.parent.getComputedBounds();
+		if (pb) {
+			waveforge.log(
+				`  → parent bounds=(${pb.x},${pb.y} ${pb.width}x${pb.height})`,
+			);
+		}
+	}
+
+	// Check if a button was clicked
+	const btnIndex = buttonNodes.indexOf(target);
+	if (btnIndex >= 0) {
+		waveforge.log(`  → BUTTON "${["PLAY", "HELP", "EXIT"][btnIndex]}" clicked!`);
+	}
 }
 
 waveforge.setupScene({
@@ -136,6 +176,8 @@ waveforge.setupScene({
 	setup() {
 		layoutRoot = buildLayout();
 		waveforge.log("layout test ready");
+		waveforge.log(`root hasChildNodes: ${layoutRoot.hasChildNodes()}`);
+		waveforge.log(`root childCount: ${layoutRoot.childCount}`);
 	},
 
 	step() {
@@ -146,5 +188,11 @@ waveforge.setupScene({
 	render() {
 		waveforge.commitLayout(layoutRoot);
 		waveforge.commitDraw(cmds);
+	},
+
+	handleEvent(event: waveforge.SceneEvent) {
+		if (event.type === "mousedown") {
+			handleClick(event);
+		}
 	},
 });

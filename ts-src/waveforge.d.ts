@@ -121,6 +121,7 @@ declare namespace waveforge {
 		readonly childCount: number;
 		readonly firstChild: LayoutNode | undefined;
 		readonly lastChild: LayoutNode | undefined;
+		readonly parent: LayoutNode | undefined;
 		appendChild(child: LayoutNode): void;
 		removeChild(child: LayoutNode): void;
 		insertBefore(newChild: LayoutNode, referenceChild?: LayoutNode): void;
@@ -128,6 +129,9 @@ declare namespace waveforge {
 		hasChildNodes(): boolean;
 		getRootNode(): LayoutNode;
 		childItem(index: number): LayoutNode | null;
+
+		getComputedBounds(): { x: number; y: number; width: number; height: number } | null;
+		hitTest(x: number, y: number): LayoutNode | null;
 
 		constructor();
 	}

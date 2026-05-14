@@ -1555,6 +1555,108 @@ WF_JS_METHOD(LayoutNode, childItem, {
 	return JS_DupValue(ctx, child->self_val);
 })
 
+JSValue LayoutNode_getParent(JSContext *ctx, JSValueConst this_val) noexcept {
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self || !self->parent) {
+		return JS_UNDEFINED;
+	}
+	return JS_DupValue(ctx, self->parent->self_val);
+}
+
+JSValue LayoutNode_getComputedBounds(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	(void)argc;
+	(void)argv;
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+	auto x = static_cast<int>(
+		std::round(YGNodeLayoutGetLeft(&self->yoga_node))
+	);
+	auto y = static_cast<int>(std::round(YGNodeLayoutGetTop(&self->yoga_node)));
+	auto w = static_cast<int>(
+		std::round(YGNodeLayoutGetWidth(&self->yoga_node))
+	);
+	auto h = static_cast<int>(
+		std::round(YGNodeLayoutGetHeight(&self->yoga_node))
+	);
+	if (w == 0 && h == 0) {
+		return JS_NULL;
+	}
+
+	JSValue obj = JS_NewObject(ctx);
+	JS_SetPropertyStr(ctx, obj, "x", JS_NewInt32(ctx, x));
+	JS_SetPropertyStr(ctx, obj, "y", JS_NewInt32(ctx, y));
+	JS_SetPropertyStr(ctx, obj, "width", JS_NewInt32(ctx, w));
+	JS_SetPropertyStr(ctx, obj, "height", JS_NewInt32(ctx, h));
+	return obj;
+}
+
+namespace {
+
+LayoutNode *hitTestImpl(
+	LayoutNode *node, int x, int y, int off_x, int off_y
+) noexcept {
+	// Check children in reverse order (last child rendered = topmost)
+	auto count = YGNodeGetChildCount(&node->yoga_node);
+	for (size_t i = count; i > 0; i--) {
+		auto *child = static_cast<LayoutNode *>(
+			YGNodeGetContext(YGNodeGetChild(&node->yoga_node, i - 1))
+		);
+		auto cx = off_x
+			+ static_cast<int>(
+					  std::round(YGNodeLayoutGetLeft(&child->yoga_node))
+			);
+		auto cy = off_y
+			+ static_cast<int>(
+					  std::round(YGNodeLayoutGetTop(&child->yoga_node))
+			);
+		auto *result = hitTestImpl(child, x, y, cx, cy);
+		if (result) {
+			return result;
+		}
+	}
+
+	// Check self
+	auto nw = static_cast<int>(
+		std::round(YGNodeLayoutGetWidth(&node->yoga_node))
+	);
+	auto nh = static_cast<int>(
+		std::round(YGNodeLayoutGetHeight(&node->yoga_node))
+	);
+	if (x >= off_x && x < off_x + nw && y >= off_y && y < off_y + nh) {
+		return node;
+	}
+	return nullptr;
+}
+
+} // namespace
+
+JSValue LayoutNode_hitTest(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+	if (argc < 2) {
+		return JS_ThrowTypeError(ctx, "Expected two arguments");
+	}
+	int32_t x;
+	int32_t y;
+	if (JS_ToInt32(ctx, &x, argv[0]) != 0
+	    || JS_ToInt32(ctx, &y, argv[1]) != 0) {
+		return JS_ThrowTypeError(ctx, "Expected two numbers");
+	}
+	auto *result = hitTestImpl(self, x, y, 0, 0);
+	if (!result) {
+		return JS_NULL;
+	}
+	return JS_DupValue(ctx, result->self_val);
+}
+
 } // namespace
 
 // ===== Proto table =====
@@ -1730,6 +1832,7 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 	cGetSetDef("childCount", LayoutNode_getChildCount, nullptr),
 	cGetSetDef("firstChild", LayoutNode_getFirstChild, nullptr),
 	cGetSetDef("lastChild", LayoutNode_getLastChild, nullptr),
+	cGetSetDef("parent", LayoutNode_getParent, nullptr),
 
 	// tree methods
 	cFuncDef("appendChild", 1, LayoutNode_appendChild),
@@ -1739,6 +1842,8 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 	cFuncDef("hasChildNodes", 0, LayoutNode_hasChildNodes),
 	cFuncDef("getRootNode", 0, LayoutNode_getRootNode),
 	cFuncDef("childItem", 1, LayoutNode_childItem),
+	cFuncDef("getComputedBounds", 0, LayoutNode_getComputedBounds),
+	cFuncDef("hitTest", 2, LayoutNode_hitTest),
 
 	propStringDef("[Symbol.toStringTag]", "LayoutNode", JS_PROP_CONFIGURABLE),
 };
