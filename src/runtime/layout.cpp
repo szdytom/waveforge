@@ -3,7 +3,6 @@
 #include "helper.h"
 #include <charconv>
 #include <cmath>
-#include <sstream>
 #include <string_view>
 
 namespace wf::js {
@@ -89,6 +88,69 @@ YGConfigRef pixelConfig() noexcept {
 	return config;
 }
 
+// Word-wrapping helper: splits text into lines using greedy word-level
+// wrapping. Each returned pair is (start, end) character index in the original
+// text.
+struct WrappedLine {
+	size_t start;
+	size_t end;
+};
+
+[[nodiscard]] static std::vector<WrappedLine> computeWrappedLines(
+	std::string_view text, int maxPixels, int charW
+) noexcept {
+	std::vector<WrappedLine> lines;
+	if (text.empty()) {
+		return lines;
+	}
+
+	int maxPerLine = std::max(1, maxPixels / charW);
+
+	size_t pos = 0;
+	size_t lineStart = 0;
+	int curLen = 0;
+	size_t lastWordEnd = 0;
+
+	while (true) {
+		// skip leading whitespace
+		while (pos < text.size()
+		       && std::isspace(static_cast<unsigned char>(text[pos]))) {
+			pos++;
+		}
+		if (pos >= text.size()) {
+			break;
+		}
+
+		size_t wordStart = pos;
+		while (pos < text.size()
+		       && !std::isspace(static_cast<unsigned char>(text[pos]))) {
+			pos++;
+		}
+		size_t wordEnd = pos;
+		int wordLen = static_cast<int>(wordEnd - wordStart);
+
+		if (curLen == 0) {
+			lineStart = wordStart;
+			lastWordEnd = wordEnd;
+			curLen = wordLen;
+		} else if ((curLen + 1 + wordLen) <= maxPerLine) {
+			lastWordEnd = wordEnd;
+			curLen += 1 + wordLen;
+		} else {
+			lines.push_back({lineStart, lastWordEnd});
+			lineStart = wordStart;
+			lastWordEnd = wordEnd;
+			curLen = wordLen;
+		}
+	}
+
+	if (curLen > 0) {
+		lines.push_back({lineStart, lastWordEnd});
+	}
+
+	return lines;
+}
+
 } // namespace
 
 // ===== Content::measure/render implementations =====
@@ -123,35 +185,26 @@ YGSize TextContent::measure(
 		measuredW = static_cast<float>(text.length() * charWidth());
 		lineCount = 1;
 	} else {
-		int maxPixels = static_cast<int>(width);
-		int maxPerLine = std::max(1, maxPixels / charWidth());
-		lineCount = 0;
-		int curLen = 0;
-		float maxLineW = 0;
-
-		std::istringstream stream(text);
-		std::string word;
-		while (stream >> word) {
-			int wordLen = static_cast<int>(word.length());
-			if (curLen == 0) {
-				curLen = wordLen;
-			} else if ((curLen + 1 + wordLen) <= maxPerLine) {
-				curLen += 1 + wordLen;
-			} else {
-				lineCount++;
-				maxLineW = std::max(
-					maxLineW, static_cast<float>(curLen * charWidth())
-				);
-				curLen = wordLen;
+		auto lines = computeWrappedLines(
+			text, static_cast<int>(width), charWidth()
+		);
+		lineCount = static_cast<int>(lines.size());
+		if (lines.empty()) {
+			return {
+				resolveDim(0, width, width_mode),
+				resolveDim(
+					static_cast<float>(charHeight()), height, height_mode
+				),
+			};
+		}
+		measuredW = 0;
+		for (auto &l : lines) {
+			float lw = static_cast<float>((l.end - l.start) * charWidth());
+			if (lw > measuredW) {
+				measuredW = lw;
 			}
 		}
-		if (curLen > 0) {
-			lineCount++;
-			maxLineW = std::max(
-				maxLineW, static_cast<float>(curLen * charWidth())
-			);
-		}
-		measuredW = std::min(width, maxLineW);
+		measuredW = std::min(width, measuredW);
 	}
 
 	float measuredH = static_cast<float>(lineCount * charHeight());
@@ -167,14 +220,34 @@ void TextContent::render(
 ) const {
 	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
 
-	int textW = static_cast<int>(text.length()) * charWidth();
-	int textH = charHeight();
+	int cw = charWidth();
+	int ch = charHeight();
+
+	auto lines = computeWrappedLines(text, lp.w, cw);
+	if (lines.empty()) {
+		return;
+	}
+
+	// total text block dimensions for alignment
+	int textW = 0;
+	for (auto &l : lines) {
+		int lw = static_cast<int>(l.end - l.start) * cw;
+		if (lw > textW) {
+			textW = lw;
+		}
+	}
+	int textH = static_cast<int>(lines.size()) * ch;
 
 	auto [dx, dy] = computeContentOffset(textW, textH, lp);
 
-	font.renderText(
-		target, text, nativeColor(ctx), lp.x + dx, lp.y + dy, lp.scale, size
-	);
+	int y = lp.y + dy;
+	for (auto &l : lines) {
+		font.renderText(
+			target, std::string_view(text.data() + l.start, l.end - l.start),
+			nativeColor(ctx), lp.x + dx, y, lp.scale, size
+		);
+		y += ch;
+	}
 }
 
 sf::Color TextContent::nativeColor(JSContext *ctx) const noexcept {
@@ -358,6 +431,10 @@ void LayoutNode::replaceChild(
 
 void LayoutNode::calculateLayout(float availWidth, float availHeight) {
 	YGNodeCalculateLayout(&yoga_node, availWidth, availHeight, YGDirectionLTR);
+}
+
+void LayoutNode::relayout() noexcept {
+	YGNodeMarkDirty(&yoga_node);
 }
 
 void LayoutNode::render(
@@ -1601,6 +1678,11 @@ WF_JS_METHOD(LayoutNode, getRootNode, {
 	return JS_DupValue(ctx, root->self_val);
 })
 
+WF_JS_METHOD(LayoutNode, relayout, {
+	self->relayout();
+	return JS_UNDEFINED;
+})
+
 WF_JS_METHOD(LayoutNode, childItem, {
 	int32_t index;
 	if (JS_ToInt32(ctx, &index, argv[0]) != 0) {
@@ -1915,6 +1997,7 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 	cFuncDef("replaceChild", 2, LayoutNode_replaceChild),
 	cFuncDef("hasChildNodes", 0, LayoutNode_hasChildNodes),
 	cFuncDef("getRootNode", 0, LayoutNode_getRootNode),
+	cFuncDef("relayout", 0, LayoutNode_relayout),
 	cFuncDef("childItem", 1, LayoutNode_childItem),
 	cFuncDef("getComputedBounds", 0, LayoutNode_getComputedBounds),
 	cFuncDef("hitTest", 2, LayoutNode_hitTest),
