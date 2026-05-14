@@ -151,20 +151,35 @@ LayoutNode::LayoutNode() {
 	YGNodeSetContext(&yoga_node, this);
 }
 
-void LayoutNode::appendChild(
-	JSContext *ctx, LayoutNode *child, JSValue childVal
-) {
-	children.push_back({JS_DupValue(ctx, childVal), child});
+void LayoutNode::appendChild(JSContext *ctx, LayoutNode *child) {
+	JS_DupValue(ctx, child->self_val);
+	child->parent = this;
+	if (!first_child) {
+		first_child = last_child = child;
+	} else {
+		last_child->next_sibling = child;
+		last_child = child;
+	}
 	YGNodeInsertChild(
 		&yoga_node, &child->yoga_node, YGNodeGetChildCount(&yoga_node)
 	);
 }
 
 void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
-	for (size_t i = 0; i < children.size(); i++) {
-		if (children[i].node == child) {
-			JS_FreeValue(ctx, children[i].val);
-			children.erase(children.begin() + static_cast<ssize_t>(i));
+	LayoutNode *prev = nullptr;
+	for (auto *cur = first_child; cur; prev = cur, cur = cur->next_sibling) {
+		if (cur == child) {
+			if (prev) {
+				prev->next_sibling = child->next_sibling;
+			} else {
+				first_child = child->next_sibling;
+			}
+			if (child == last_child) {
+				last_child = prev;
+			}
+			child->parent = nullptr;
+			child->next_sibling = nullptr;
+			JS_FreeValue(ctx, child->self_val);
 			break;
 		}
 	}
@@ -172,35 +187,58 @@ void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
 }
 
 void LayoutNode::insertBefore(
-	JSContext *ctx, LayoutNode *newChild, JSValue newChildVal,
-	LayoutNode *referenceChild
+	JSContext *ctx, LayoutNode *newChild, LayoutNode *referenceChild
 ) {
-	if (referenceChild) {
-		for (size_t i = 0; i < children.size(); i++) {
-			if (children[i].node == referenceChild) {
-				children.insert(
-					children.begin() + static_cast<ssize_t>(i),
-					{JS_DupValue(ctx, newChildVal), newChild}
-				);
-				YGNodeInsertChild(&yoga_node, &newChild->yoga_node, i);
-				return;
+	if (!referenceChild) {
+		appendChild(ctx, newChild);
+		return;
+	}
+
+	size_t index = 0;
+	LayoutNode *prev = nullptr;
+	for (auto *cur = first_child; cur;
+	     prev = cur, cur = cur->next_sibling, index++) {
+		if (cur == referenceChild) {
+			JS_DupValue(ctx, newChild->self_val);
+			newChild->parent = this;
+			if (prev) {
+				prev->next_sibling = newChild;
+			} else {
+				first_child = newChild;
 			}
+			newChild->next_sibling = referenceChild;
+			YGNodeInsertChild(&yoga_node, &newChild->yoga_node, index);
+			return;
 		}
 	}
-	// referenceChild not found or null → append
-	appendChild(ctx, newChild, newChildVal);
+	// referenceChild not found → append
+	appendChild(ctx, newChild);
 }
 
 void LayoutNode::replaceChild(
-	JSContext *ctx, LayoutNode *newChild, JSValue newChildVal,
-	LayoutNode *oldChild
+	JSContext *ctx, LayoutNode *newChild, LayoutNode *oldChild
 ) {
-	for (size_t i = 0; i < children.size(); i++) {
-		if (children[i].node == oldChild) {
-			JS_FreeValue(ctx, children[i].val);
-			children[i] = {JS_DupValue(ctx, newChildVal), newChild};
+	size_t index = 0;
+	LayoutNode *prev = nullptr;
+	for (auto *cur = first_child; cur;
+	     prev = cur, cur = cur->next_sibling, index++) {
+		if (cur == oldChild) {
+			JS_DupValue(ctx, newChild->self_val);
+			JS_FreeValue(ctx, oldChild->self_val);
+			newChild->parent = this;
+			if (prev) {
+				prev->next_sibling = newChild;
+			} else {
+				first_child = newChild;
+			}
+			newChild->next_sibling = oldChild->next_sibling;
+			if (oldChild == last_child) {
+				last_child = newChild;
+			}
+			oldChild->parent = nullptr;
+			oldChild->next_sibling = nullptr;
 			YGNodeRemoveChild(&yoga_node, &oldChild->yoga_node);
-			YGNodeInsertChild(&yoga_node, &newChild->yoga_node, i);
+			YGNodeInsertChild(&yoga_node, &newChild->yoga_node, index);
 			return;
 		}
 	}
@@ -1403,28 +1441,38 @@ JSValue LayoutNode_setEdgeProp(
 }
 
 // -- tree getters --
-WF_JS_DEF_GETTER_I32(
-	LayoutNode, getChildCount, static_cast<int32_t>(self->children.size())
-)
+JSValue LayoutNode_getChildCount(
+	JSContext *ctx, JSValueConst this_val
+) noexcept {
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+	int32_t count = 0;
+	for (auto *child = self->first_child; child; child = child->next_sibling) {
+		count++;
+	}
+	return JS_NewInt32(ctx, count);
+}
 
 JSValue LayoutNode_getFirstChild(
 	JSContext *ctx, JSValueConst this_val
 ) noexcept {
 	auto *self = LayoutNode::unwrap(ctx, this_val);
-	if (!self || self->children.empty()) {
+	if (!self || !self->first_child) {
 		return JS_UNDEFINED;
 	}
-	return JS_DupValue(ctx, self->children.front().val);
+	return JS_DupValue(ctx, self->first_child->self_val);
 }
 
 JSValue LayoutNode_getLastChild(
 	JSContext *ctx, JSValueConst this_val
 ) noexcept {
 	auto *self = LayoutNode::unwrap(ctx, this_val);
-	if (!self || self->children.empty()) {
+	if (!self || !self->last_child) {
 		return JS_UNDEFINED;
 	}
-	return JS_DupValue(ctx, self->children.back().val);
+	return JS_DupValue(ctx, self->last_child->self_val);
 }
 
 // -- tree methods --
@@ -1433,7 +1481,7 @@ WF_JS_METHOD(LayoutNode, appendChild, {
 	if (!child) {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
-	self->appendChild(ctx, child, argv[0]);
+	self->appendChild(ctx, child);
 	return JS_UNDEFINED;
 })
 
@@ -1460,7 +1508,7 @@ WF_JS_METHOD(LayoutNode, insertBefore, {
 			);
 		}
 	}
-	self->insertBefore(ctx, newChild, argv[0], referenceChild);
+	self->insertBefore(ctx, newChild, referenceChild);
 	return JS_UNDEFINED;
 })
 
@@ -1473,8 +1521,38 @@ WF_JS_METHOD(LayoutNode, replaceChild, {
 	if (!oldChild) {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
-	self->replaceChild(ctx, newChild, argv[0], oldChild);
+	self->replaceChild(ctx, newChild, oldChild);
 	return JS_UNDEFINED;
+})
+
+WF_JS_METHOD(LayoutNode, hasChildNodes, {
+	return JS_NewBool(ctx, self->first_child != nullptr);
+})
+
+WF_JS_METHOD(LayoutNode, getRootNode, {
+	auto *root = self;
+	while (root->parent) {
+		root = root->parent;
+	}
+	return JS_DupValue(ctx, root->self_val);
+})
+
+WF_JS_METHOD(LayoutNode, childItem, {
+	int32_t index;
+	if (JS_ToInt32(ctx, &index, argv[0]) != 0) {
+		return JS_ThrowTypeError(ctx, "Expected a number");
+	}
+	if (index < 0) {
+		return JS_NULL;
+	}
+	auto *child = self->first_child;
+	for (int32_t i = 0; child && i < index; i++) {
+		child = child->next_sibling;
+	}
+	if (!child) {
+		return JS_NULL;
+	}
+	return JS_DupValue(ctx, child->self_val);
 })
 
 } // namespace
@@ -1648,17 +1726,19 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 		LayoutNode_setBorderColor, YGEdgeBottom
 	),
 
-	cFuncDef("appendChild", 1, LayoutNode_appendChild),
-	cFuncDef("removeChild", 1, LayoutNode_removeChild),
-
 	// tree getters (read-only, no setter)
 	cGetSetDef("childCount", LayoutNode_getChildCount, nullptr),
 	cGetSetDef("firstChild", LayoutNode_getFirstChild, nullptr),
 	cGetSetDef("lastChild", LayoutNode_getLastChild, nullptr),
 
 	// tree methods
+	cFuncDef("appendChild", 1, LayoutNode_appendChild),
+	cFuncDef("removeChild", 1, LayoutNode_removeChild),
 	cFuncDef("insertBefore", 2, LayoutNode_insertBefore),
 	cFuncDef("replaceChild", 2, LayoutNode_replaceChild),
+	cFuncDef("hasChildNodes", 0, LayoutNode_hasChildNodes),
+	cFuncDef("getRootNode", 0, LayoutNode_getRootNode),
+	cFuncDef("childItem", 1, LayoutNode_childItem),
 
 	propStringDef("[Symbol.toStringTag]", "LayoutNode", JS_PROP_CONFIGURABLE),
 };
@@ -1674,6 +1754,7 @@ JSValue LayoutNode::ctor(
 		return obj;
 	}
 	JS_SetOpaque(obj, self.get());
+	self->self_val = obj;
 	self.release();
 	return obj;
 }
@@ -1690,8 +1771,8 @@ void LayoutNode::gcMark(
 	for (auto &c : self->border_color) {
 		JS_MarkValue(rt, c, mark_func);
 	}
-	for (const auto &child : self->children) {
-		JS_MarkValue(rt, child.val, mark_func);
+	for (auto *child = self->first_child; child; child = child->next_sibling) {
+		JS_MarkValue(rt, child->self_val, mark_func);
 	}
 }
 
@@ -1705,9 +1786,11 @@ void LayoutNode::finalize(JSRuntime *rt, JSValue val) noexcept {
 	for (auto &c : self->border_color) {
 		JS_FreeValueRT(rt, c);
 	}
-	for (auto &child : self->children) {
-		JS_FreeValueRT(rt, child.val);
+	for (auto *child = self->first_child; child; child = child->next_sibling) {
+		JS_FreeValueRT(rt, child->self_val);
+		child->parent = nullptr;
 	}
+	// self_val is stored without ref count.
 	delete self;
 }
 

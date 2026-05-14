@@ -15,6 +15,13 @@ declare namespace waveforge {
 		constructor(id: string);
 	}
 
+	type ColorLike =
+		| Color
+		| string
+		| number
+		| [number, number, number]
+		| [number, number, number, number];
+
 	class LayoutNode {
 		// size (number for points, string for "auto" or "<n>%", undefined for unset)
 		width: number | string | undefined;
@@ -96,13 +103,19 @@ declare namespace waveforge {
 		borderRight: number | undefined;
 		borderTop: number | undefined;
 		borderBottom: number | undefined;
-		borderLeftColor: ColorLike | undefined;
-		borderRightColor: ColorLike | undefined;
-		borderTopColor: ColorLike | undefined;
-		borderBottomColor: ColorLike | undefined;
+
+		get borderLeftColor(): Color | undefined;
+		set borderLeftColor(value: ColorLike | undefined);
+		get borderRightColor(): Color | undefined;
+		set borderRightColor(value: ColorLike | undefined);
+		get borderTopColor(): Color | undefined;
+		set borderTopColor(value: ColorLike | undefined);
+		get borderBottomColor(): Color | undefined;
+		set borderBottomColor(value: ColorLike | undefined);
 
 		// background
-		backgroundColor: ColorLike;
+		get backgroundColor(): Color | undefined;
+		set backgroundColor(value: ColorLike | undefined);
 
 		// tree
 		readonly childCount: number;
@@ -112,16 +125,12 @@ declare namespace waveforge {
 		removeChild(child: LayoutNode): void;
 		insertBefore(newChild: LayoutNode, referenceChild?: LayoutNode): void;
 		replaceChild(newChild: LayoutNode, oldChild: LayoutNode): void;
+		hasChildNodes(): boolean;
+		getRootNode(): LayoutNode;
+		childItem(index: number): LayoutNode | null;
 
 		constructor();
 	}
-
-	type ColorLike =
-		| Color
-		| string
-		| number
-		| [number, number, number]
-		| [number, number, number, number];
 
 	class Color {
 		r: number;
@@ -139,7 +148,8 @@ declare namespace waveforge {
 	class TextContent {
 		text: string;
 		size: number;
-		color: ColorLike;
+		get color(): Color | undefined;
+		set color(value: ColorLike | undefined);
 
 		constructor(text: string, size?: number, color?: ColorLike);
 	}
@@ -157,7 +167,8 @@ declare namespace waveforge {
 		x: number;
 		y: number;
 		size: number;
-		color: ColorLike;
+		get color(): Color | undefined;
+		set color(value: ColorLike | undefined);
 
 		constructor(text: string, x: number, y: number, size?: number, color?: ColorLike);
 	}
@@ -175,7 +186,8 @@ declare namespace waveforge {
 		y: number;
 		width: number;
 		height: number;
-		color: ColorLike;
+		get color(): Color | undefined;
+		set color(value: ColorLike | undefined);
 
 		constructor(x: number, y: number, width: number, height: number, color?: ColorLike);
 	}
