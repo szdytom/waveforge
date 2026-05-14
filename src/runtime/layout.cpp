@@ -42,19 +42,20 @@ int TextContent::charHeight() const noexcept {
 }
 
 YGSize TextContent::measure(
-	YGMeasureMode widthMode, float width, YGMeasureMode heightMode, float height
+	YGMeasureMode width_mode, float width, YGMeasureMode height_mode,
+	float height
 ) const noexcept {
 	if (text.empty()) {
 		return {
-			resolveDim(0, width, widthMode),
-			resolveDim(static_cast<float>(charHeight()), height, heightMode),
+			resolveDim(0, width, width_mode),
+			resolveDim(static_cast<float>(charHeight()), height, height_mode),
 		};
 	}
 
 	float measuredW;
 	int lineCount;
 
-	if (widthMode == YGMeasureModeUndefined) {
+	if (width_mode == YGMeasureModeUndefined) {
 		measuredW = static_cast<float>(text.length() * charWidth());
 		lineCount = 1;
 	} else {
@@ -92,8 +93,8 @@ YGSize TextContent::measure(
 	float measuredH = static_cast<float>(lineCount * charHeight());
 
 	return {
-		resolveDim(measuredW, width, widthMode),
-		resolveDim(measuredH, height, heightMode),
+		resolveDim(measuredW, width, width_mode),
+		resolveDim(measuredH, height, height_mode),
 	};
 }
 
@@ -115,13 +116,14 @@ sf::Color TextContent::nativeColor(JSContext *ctx) const noexcept {
 }
 
 YGSize SpriteContent::measure(
-	YGMeasureMode widthMode, float width, YGMeasureMode heightMode, float height
+	YGMeasureMode width_mode, float width, YGMeasureMode height_mode,
+	float height
 ) const noexcept {
 	float texW = static_cast<float>(texture->getSize().x) * size;
 	float texH = static_cast<float>(texture->getSize().y) * size;
 	return {
-		resolveDim(texW, width, widthMode),
-		resolveDim(texH, height, heightMode),
+		resolveDim(texW, width, width_mode),
+		resolveDim(texH, height, height_mode),
 	};
 }
 
@@ -143,15 +145,15 @@ void SpriteContent::render(
 // ===== LayoutNode =====
 
 LayoutNode::LayoutNode() {
-	yogaNode.setContext(this);
+	yoga_node.setContext(this);
 }
 
 void LayoutNode::appendChild(
 	JSContext *ctx, LayoutNode *child, JSValue childVal
 ) {
 	children.push_back({JS_DupValue(ctx, childVal), child});
-	yogaNode.insertChild(&child->yogaNode, yogaNode.getChildCount());
-	child->yogaNode.setOwner(&yogaNode);
+	yoga_node.insertChild(&child->yoga_node, yoga_node.getChildCount());
+	child->yoga_node.setOwner(&yoga_node);
 }
 
 void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
@@ -162,11 +164,11 @@ void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
 			break;
 		}
 	}
-	yogaNode.removeChild(&child->yogaNode);
+	yoga_node.removeChild(&child->yoga_node);
 }
 
 void LayoutNode::calculateLayout(float availWidth, float availHeight) {
-	YGNodeCalculateLayout(&yogaNode, availWidth, availHeight, YGDirectionLTR);
+	YGNodeCalculateLayout(&yoga_node, availWidth, availHeight, YGDirectionLTR);
 }
 
 void LayoutNode::render(
@@ -180,16 +182,16 @@ void LayoutNode::render(
 	float parentY
 ) const {
 	using namespace facebook::yoga;
-	auto &layout = yogaNode.getLayout();
-	float absX = parentX + layout.position(PhysicalEdge::Left);
-	float absY = parentY + layout.position(PhysicalEdge::Top);
+	auto &layout = yoga_node.getLayout();
+	float abs_x = parentX + layout.position(PhysicalEdge::Left);
+	float abs_y = parentY + layout.position(PhysicalEdge::Top);
 	float w = layout.dimension(Dimension::Width);
 	float h = layout.dimension(Dimension::Height);
 
-	if (auto bg_color = Color::fromValue(ctx, backgroundColor);
+	if (auto bg_color = Color::fromValue(ctx, background_color);
 	    bg_color && bg_color->a > 0) {
 		sf::RectangleShape bg(sf::Vector2f(w * scale, h * scale));
-		bg.setPosition(sf::Vector2f(absX * scale, absY * scale));
+		bg.setPosition(sf::Vector2f(abs_x * scale, abs_y * scale));
 		bg.setFillColor(*bg_color);
 		target.draw(bg);
 	}
@@ -202,7 +204,7 @@ void LayoutNode::render(
 		YGEdgeBottom,
 	};
 	for (auto edge : BORDER_EDGES) {
-		float bw = YGNodeStyleGetBorder(&yogaNode, edge);
+		float bw = YGNodeStyleGetBorder(&yoga_node, edge);
 		if (bw <= 0) {
 			continue;
 		}
@@ -212,20 +214,20 @@ void LayoutNode::render(
 			continue;
 		}
 
-		float bx = absX, by = absY, bw2 = w, bh2 = h;
+		float bx = abs_x, by = abs_y, bw2 = w, bh2 = h;
 		switch (edge) {
 		case YGEdgeLeft:
 			bw2 = bw;
 			break;
 		case YGEdgeRight:
-			bx = absX + w - bw;
+			bx = abs_x + w - bw;
 			bw2 = bw;
 			break;
 		case YGEdgeTop:
 			bh2 = bw;
 			break;
 		case YGEdgeBottom:
-			by = absY + h - bw;
+			by = abs_y + h - bw;
 			bh2 = bw;
 			break;
 		default:
@@ -238,13 +240,13 @@ void LayoutNode::render(
 		target.draw(borderRect);
 	}
 
-	if (!JS_IsNull(contentVal)) {
-		content->render(target, ctx, scale, absX, absY, w, h);
+	if (content.has_value()) {
+		content->render(target, ctx, scale, abs_x, abs_y, w, h);
 	}
 
-	for (auto *childNode : yogaNode.getChildren()) {
+	for (auto *childNode : yoga_node.getChildren()) {
 		auto *child = static_cast<LayoutNode *>(childNode->getContext());
-		child->render(target, ctx, scale, absX, absY);
+		child->render(target, ctx, scale, abs_x, abs_y);
 	}
 }
 
@@ -253,13 +255,13 @@ void LayoutNode::render(
 namespace {
 
 YGSize yogaMeasureFunc(
-	YGNodeConstRef node, float width, YGMeasureMode widthMode, float height,
-	YGMeasureMode heightMode
+	YGNodeConstRef node, float width, YGMeasureMode width_mode, float height,
+	YGMeasureMode height_mode
 ) noexcept {
-	auto *yogaNode = facebook::yoga::resolveRef(node);
-	auto *self = static_cast<LayoutNode *>(yogaNode->getContext());
-	if (!JS_IsNull(self->contentVal)) {
-		return self->content->measure(widthMode, width, heightMode, height);
+	auto *yoga_node = facebook::yoga::resolveRef(node);
+	auto *self = static_cast<LayoutNode *>(yoga_node->getContext());
+	if (self->content.has_value()) {
+		return self->content->measure(width_mode, width, height_mode, height);
 	}
 	return YGSize{0, 0};
 }
@@ -487,22 +489,22 @@ JSValue LayoutNode_getDimProp(
 	YGValue v;
 	switch (static_cast<LayoutDim>(magic)) {
 	case LayoutDim::Width:
-		v = YGNodeStyleGetWidth(&self->yogaNode);
+		v = YGNodeStyleGetWidth(&self->yoga_node);
 		break;
 	case LayoutDim::Height:
-		v = YGNodeStyleGetHeight(&self->yogaNode);
+		v = YGNodeStyleGetHeight(&self->yoga_node);
 		break;
 	case LayoutDim::MinWidth:
-		v = YGNodeStyleGetMinWidth(&self->yogaNode);
+		v = YGNodeStyleGetMinWidth(&self->yoga_node);
 		break;
 	case LayoutDim::MaxWidth:
-		v = YGNodeStyleGetMaxWidth(&self->yogaNode);
+		v = YGNodeStyleGetMaxWidth(&self->yoga_node);
 		break;
 	case LayoutDim::MinHeight:
-		v = YGNodeStyleGetMinHeight(&self->yogaNode);
+		v = YGNodeStyleGetMinHeight(&self->yoga_node);
 		break;
 	case LayoutDim::MaxHeight:
-		v = YGNodeStyleGetMaxHeight(&self->yogaNode);
+		v = YGNodeStyleGetMaxHeight(&self->yoga_node);
 		break;
 	}
 
@@ -545,22 +547,22 @@ JSValue LayoutNode_setDimProp(
 	if (JS_IsUndefined(val) || JS_IsNull(val)) {
 		switch (dim) {
 		case LayoutDim::Width:
-			YGNodeStyleSetWidth(&self->yogaNode, YGUndefined);
+			YGNodeStyleSetWidth(&self->yoga_node, YGUndefined);
 			break;
 		case LayoutDim::Height:
-			YGNodeStyleSetHeight(&self->yogaNode, YGUndefined);
+			YGNodeStyleSetHeight(&self->yoga_node, YGUndefined);
 			break;
 		case LayoutDim::MinWidth:
-			YGNodeStyleSetMinWidth(&self->yogaNode, YGUndefined);
+			YGNodeStyleSetMinWidth(&self->yoga_node, YGUndefined);
 			break;
 		case LayoutDim::MaxWidth:
-			YGNodeStyleSetMaxWidth(&self->yogaNode, YGUndefined);
+			YGNodeStyleSetMaxWidth(&self->yoga_node, YGUndefined);
 			break;
 		case LayoutDim::MinHeight:
-			YGNodeStyleSetMinHeight(&self->yogaNode, YGUndefined);
+			YGNodeStyleSetMinHeight(&self->yoga_node, YGUndefined);
 			break;
 		case LayoutDim::MaxHeight:
-			YGNodeStyleSetMaxHeight(&self->yogaNode, YGUndefined);
+			YGNodeStyleSetMaxHeight(&self->yoga_node, YGUndefined);
 			break;
 		}
 		return JS_UNDEFINED;
@@ -571,22 +573,22 @@ JSValue LayoutNode_setDimProp(
 	if (JS_ToFloat64(ctx, &v, val) == 0) {
 		switch (dim) {
 		case LayoutDim::Width:
-			YGNodeStyleSetWidth(&self->yogaNode, static_cast<float>(v));
+			YGNodeStyleSetWidth(&self->yoga_node, static_cast<float>(v));
 			break;
 		case LayoutDim::Height:
-			YGNodeStyleSetHeight(&self->yogaNode, static_cast<float>(v));
+			YGNodeStyleSetHeight(&self->yoga_node, static_cast<float>(v));
 			break;
 		case LayoutDim::MinWidth:
-			YGNodeStyleSetMinWidth(&self->yogaNode, static_cast<float>(v));
+			YGNodeStyleSetMinWidth(&self->yoga_node, static_cast<float>(v));
 			break;
 		case LayoutDim::MaxWidth:
-			YGNodeStyleSetMaxWidth(&self->yogaNode, static_cast<float>(v));
+			YGNodeStyleSetMaxWidth(&self->yoga_node, static_cast<float>(v));
 			break;
 		case LayoutDim::MinHeight:
-			YGNodeStyleSetMinHeight(&self->yogaNode, static_cast<float>(v));
+			YGNodeStyleSetMinHeight(&self->yoga_node, static_cast<float>(v));
 			break;
 		case LayoutDim::MaxHeight:
-			YGNodeStyleSetMaxHeight(&self->yogaNode, static_cast<float>(v));
+			YGNodeStyleSetMaxHeight(&self->yoga_node, static_cast<float>(v));
 			break;
 		}
 		return JS_UNDEFINED;
@@ -604,10 +606,10 @@ JSValue LayoutNode_setDimProp(
 	if (sv == "auto") {
 		switch (dim) {
 		case LayoutDim::Width:
-			YGNodeStyleSetWidthAuto(&self->yogaNode);
+			YGNodeStyleSetWidthAuto(&self->yoga_node);
 			break;
 		case LayoutDim::Height:
-			YGNodeStyleSetHeightAuto(&self->yogaNode);
+			YGNodeStyleSetHeightAuto(&self->yoga_node);
 			break;
 		default:
 			JS_FreeCString(ctx, s);
@@ -630,22 +632,22 @@ JSValue LayoutNode_setDimProp(
 		    && result.ptr == numPart.data() + numPart.size()) {
 			switch (dim) {
 			case LayoutDim::Width:
-				YGNodeStyleSetWidthPercent(&self->yogaNode, pct);
+				YGNodeStyleSetWidthPercent(&self->yoga_node, pct);
 				break;
 			case LayoutDim::Height:
-				YGNodeStyleSetHeightPercent(&self->yogaNode, pct);
+				YGNodeStyleSetHeightPercent(&self->yoga_node, pct);
 				break;
 			case LayoutDim::MinWidth:
-				YGNodeStyleSetMinWidthPercent(&self->yogaNode, pct);
+				YGNodeStyleSetMinWidthPercent(&self->yoga_node, pct);
 				break;
 			case LayoutDim::MaxWidth:
-				YGNodeStyleSetMaxWidthPercent(&self->yogaNode, pct);
+				YGNodeStyleSetMaxWidthPercent(&self->yoga_node, pct);
 				break;
 			case LayoutDim::MinHeight:
-				YGNodeStyleSetMinHeightPercent(&self->yogaNode, pct);
+				YGNodeStyleSetMinHeightPercent(&self->yoga_node, pct);
 				break;
 			case LayoutDim::MaxHeight:
-				YGNodeStyleSetMaxHeightPercent(&self->yogaNode, pct);
+				YGNodeStyleSetMaxHeightPercent(&self->yoga_node, pct);
 				break;
 			}
 			JS_FreeCString(ctx, s);
@@ -923,52 +925,52 @@ JSValue LayoutNode_getEnumProp(
 	switch (static_cast<LayoutProp>(magic)) {
 	case LayoutProp::Direction:
 		return JS_NewString(
-			ctx, directionToString(YGNodeStyleGetDirection(&self->yogaNode))
+			ctx, directionToString(YGNodeStyleGetDirection(&self->yoga_node))
 		);
 	case LayoutProp::FlexDirection:
 		return JS_NewString(
 			ctx,
-			flexDirectionToString(YGNodeStyleGetFlexDirection(&self->yogaNode))
+			flexDirectionToString(YGNodeStyleGetFlexDirection(&self->yoga_node))
 		);
 	case LayoutProp::JustifyContent:
 		return JS_NewString(
-			ctx, justifyToString(YGNodeStyleGetJustifyContent(&self->yogaNode))
+			ctx, justifyToString(YGNodeStyleGetJustifyContent(&self->yoga_node))
 		);
 	case LayoutProp::AlignItems:
 		return JS_NewString(
-			ctx, alignToString(YGNodeStyleGetAlignItems(&self->yogaNode))
+			ctx, alignToString(YGNodeStyleGetAlignItems(&self->yoga_node))
 		);
 	case LayoutProp::AlignSelf:
 		return JS_NewString(
-			ctx, alignToString(YGNodeStyleGetAlignSelf(&self->yogaNode))
+			ctx, alignToString(YGNodeStyleGetAlignSelf(&self->yoga_node))
 		);
 	case LayoutProp::AlignContent:
 		return JS_NewString(
-			ctx, alignToString(YGNodeStyleGetAlignContent(&self->yogaNode))
+			ctx, alignToString(YGNodeStyleGetAlignContent(&self->yoga_node))
 		);
 	case LayoutProp::FlexWrap:
 		return JS_NewString(
-			ctx, wrapToString(YGNodeStyleGetFlexWrap(&self->yogaNode))
+			ctx, wrapToString(YGNodeStyleGetFlexWrap(&self->yoga_node))
 		);
 	case LayoutProp::Overflow:
 		return JS_NewString(
-			ctx, overflowToString(YGNodeStyleGetOverflow(&self->yogaNode))
+			ctx, overflowToString(YGNodeStyleGetOverflow(&self->yoga_node))
 		);
 	case LayoutProp::Display:
 		return JS_NewString(
-			ctx, displayToString(YGNodeStyleGetDisplay(&self->yogaNode))
+			ctx, displayToString(YGNodeStyleGetDisplay(&self->yoga_node))
 		);
 	case LayoutProp::PositionType:
 		return JS_NewString(
 			ctx,
-			positionTypeToString(YGNodeStyleGetPositionType(&self->yogaNode))
+			positionTypeToString(YGNodeStyleGetPositionType(&self->yoga_node))
 		);
 	case LayoutProp::Flex:
-		return JS_NewFloat64(ctx, YGNodeStyleGetFlex(&self->yogaNode));
+		return JS_NewFloat64(ctx, YGNodeStyleGetFlex(&self->yoga_node));
 	case LayoutProp::FlexGrow:
-		return JS_NewFloat64(ctx, YGNodeStyleGetFlexGrow(&self->yogaNode));
+		return JS_NewFloat64(ctx, YGNodeStyleGetFlexGrow(&self->yoga_node));
 	case LayoutProp::FlexShrink:
-		return JS_NewFloat64(ctx, YGNodeStyleGetFlexShrink(&self->yogaNode));
+		return JS_NewFloat64(ctx, YGNodeStyleGetFlexShrink(&self->yoga_node));
 	}
 	return JS_UNDEFINED;
 }
@@ -988,34 +990,36 @@ JSValue LayoutNode_setEnumPropStr(
 	std::string_view sv(s, len);
 	switch (static_cast<LayoutProp>(magic)) {
 	case LayoutProp::Direction:
-		YGNodeStyleSetDirection(&self->yogaNode, stringToDirection(sv));
+		YGNodeStyleSetDirection(&self->yoga_node, stringToDirection(sv));
 		break;
 	case LayoutProp::FlexDirection:
-		YGNodeStyleSetFlexDirection(&self->yogaNode, stringToFlexDirection(sv));
+		YGNodeStyleSetFlexDirection(
+			&self->yoga_node, stringToFlexDirection(sv)
+		);
 		break;
 	case LayoutProp::JustifyContent:
-		YGNodeStyleSetJustifyContent(&self->yogaNode, stringToJustify(sv));
+		YGNodeStyleSetJustifyContent(&self->yoga_node, stringToJustify(sv));
 		break;
 	case LayoutProp::AlignItems:
-		YGNodeStyleSetAlignItems(&self->yogaNode, stringToAlign(sv));
+		YGNodeStyleSetAlignItems(&self->yoga_node, stringToAlign(sv));
 		break;
 	case LayoutProp::AlignSelf:
-		YGNodeStyleSetAlignSelf(&self->yogaNode, stringToAlign(sv));
+		YGNodeStyleSetAlignSelf(&self->yoga_node, stringToAlign(sv));
 		break;
 	case LayoutProp::AlignContent:
-		YGNodeStyleSetAlignContent(&self->yogaNode, stringToAlign(sv));
+		YGNodeStyleSetAlignContent(&self->yoga_node, stringToAlign(sv));
 		break;
 	case LayoutProp::FlexWrap:
-		YGNodeStyleSetFlexWrap(&self->yogaNode, stringToWrap(sv));
+		YGNodeStyleSetFlexWrap(&self->yoga_node, stringToWrap(sv));
 		break;
 	case LayoutProp::Overflow:
-		YGNodeStyleSetOverflow(&self->yogaNode, stringToOverflow(sv));
+		YGNodeStyleSetOverflow(&self->yoga_node, stringToOverflow(sv));
 		break;
 	case LayoutProp::Display:
-		YGNodeStyleSetDisplay(&self->yogaNode, stringToDisplay(sv));
+		YGNodeStyleSetDisplay(&self->yoga_node, stringToDisplay(sv));
 		break;
 	case LayoutProp::PositionType:
-		YGNodeStyleSetPositionType(&self->yogaNode, stringToPositionType(sv));
+		YGNodeStyleSetPositionType(&self->yoga_node, stringToPositionType(sv));
 		break;
 	default:
 		break;
@@ -1035,13 +1039,13 @@ JSValue LayoutNode_setEnumPropFloat(
 	JS_ToFloat64(ctx, &v, val);
 	switch (static_cast<LayoutProp>(magic)) {
 	case LayoutProp::Flex:
-		YGNodeStyleSetFlex(&self->yogaNode, static_cast<float>(v));
+		YGNodeStyleSetFlex(&self->yoga_node, static_cast<float>(v));
 		break;
 	case LayoutProp::FlexGrow:
-		YGNodeStyleSetFlexGrow(&self->yogaNode, static_cast<float>(v));
+		YGNodeStyleSetFlexGrow(&self->yoga_node, static_cast<float>(v));
 		break;
 	case LayoutProp::FlexShrink:
-		YGNodeStyleSetFlexShrink(&self->yogaNode, static_cast<float>(v));
+		YGNodeStyleSetFlexShrink(&self->yoga_node, static_cast<float>(v));
 		break;
 	default:
 		break;
@@ -1055,10 +1059,10 @@ JSValue LayoutNode_getContent(JSContext *ctx, JSValueConst this_val) noexcept {
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	if (JS_IsNull(self->contentVal)) {
+	if (JS_IsNull(self->content_val)) {
 		return JS_NULL;
 	}
-	return JS_DupValue(ctx, self->contentVal);
+	return JS_DupValue(ctx, self->content_val);
 }
 
 JSValue LayoutNode_setContent(
@@ -1069,7 +1073,7 @@ JSValue LayoutNode_setContent(
 		return JS_UNDEFINED;
 	}
 
-	JS_FreeValue(ctx, self->contentVal);
+	JS_FreeValue(ctx, self->content_val);
 
 	bool canMeasure = true;
 
@@ -1083,16 +1087,16 @@ JSValue LayoutNode_setContent(
 	}
 
 	if (self->content.has_value()) {
-		self->contentVal = JS_DupValue(ctx, val);
+		self->content_val = JS_DupValue(ctx, val);
 	} else {
-		self->contentVal = JS_NULL;
+		self->content_val = JS_NULL;
 	}
 
 	if (canMeasure) {
-		YGNodeSetMeasureFunc(&self->yogaNode, yogaMeasureFunc);
-		YGNodeMarkDirty(&self->yogaNode);
+		YGNodeSetMeasureFunc(&self->yoga_node, yogaMeasureFunc);
+		YGNodeMarkDirty(&self->yoga_node);
 	} else {
-		YGNodeSetMeasureFunc(&self->yogaNode, nullptr);
+		YGNodeSetMeasureFunc(&self->yoga_node, nullptr);
 	}
 
 	return JS_UNDEFINED;
@@ -1104,7 +1108,7 @@ JSValue LayoutNode_getBgColor(JSContext *ctx, JSValueConst this_val) noexcept {
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	return JS_DupValue(ctx, self->backgroundColor);
+	return JS_DupValue(ctx, self->background_color);
 }
 
 JSValue LayoutNode_setBgColor(
@@ -1120,8 +1124,8 @@ JSValue LayoutNode_setBgColor(
 		return JS_ThrowTypeError(ctx, "%s", color_object.error());
 	}
 
-	JS_FreeValue(ctx, self->backgroundColor);
-	self->backgroundColor = *color_object;
+	JS_FreeValue(ctx, self->background_color);
+	self->background_color = *color_object;
 	return JS_UNDEFINED;
 }
 
@@ -1185,8 +1189,8 @@ constexpr int16_t toMagic(EdgeType type, YGEdge edge) noexcept {
 struct EdgeFuncs {
 	YGValue (*get)(YGNodeConstRef, YGEdge);
 	void (*set)(YGNodeRef, YGEdge, float);
-	void (*setPercent)(YGNodeRef, YGEdge, float);
-	void (*setAuto)(YGNodeRef, YGEdge);
+	void (*set_percent)(YGNodeRef, YGEdge, float);
+	void (*set_auto)(YGNodeRef, YGEdge);
 };
 
 // Border getter returns float directly; wrap as YGValue for the unified getter.
@@ -1231,7 +1235,7 @@ JSValue LayoutNode_getEdgeProp(
 
 	auto [type, edge] = EdgeProp::fromMagic(magic);
 	YGValue v = EDGE_FUNCS[static_cast<uint8_t>(type)].get(
-		&self->yogaNode, edge
+		&self->yoga_node, edge
 	);
 
 	switch (v.unit) {
@@ -1272,14 +1276,14 @@ JSValue LayoutNode_setEdgeProp(
 
 	// undefined / null → unset
 	if (JS_IsUndefined(val) || JS_IsNull(val)) {
-		funcs.set(&self->yogaNode, edge, YGUndefined);
+		funcs.set(&self->yoga_node, edge, YGUndefined);
 		return JS_UNDEFINED;
 	}
 
 	// number → point
 	double v;
 	if (JS_ToFloat64(ctx, &v, val) == 0) {
-		funcs.set(&self->yogaNode, edge, static_cast<float>(v));
+		funcs.set(&self->yoga_node, edge, static_cast<float>(v));
 		return JS_UNDEFINED;
 	}
 
@@ -1293,8 +1297,8 @@ JSValue LayoutNode_setEdgeProp(
 
 	// "auto"
 	if (sv == "auto") {
-		if (funcs.setAuto) {
-			funcs.setAuto(&self->yogaNode, edge);
+		if (funcs.set_auto) {
+			funcs.set_auto(&self->yoga_node, edge);
 			JS_FreeCString(ctx, s);
 			return JS_UNDEFINED;
 		}
@@ -1313,8 +1317,8 @@ JSValue LayoutNode_setEdgeProp(
 		);
 		if (result.ec == std::errc()
 		    && result.ptr == numPart.data() + numPart.size()) {
-			if (funcs.setPercent) {
-				funcs.setPercent(&self->yogaNode, edge, pct);
+			if (funcs.set_percent) {
+				funcs.set_percent(&self->yoga_node, edge, pct);
 				JS_FreeCString(ctx, s);
 				return JS_UNDEFINED;
 			}
@@ -1551,8 +1555,8 @@ void LayoutNode::gcMark(
 	if (!self) {
 		return;
 	}
-	JS_MarkValue(rt, self->contentVal, mark_func);
-	JS_MarkValue(rt, self->backgroundColor, mark_func);
+	JS_MarkValue(rt, self->content_val, mark_func);
+	JS_MarkValue(rt, self->background_color, mark_func);
 	for (auto &c : self->border_color) {
 		JS_MarkValue(rt, c, mark_func);
 	}
@@ -1566,8 +1570,8 @@ void LayoutNode::finalize(JSRuntime *rt, JSValue val) noexcept {
 	if (!self) {
 		return;
 	}
-	JS_FreeValueRT(rt, self->contentVal);
-	JS_FreeValueRT(rt, self->backgroundColor);
+	JS_FreeValueRT(rt, self->content_val);
+	JS_FreeValueRT(rt, self->background_color);
 	for (auto &c : self->border_color) {
 		JS_FreeValueRT(rt, c);
 	}
