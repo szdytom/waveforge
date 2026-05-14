@@ -113,14 +113,10 @@ YGSize TextContent::measure(
 }
 
 void TextContent::render(
-	sf::RenderTarget &target, JSContext *ctx, LayoutParameters frame
+	sf::RenderTarget &target, JSContext *ctx, LayoutParameters lp
 ) const {
-	(void)frame.w;
-	(void)frame.h;
 	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
-	font.renderText(
-		target, text, nativeColor(ctx), frame.x, frame.y, frame.scale, size
-	);
+	font.renderText(target, text, nativeColor(ctx), lp.x, lp.y, lp.scale, size);
 }
 
 sf::Color TextContent::nativeColor(JSContext *ctx) const noexcept {
@@ -140,13 +136,11 @@ YGSize SpriteContent::measure(
 }
 
 void SpriteContent::render(
-	sf::RenderTarget &target, JSContext * /*ctx*/, LayoutParameters frame
+	sf::RenderTarget &target, JSContext * /*ctx*/, LayoutParameters lp
 ) const {
 	sf::Sprite sprite(*texture);
-	sprite.setPosition(
-		sf::Vector2f(frame.x * frame.scale, frame.y * frame.scale)
-	);
-	sprite.setScale(sf::Vector2f(size * frame.scale, size * frame.scale));
+	sprite.setPosition(sf::Vector2f(lp.x * lp.scale, lp.y * lp.scale));
+	sprite.setScale(sf::Vector2f(size * lp.scale, size * lp.scale));
 	target.draw(sprite);
 }
 
@@ -219,30 +213,34 @@ void LayoutNode::calculateLayout(float availWidth, float availHeight) {
 void LayoutNode::render(
 	sf::RenderTarget &target, JSContext *ctx, int scale
 ) const {
-	LayoutParameters frame{
+	LayoutParameters lp{
 		.scale = scale,
 		.x = static_cast<int>(std::round(YGNodeLayoutGetLeft(&yoga_node))),
 		.y = static_cast<int>(std::round(YGNodeLayoutGetTop(&yoga_node))),
 		.w = static_cast<int>(std::round(YGNodeLayoutGetWidth(&yoga_node))),
 		.h = static_cast<int>(std::round(YGNodeLayoutGetHeight(&yoga_node))),
 	};
-	render(target, ctx, frame);
+	render(target, ctx, lp);
 }
 
-void LayoutNode::render(
-	sf::RenderTarget &target, JSContext *ctx, LayoutParameters frame
+void LayoutNode::_drawBackground(
+	sf::RenderTarget &target, JSContext *ctx, const LayoutParameters &lp
 ) const {
-	auto &[scale, abs_x, abs_y, w, h] = frame;
-
-	if (auto bg_color = Color::fromValue(ctx, background_color);
-	    bg_color && bg_color->a > 0) {
-		sf::RectangleShape bg(sf::Vector2f(w * scale, h * scale));
-		bg.setPosition(sf::Vector2f(abs_x * scale, abs_y * scale));
-		bg.setFillColor(*bg_color);
-		target.draw(bg);
+	auto bg_color = Color::fromValue(ctx, background_color);
+	if (!bg_color || bg_color->a == 0) {
+		return;
 	}
+	sf::RectangleShape bg(sf::Vector2f(lp.w * lp.scale, lp.h * lp.scale));
+	bg.setPosition(sf::Vector2f(lp.x * lp.scale, lp.y * lp.scale));
+	bg.setFillColor(*bg_color);
+	target.draw(bg);
+}
 
-	// Draw borders
+void LayoutNode::_drawBorders(
+	sf::RenderTarget &target, JSContext *ctx, const LayoutParameters &lp
+) const {
+	auto &[scale, abs_x, abs_y, w, h] = lp;
+
 	static constexpr YGEdge BORDER_EDGES[4] = {
 		YGEdgeLeft,
 		YGEdgeTop,
@@ -285,9 +283,16 @@ void LayoutNode::render(
 		borderRect.setFillColor(*color);
 		target.draw(borderRect);
 	}
+}
+
+void LayoutNode::render(
+	sf::RenderTarget &target, JSContext *ctx, LayoutParameters lp
+) const {
+	_drawBackground(target, ctx, lp);
+	_drawBorders(target, ctx, lp);
 
 	if (content.has_value()) {
-		content->render(target, ctx, frame);
+		content->render(target, ctx, lp);
 	}
 
 	for (size_t i = 0, n = YGNodeGetChildCount(&yoga_node); i < n; i++) {
@@ -295,12 +300,12 @@ void LayoutNode::render(
 			YGNodeGetChild(const_cast<facebook::yoga::Node *>(&yoga_node), i)
 		));
 		LayoutParameters child_frame{
-			.scale = scale,
-			.x = abs_x
+			.scale = lp.scale,
+			.x = lp.x
 				+ static_cast<int>(
 					 std::round(YGNodeLayoutGetLeft(&child->yoga_node))
 				),
-			.y = abs_y
+			.y = lp.y
 				+ static_cast<int>(
 					 std::round(YGNodeLayoutGetTop(&child->yoga_node))
 				),

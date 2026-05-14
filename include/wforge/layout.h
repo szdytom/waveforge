@@ -118,6 +118,15 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 	void render(sf::RenderTarget &, JSContext *, int) const;
 	void render(sf::RenderTarget &, JSContext *, LayoutParameters) const;
 
+private:
+	void _drawBackground(
+		sf::RenderTarget &, JSContext *, const LayoutParameters &
+	) const;
+	void _drawBorders(
+		sf::RenderTarget &, JSContext *, const LayoutParameters &
+	) const;
+
+public:
 	// -- data members --
 	facebook::yoga::Node yoga_node;
 
