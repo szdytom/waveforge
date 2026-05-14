@@ -130,6 +130,7 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 	void calculateLayout(float avail_width, float avail_height);
 	void render(sf::RenderTarget &, JSContext *, int) const;
 	void render(sf::RenderTarget &, JSContext *, LayoutParameters) const;
+	void relayout() noexcept;
 
 private:
 	void _drawBackground(

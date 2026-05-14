@@ -134,6 +134,7 @@ declare namespace waveforge {
 
 		getComputedBounds(): { x: number; y: number; width: number; height: number } | null;
 		hitTest(x: number, y: number): LayoutNode | null;
+		relayout(): void;
 
 		constructor();
 	}
