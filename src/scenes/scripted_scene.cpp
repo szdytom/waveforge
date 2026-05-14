@@ -73,7 +73,9 @@ JSValue f_log(
 ) noexcept {
 	std::string msg;
 	for (int i = 0; i < argc; i++) {
-		if (i > 0) msg += ' ';
+		if (i > 0) {
+			msg += ' ';
+		}
 		const char *str = JS_ToCString(ctx, argv[i]);
 		msg += str ? str : "null";
 		JS_FreeCString(ctx, str);
