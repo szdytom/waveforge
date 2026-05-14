@@ -194,6 +194,50 @@ void LayoutNode::render(
 		target.draw(bg);
 	}
 
+	// Draw borders
+	static constexpr YGEdge BORDER_EDGES[4] = {
+		YGEdgeLeft,
+		YGEdgeTop,
+		YGEdgeRight,
+		YGEdgeBottom,
+	};
+	for (auto edge : BORDER_EDGES) {
+		float bw = YGNodeStyleGetBorder(&yogaNode, edge);
+		if (bw <= 0) {
+			continue;
+		}
+
+		auto color = Color::fromValue(ctx, border_color[edge]);
+		if (!color || color->a == 0) {
+			continue;
+		}
+
+		float bx = absX, by = absY, bw2 = w, bh2 = h;
+		switch (edge) {
+		case YGEdgeLeft:
+			bw2 = bw;
+			break;
+		case YGEdgeRight:
+			bx = absX + w - bw;
+			bw2 = bw;
+			break;
+		case YGEdgeTop:
+			bh2 = bw;
+			break;
+		case YGEdgeBottom:
+			by = absY + h - bw;
+			bh2 = bw;
+			break;
+		default:
+			break;
+		}
+
+		sf::RectangleShape borderRect(sf::Vector2f(bw2 * scale, bh2 * scale));
+		borderRect.setPosition(sf::Vector2f(bx * scale, by * scale));
+		borderRect.setFillColor(*color);
+		target.draw(borderRect);
+	}
+
 	if (!JS_IsNull(contentVal)) {
 		content->render(target, ctx, scale, absX, absY, w, h);
 	}
@@ -1081,10 +1125,43 @@ JSValue LayoutNode_setBgColor(
 	return JS_UNDEFINED;
 }
 
-// -- margin/padding --
+// -- border color --
+JSValue LayoutNode_getBorderColor(
+	JSContext *ctx, JSValueConst this_val, int magic
+) noexcept {
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+	auto edge = static_cast<YGEdge>(magic);
+	return JS_DupValue(ctx, self->border_color[edge]);
+}
+
+JSValue LayoutNode_setBorderColor(
+	JSContext *ctx, JSValueConst this_val, JSValueConst val, int magic
+) noexcept {
+	auto *self = LayoutNode::unwrap(ctx, this_val);
+	if (!self) {
+		return JS_UNDEFINED;
+	}
+
+	auto color_object = Color::interpretAsValue(ctx, val);
+	if (!color_object) {
+		return JS_ThrowTypeError(ctx, "%s", color_object.error());
+	}
+
+	auto edge = static_cast<YGEdge>(magic);
+	JS_FreeValue(ctx, self->border_color[edge]);
+	self->border_color[edge] = *color_object;
+	return JS_UNDEFINED;
+}
+
+// -- edge properties (margin, padding, position, border) --
 enum class EdgeType : uint8_t {
 	Margin,
 	Padding,
+	Position,
+	Border,
 };
 
 struct EdgeProp {
@@ -1112,6 +1189,11 @@ struct EdgeFuncs {
 	void (*setAuto)(YGNodeRef, YGEdge);
 };
 
+// Border getter returns float directly; wrap as YGValue for the unified getter.
+static YGValue getBorder(YGNodeConstRef node, YGEdge edge) noexcept {
+	return {YGNodeStyleGetBorder(node, edge), YGUnitPoint};
+}
+
 static constexpr EdgeFuncs EDGE_FUNCS[] = {
 	{
 		YGNodeStyleGetMargin,
@@ -1123,6 +1205,18 @@ static constexpr EdgeFuncs EDGE_FUNCS[] = {
 		YGNodeStyleGetPadding,
 		YGNodeStyleSetPadding,
 		YGNodeStyleSetPaddingPercent,
+		nullptr,
+	},
+	{
+		YGNodeStyleGetPosition,
+		YGNodeStyleSetPosition,
+		YGNodeStyleSetPositionPercent,
+		YGNodeStyleSetPositionAuto,
+	},
+	{
+		getBorder,
+		YGNodeStyleSetBorder,
+		nullptr,
 		nullptr,
 	},
 };
@@ -1219,16 +1313,22 @@ JSValue LayoutNode_setEdgeProp(
 		);
 		if (result.ec == std::errc()
 		    && result.ptr == numPart.data() + numPart.size()) {
-			funcs.setPercent(&self->yogaNode, edge, pct);
+			if (funcs.setPercent) {
+				funcs.setPercent(&self->yogaNode, edge, pct);
+				JS_FreeCString(ctx, s);
+				return JS_UNDEFINED;
+			}
 			JS_FreeCString(ctx, s);
-			return JS_UNDEFINED;
+			return JS_ThrowTypeError(
+				ctx, "Percent is not valid for this property"
+			);
 		}
 	}
 
 	JS_FreeCString(ctx, s);
 	return JS_ThrowTypeError(
 		ctx,
-		"Invalid margin/padding value; expected a number, \"auto\", "
+		"Invalid edge property value; expected a number, \"auto\", "
 		"\"<number>%%\", or undefined"
 	);
 }
@@ -1372,6 +1472,57 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 		toMagic(EdgeType::Padding, YGEdgeBottom)
 	),
 
+	cGetSetMagicDef(
+		"left", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Position, YGEdgeLeft)
+	),
+	cGetSetMagicDef(
+		"right", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Position, YGEdgeRight)
+	),
+	cGetSetMagicDef(
+		"top", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Position, YGEdgeTop)
+	),
+	cGetSetMagicDef(
+		"bottom", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Position, YGEdgeBottom)
+	),
+
+	cGetSetMagicDef(
+		"borderLeft", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Border, YGEdgeLeft)
+	),
+	cGetSetMagicDef(
+		"borderRight", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Border, YGEdgeRight)
+	),
+	cGetSetMagicDef(
+		"borderTop", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Border, YGEdgeTop)
+	),
+	cGetSetMagicDef(
+		"borderBottom", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
+		toMagic(EdgeType::Border, YGEdgeBottom)
+	),
+
+	cGetSetMagicDef(
+		"borderLeftColor", LayoutNode_getBorderColor, LayoutNode_setBorderColor,
+		YGEdgeLeft
+	),
+	cGetSetMagicDef(
+		"borderRightColor", LayoutNode_getBorderColor,
+		LayoutNode_setBorderColor, YGEdgeRight
+	),
+	cGetSetMagicDef(
+		"borderTopColor", LayoutNode_getBorderColor, LayoutNode_setBorderColor,
+		YGEdgeTop
+	),
+	cGetSetMagicDef(
+		"borderBottomColor", LayoutNode_getBorderColor,
+		LayoutNode_setBorderColor, YGEdgeBottom
+	),
+
 	cFuncDef("appendChild", 1, LayoutNode_appendChild),
 	cFuncDef("removeChild", 1, LayoutNode_removeChild),
 
@@ -1402,6 +1553,9 @@ void LayoutNode::gcMark(
 	}
 	JS_MarkValue(rt, self->contentVal, mark_func);
 	JS_MarkValue(rt, self->backgroundColor, mark_func);
+	for (auto &c : self->border_color) {
+		JS_MarkValue(rt, c, mark_func);
+	}
 	for (const auto &child : self->children) {
 		JS_MarkValue(rt, child.val, mark_func);
 	}
@@ -1414,6 +1568,9 @@ void LayoutNode::finalize(JSRuntime *rt, JSValue val) noexcept {
 	}
 	JS_FreeValueRT(rt, self->contentVal);
 	JS_FreeValueRT(rt, self->backgroundColor);
+	for (auto &c : self->border_color) {
+		JS_FreeValueRT(rt, c);
+	}
 	for (auto &child : self->children) {
 		JS_FreeValueRT(rt, child.val);
 	}
