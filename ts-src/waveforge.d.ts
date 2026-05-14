@@ -252,3 +252,15 @@ declare namespace waveforge {
 
 	type SceneEvent = KeyEvent | MouseButtonEvent | MouseMoveEvent;
 }
+
+interface Performance {
+	now(): number;
+}
+declare var performance: Performance;
+
+declare module "./timer" {
+	export function setTimeout(callback: () => void, delayMs?: number): number;
+	export function clearTimeout(id: number): void;
+	export function setInterval(callback: () => void, intervalMs?: number): number;
+	export function clearInterval(id: number): void;
+}

@@ -1,4 +1,5 @@
 /// <reference path="./waveforge.d.ts" />
+import { setTimeout } from "./timer";
 
 const WIDTH = 256;
 const HEIGHT = 192;
@@ -24,6 +25,18 @@ waveforge.log("Test scene loading...");
 queueMicrotask(() => {
 	waveforge.log("Microtask executed");
 });
+
+// setTimeout demo: after 2s, turn background red
+setTimeout(() => {
+	waveforge.log("2 seconds elapsed — changing background to red");
+	bgRect.color = "#ff6464";
+}, 2000);
+
+// setTimeout demo: after 5s, restore background and schedule interval
+setTimeout(() => {
+	waveforge.log("5 seconds elapsed — restoring background, setting interval");
+	bgRect.color = "#dcf0ff";
+}, 5000);
 
 waveforge.addEventListener('step', () => {
 	frameCount++;

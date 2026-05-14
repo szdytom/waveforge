@@ -235,7 +235,12 @@ void invokeCallbacks(
 	JSContext *ctx, const std::vector<js::Value> &callbacks, int argc,
 	JSValueConst *argv
 ) noexcept {
+	std::vector<js::Value> snapshot;
+	snapshot.reserve(callbacks.size());
 	for (auto &cb : callbacks) {
+		snapshot.push_back(cb.dup());
+	}
+	for (auto &cb : snapshot) {
 		if (JS_IsFunction(ctx, *cb)) {
 			js::Value result_guard(
 				ctx, JS_Call(ctx, *cb, JS_UNDEFINED, argc, argv)
@@ -243,6 +248,17 @@ void invokeCallbacks(
 			if (JS_IsException(*result_guard)) {
 				js::dumpJSError(ctx);
 			}
+		}
+	}
+}
+
+void drainJSPromises(JSContext *ctx) noexcept {
+	JSRuntime *rt = JS_GetRuntime(ctx);
+	while (JS_IsJobPending(rt)) {
+		JSContext *ctx1 = nullptr;
+		int ret = JS_ExecutePendingJob(rt, &ctx1);
+		if (ret < 0 && ctx1) {
+			js::dumpJSError(ctx1);
 		}
 	}
 }
@@ -362,6 +378,7 @@ void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
 	auto &callbacks = _impl->callbacks[std::to_underlying(evtType)];
 	JSValue event_val = *evt_guard;
 	invokeCallbacks(ctx, callbacks, 1, &event_val);
+	drainJSPromises(ctx);
 }
 
 void ScriptedScene::step(SceneManager &mgr) {
@@ -369,6 +386,7 @@ void ScriptedScene::step(SceneManager &mgr) {
 		_impl->ctx.get(),
 		_impl->callbacks[std::to_underlying(CallbackIdx::STEP)], 0, nullptr
 	);
+	drainJSPromises(_impl->ctx.get());
 }
 
 void ScriptedScene::render(
