@@ -2,6 +2,7 @@
 #include "hacks.h"
 #include "helper.h"
 #include <charconv>
+#include <cmath>
 #include <sstream>
 #include <string_view>
 
@@ -23,6 +24,19 @@ float resolveDim(float intrinsic, float avail, YGMeasureMode mode) noexcept {
 	default:
 		return intrinsic;
 	}
+}
+
+} // namespace
+
+namespace {
+
+YGConfigRef pixelConfig() noexcept {
+	static YGConfigRef config = []() noexcept {
+		YGConfigRef cfg = YGConfigNew();
+		YGConfigSetPointScaleFactor(cfg, 1.0f);
+		return cfg;
+	}();
+	return config;
 }
 
 } // namespace
@@ -99,15 +113,13 @@ YGSize TextContent::measure(
 }
 
 void TextContent::render(
-	sf::RenderTarget &target, JSContext *ctx, int scale, float x, float y,
-	float w, float h
+	sf::RenderTarget &target, JSContext *ctx, LayoutParameters frame
 ) const {
-	(void)w;
-	(void)h;
+	(void)frame.w;
+	(void)frame.h;
 	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
 	font.renderText(
-		target, text, nativeColor(ctx), static_cast<int>(x),
-		static_cast<int>(y), scale, size
+		target, text, nativeColor(ctx), frame.x, frame.y, frame.scale, size
 	);
 }
 
@@ -128,23 +140,20 @@ YGSize SpriteContent::measure(
 }
 
 void SpriteContent::render(
-	sf::RenderTarget &target, JSContext * /*ctx*/, int scale, float x, float y,
-	float w, float h
+	sf::RenderTarget &target, JSContext * /*ctx*/, LayoutParameters frame
 ) const {
 	sf::Sprite sprite(*texture);
-	sprite.setPosition(sf::Vector2f(x * scale, y * scale));
-	sprite.setScale(
-		sf::Vector2f(
-			w * scale / static_cast<float>(texture->getSize().x),
-			h * scale / static_cast<float>(texture->getSize().y)
-		)
+	sprite.setPosition(
+		sf::Vector2f(frame.x * frame.scale, frame.y * frame.scale)
 	);
+	sprite.setScale(sf::Vector2f(size * frame.scale, size * frame.scale));
 	target.draw(sprite);
 }
 
 // ===== LayoutNode =====
 
 LayoutNode::LayoutNode() {
+	YGNodeSetConfig(&yoga_node, pixelConfig());
 	YGNodeSetContext(&yoga_node, this);
 }
 
@@ -210,17 +219,20 @@ void LayoutNode::calculateLayout(float availWidth, float availHeight) {
 void LayoutNode::render(
 	sf::RenderTarget &target, JSContext *ctx, int scale
 ) const {
-	render(target, ctx, scale, 0, 0);
+	LayoutParameters frame{
+		.scale = scale,
+		.x = static_cast<int>(std::round(YGNodeLayoutGetLeft(&yoga_node))),
+		.y = static_cast<int>(std::round(YGNodeLayoutGetTop(&yoga_node))),
+		.w = static_cast<int>(std::round(YGNodeLayoutGetWidth(&yoga_node))),
+		.h = static_cast<int>(std::round(YGNodeLayoutGetHeight(&yoga_node))),
+	};
+	render(target, ctx, frame);
 }
 
 void LayoutNode::render(
-	sf::RenderTarget &target, JSContext *ctx, int scale, float parentX,
-	float parentY
+	sf::RenderTarget &target, JSContext *ctx, LayoutParameters frame
 ) const {
-	float abs_x = parentX + YGNodeLayoutGetLeft(&yoga_node);
-	float abs_y = parentY + YGNodeLayoutGetTop(&yoga_node);
-	float w = YGNodeLayoutGetWidth(&yoga_node);
-	float h = YGNodeLayoutGetHeight(&yoga_node);
+	auto &[scale, abs_x, abs_y, w, h] = frame;
 
 	if (auto bg_color = Color::fromValue(ctx, background_color);
 	    bg_color && bg_color->a > 0) {
@@ -275,14 +287,31 @@ void LayoutNode::render(
 	}
 
 	if (content.has_value()) {
-		content->render(target, ctx, scale, abs_x, abs_y, w, h);
+		content->render(target, ctx, frame);
 	}
 
 	for (size_t i = 0, n = YGNodeGetChildCount(&yoga_node); i < n; i++) {
 		auto *child = static_cast<LayoutNode *>(YGNodeGetContext(
 			YGNodeGetChild(const_cast<facebook::yoga::Node *>(&yoga_node), i)
 		));
-		child->render(target, ctx, scale, abs_x, abs_y);
+		LayoutParameters child_frame{
+			.scale = scale,
+			.x = abs_x
+				+ static_cast<int>(
+					 std::round(YGNodeLayoutGetLeft(&child->yoga_node))
+				),
+			.y = abs_y
+				+ static_cast<int>(
+					 std::round(YGNodeLayoutGetTop(&child->yoga_node))
+				),
+			.w = static_cast<int>(
+				std::round(YGNodeLayoutGetWidth(&child->yoga_node))
+			),
+			.h = static_cast<int>(
+				std::round(YGNodeLayoutGetHeight(&child->yoga_node))
+			),
+		};
+		child->render(target, ctx, child_frame);
 	}
 }
 
@@ -337,8 +366,6 @@ JSValue TextContent_setColor(
 
 	JS_FreeValue(ctx, self->color);
 	self->color = *color_object;
-	auto opt = Color::fromValue(ctx, *color_object);
-	self->_nativeColor = opt.value_or(sf::Color::Black);
 	return JS_UNDEFINED;
 }
 
@@ -377,8 +404,6 @@ JSValue TextContent::ctor(
 		}
 		JS_FreeValue(ctx, self->color);
 		self->color = *cv;
-		auto opt = Color::fromValue(ctx, *cv);
-		self->_nativeColor = opt.value_or(sf::Color::Black);
 	}
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
