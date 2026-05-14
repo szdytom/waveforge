@@ -110,16 +110,16 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 	void appendChild(JSContext *, LayoutNode *, JSValue);
 	void removeChild(JSContext *, LayoutNode *);
 
-	void calculateLayout(float availWidth, float availHeight);
+	void calculateLayout(float avail_width, float avail_height);
 	void render(sf::RenderTarget &, JSContext *, int) const;
 	void render(sf::RenderTarget &, JSContext *, int, float, float) const;
 
 	// -- data members --
-	facebook::yoga::Node yogaNode;
+	facebook::yoga::Node yoga_node;
 
 	pro::proxy_view<ContentFacade> content;
-	JSValue contentVal = JS_NULL;
-	JSValue backgroundColor = JS_NULL;
+	JSValue content_val = JS_NULL;
+	JSValue background_color = JS_NULL;
 	// Indexed by YGEdge (Left=0, Top=1, Right=2, Bottom=3)
 	std::array<JSValue, 4> border_color = {JS_NULL, JS_NULL, JS_NULL, JS_NULL};
 	std::vector<ChildEntry> children;
