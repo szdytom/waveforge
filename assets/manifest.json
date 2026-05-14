@@ -962,18 +962,24 @@
 			"id": "scripts/test_scene",
 			"type": "js",
 			"file": "bundled-js/test_scene.js",
+			"width": 256,
+			"height": 192,
 			"description": "Loading test script for ScriptedScene"
 		},
 		{
 			"id": "scripts/test_layout",
 			"type": "js",
 			"file": "bundled-js/test_layout.js",
+			"width": 256,
+			"height": 192,
 			"description": "Loading layout test script for ScriptedScene"
 		},
 		{
 			"id": "scripts/test_typeset",
 			"type": "js",
 			"file": "bundled-js/test_typeset.js",
+			"width": 256,
+			"height": 192,
 			"description": "Loading typesetting test script"
 		}
 	]

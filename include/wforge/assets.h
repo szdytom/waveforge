@@ -136,6 +136,8 @@ sf::Image rotateImageTo(const sf::Image &img, FacingDirection dir) noexcept;
 struct Script {
 	std::string source;
 	std::string filename;
+	int width;
+	int height;
 };
 
 struct MusicCollection {

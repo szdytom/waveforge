@@ -163,6 +163,8 @@ Load a JavaScript source file from disk. The file contents are stored as a strin
 
 **Additional fields:**
 - **`file`** (string, required): Path to the JavaScript file, relative to the assets directory.
+- **`width`** (int, required): Scene window width in logical pixels.
+- **`height`** (int, required): Scene window height in logical pixels.
 
 **Example:**
 ```json
@@ -170,6 +172,8 @@ Load a JavaScript source file from disk. The file contents are stored as a strin
   "id": "scripts/enemy",
   "type": "js",
   "file": "scripts/enemy.js",
+  "width": 256,
+  "height": 192,
   "description": "Loading enemy script"
 }
 ```
