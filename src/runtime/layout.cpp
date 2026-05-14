@@ -26,6 +26,60 @@ float resolveDim(float intrinsic, float avail, YGMeasureMode mode) noexcept {
 	}
 }
 
+[[nodiscard]] JSValue ygValueToJS(JSContext *ctx, YGValue v) noexcept {
+	switch (v.unit) {
+	case YGUnitUndefined:
+		return JS_UNDEFINED;
+	case YGUnitAuto:
+		return JS_NewString(ctx, "auto");
+	case YGUnitPoint:
+		if (YGFloatIsUndefined(v.value)) {
+			return JS_UNDEFINED;
+		}
+		return JS_NewFloat64(ctx, v.value);
+	case YGUnitPercent: {
+		char buf[64];
+		auto [ptr, ec] = std::to_chars(
+			buf, buf + sizeof(buf), v.value, std::chars_format::fixed
+		);
+		if (ec == std::errc()) {
+			*ptr++ = '%';
+			return JS_NewStringLen(ctx, buf, ptr - buf);
+		}
+		return JS_UNDEFINED;
+	}
+	}
+	return JS_UNDEFINED;
+}
+
+std::pair<int, int> computeContentOffset(
+	int contentW, int contentH, const LayoutParameters &lp
+) noexcept {
+	int dx = 0;
+	switch (lp.align.h) {
+	case ContentAlignH::Center:
+		dx = (lp.w - contentW) / 2;
+		break;
+	case ContentAlignH::Right:
+		dx = lp.w - contentW;
+		break;
+	default:
+		break;
+	}
+	int dy = 0;
+	switch (lp.align.v) {
+	case ContentAlignV::Horizon:
+		dy = (lp.h - contentH) / 2;
+		break;
+	case ContentAlignV::Bottom:
+		dy = lp.h - contentH;
+		break;
+	default:
+		break;
+	}
+	return {dx, dy};
+}
+
 YGConfigRef pixelConfig() noexcept {
 	static YGConfigRef config = []() noexcept {
 		YGConfigRef cfg = YGConfigNew();
@@ -113,32 +167,10 @@ void TextContent::render(
 ) const {
 	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
 
-	auto align = lp.align;
 	int textW = static_cast<int>(text.length()) * charWidth();
 	int textH = charHeight();
 
-	int dx = 0;
-	switch (align.h) {
-	case ContentAlignH::Center:
-		dx = (lp.w - textW) / 2;
-		break;
-	case ContentAlignH::Right:
-		dx = lp.w - textW;
-		break;
-	default:
-		break;
-	}
-	int dy = 0;
-	switch (align.v) {
-	case ContentAlignV::Horizon:
-		dy = (lp.h - textH) / 2;
-		break;
-	case ContentAlignV::Bottom:
-		dy = lp.h - textH;
-		break;
-	default:
-		break;
-	}
+	auto [dx, dy] = computeContentOffset(textW, textH, lp);
 
 	font.renderText(
 		target, text, nativeColor(ctx), lp.x + dx, lp.y + dy, lp.scale, size
@@ -153,8 +185,8 @@ YGSize SpriteContent::measure(
 	YGMeasureMode width_mode, float width, YGMeasureMode height_mode,
 	float height
 ) const noexcept {
-	float texW = static_cast<float>(texture->getSize().x) * size;
-	float texH = static_cast<float>(texture->getSize().y) * size;
+	float texW = texture->getSize().x * size;
+	float texH = texture->getSize().y * size;
 	return {
 		resolveDim(texW, width, width_mode),
 		resolveDim(texH, height, height_mode),
@@ -164,32 +196,10 @@ YGSize SpriteContent::measure(
 void SpriteContent::render(
 	sf::RenderTarget &target, JSContext * /*ctx*/, LayoutParameters lp
 ) const {
-	auto align = lp.align;
 	int spriteW = static_cast<int>(texture->getSize().x) * size;
 	int spriteH = static_cast<int>(texture->getSize().y) * size;
 
-	int dx = 0;
-	switch (align.h) {
-	case ContentAlignH::Center:
-		dx = (lp.w - spriteW) / 2;
-		break;
-	case ContentAlignH::Right:
-		dx = lp.w - spriteW;
-		break;
-	default:
-		break;
-	}
-	int dy = 0;
-	switch (align.v) {
-	case ContentAlignV::Horizon:
-		dy = (lp.h - spriteH) / 2;
-		break;
-	case ContentAlignV::Bottom:
-		dy = lp.h - spriteH;
-		break;
-	default:
-		break;
-	}
+	auto [dx, dy] = computeContentOffset(spriteW, spriteH, lp);
 
 	sf::Sprite sprite(*texture);
 	sprite.setPosition(
@@ -207,6 +217,9 @@ LayoutNode::LayoutNode() {
 }
 
 void LayoutNode::appendChild(JSContext *ctx, LayoutNode *child) {
+	if (child->parent) {
+		child->parent->removeChild(ctx, child);
+	}
 	JS_DupValue(ctx, child->self_val);
 	child->parent = this;
 	if (!first_child) {
@@ -222,8 +235,10 @@ void LayoutNode::appendChild(JSContext *ctx, LayoutNode *child) {
 
 void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
 	LayoutNode *prev = nullptr;
+	bool found = false;
 	for (auto *cur = first_child; cur; prev = cur, cur = cur->next_sibling) {
 		if (cur == child) {
+			found = true;
 			if (prev) {
 				prev->next_sibling = child->next_sibling;
 			} else {
@@ -238,7 +253,9 @@ void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
 			break;
 		}
 	}
-	YGNodeRemoveChild(&yoga_node, &child->yoga_node);
+	if (found) {
+		YGNodeRemoveChild(&yoga_node, &child->yoga_node);
+	}
 }
 
 void LayoutNode::insertBefore(
@@ -249,6 +266,25 @@ void LayoutNode::insertBefore(
 		return;
 	}
 
+	// First verify referenceChild exists
+	bool found = false;
+	for (auto *cur = first_child; cur; cur = cur->next_sibling) {
+		if (cur == referenceChild) {
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		JS_ThrowTypeError(ctx, "referenceChild is not a child of this node");
+		return;
+	}
+
+	// Detach newChild from old parent
+	if (newChild->parent) {
+		newChild->parent->removeChild(ctx, newChild);
+	}
+
+	// Find referenceChild and insert newChild before it
 	size_t index = 0;
 	LayoutNode *prev = nullptr;
 	for (auto *cur = first_child; cur;
@@ -266,13 +302,34 @@ void LayoutNode::insertBefore(
 			return;
 		}
 	}
-	// referenceChild not found → append
-	appendChild(ctx, newChild);
 }
 
 void LayoutNode::replaceChild(
 	JSContext *ctx, LayoutNode *newChild, LayoutNode *oldChild
 ) {
+	if (newChild == oldChild) {
+		return;
+	}
+
+	// First verify oldChild exists
+	bool found = false;
+	for (auto *cur = first_child; cur; cur = cur->next_sibling) {
+		if (cur == oldChild) {
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		JS_ThrowTypeError(ctx, "oldChild is not a child of this node");
+		return;
+	}
+
+	// Detach newChild from old parent (may modify this list if same parent)
+	if (newChild->parent) {
+		newChild->parent->removeChild(ctx, newChild);
+	}
+
+	// Re-derive oldChild position after potential list modification
 	size_t index = 0;
 	LayoutNode *prev = nullptr;
 	for (auto *cur = first_child; cur;
@@ -332,11 +389,11 @@ void LayoutNode::_drawBackground(
 void LayoutNode::_drawBorders(
 	sf::RenderTarget &target, JSContext *ctx, const LayoutParameters &lp
 ) const {
-	const auto &scale = lp.scale;
-	const auto &abs_x = lp.x;
-	const auto &abs_y = lp.y;
-	const auto &w = lp.w;
-	const auto &h = lp.h;
+	auto scale = lp.scale;
+	auto abs_x = lp.x;
+	auto abs_y = lp.y;
+	auto w = lp.w;
+	auto h = lp.h;
 
 	static constexpr YGEdge BORDER_EDGES[4] = {
 		YGEdgeLeft,
@@ -529,6 +586,7 @@ JSValue TextContent::ctor(
 	}
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
+		JS_FreeValue(ctx, self->color);
 		return obj;
 	}
 	JS_SetOpaque(obj, self.release());
@@ -623,6 +681,7 @@ JSValue SpriteContent::ctor(
 	}
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
+		JS_FreeValue(ctx, self->textureVal);
 		return obj;
 	}
 	JS_SetOpaque(obj, self.release());
@@ -690,29 +749,7 @@ JSValue LayoutNode_getDimProp(
 		break;
 	}
 
-	switch (v.unit) {
-	case YGUnitUndefined:
-		return JS_UNDEFINED;
-	case YGUnitAuto:
-		return JS_NewString(ctx, "auto");
-	case YGUnitPoint:
-		if (YGFloatIsUndefined(v.value)) {
-			return JS_UNDEFINED;
-		}
-		return JS_NewFloat64(ctx, v.value);
-	case YGUnitPercent: {
-		char buf[64];
-		auto [ptr, ec] = std::to_chars(
-			buf, buf + sizeof(buf), v.value, std::chars_format::fixed
-		);
-		if (ec == std::errc()) {
-			*ptr++ = '%';
-			return JS_NewStringLen(ctx, buf, ptr - buf);
-		}
-		return JS_UNDEFINED;
-	}
-	}
-	return JS_UNDEFINED;
+	return ygValueToJS(ctx, v);
 }
 
 JSValue LayoutNode_setDimProp(
@@ -864,281 +901,195 @@ enum class LayoutProp {
 	ContentAlignV,
 };
 
-// -- string conversion helpers for enum properties --
-constexpr const char *directionToString(YGDirection v) noexcept {
-	switch (v) {
-	case YGDirectionInherit:
-		return "inherit";
-	case YGDirectionLTR:
-		return "ltr";
-	case YGDirectionRTL:
-		return "rtl";
-	default:
-		return "inherit";
+// -- enum string conversion helpers --
+template<typename E, size_t N>
+[[nodiscard]] constexpr const char *enumToString(
+	E value, const char *defaultStr,
+	const std::pair<const char *, E> (&table)[N]
+) noexcept {
+	for (size_t i = 0; i < N; ++i) {
+		if (table[i].second == value) {
+			return table[i].first;
+		}
 	}
+	return defaultStr;
 }
 
-YGDirection stringToDirection(std::string_view s) noexcept {
-	if (s == "ltr") {
-		return YGDirectionLTR;
+template<typename E, size_t N>
+[[nodiscard]] E stringToEnum(
+	std::string_view s, E defaultVal,
+	const std::pair<const char *, E> (&table)[N]
+) noexcept {
+	for (size_t i = 0; i < N; ++i) {
+		if (s == table[i].first) {
+			return table[i].second;
+		}
 	}
-	if (s == "rtl") {
-		return YGDirectionRTL;
-	}
-	return YGDirectionInherit;
+	return defaultVal;
 }
 
-constexpr const char *flexDirectionToString(YGFlexDirection v) noexcept {
-	switch (v) {
-	case YGFlexDirectionColumn:
-		return "column";
-	case YGFlexDirectionColumnReverse:
-		return "columnReverse";
-	case YGFlexDirectionRow:
-		return "row";
-	case YGFlexDirectionRowReverse:
-		return "rowReverse";
-	default:
-		return "column";
-	}
+static constexpr std::pair<const char *, YGDirection> DIRECTION_TABLE[] = {
+	{"inherit", YGDirectionInherit},
+	{"ltr", YGDirectionLTR},
+	{"rtl", YGDirectionRTL},
+};
+
+[[nodiscard]] constexpr const char *directionToString(YGDirection v) noexcept {
+	return enumToString(v, "inherit", DIRECTION_TABLE);
 }
 
-YGFlexDirection stringToFlexDirection(std::string_view s) noexcept {
-	if (s == "columnReverse") {
-		return YGFlexDirectionColumnReverse;
-	}
-	if (s == "row") {
-		return YGFlexDirectionRow;
-	}
-	if (s == "rowReverse") {
-		return YGFlexDirectionRowReverse;
-	}
-	return YGFlexDirectionColumn;
+[[nodiscard]] YGDirection stringToDirection(std::string_view s) noexcept {
+	return stringToEnum(s, YGDirectionInherit, DIRECTION_TABLE);
 }
 
-constexpr const char *justifyToString(YGJustify v) noexcept {
-	switch (v) {
-	case YGJustifyFlexStart:
-		return "flexStart";
-	case YGJustifyCenter:
-		return "center";
-	case YGJustifyFlexEnd:
-		return "flexEnd";
-	case YGJustifySpaceBetween:
-		return "spaceBetween";
-	case YGJustifySpaceAround:
-		return "spaceAround";
-	case YGJustifySpaceEvenly:
-		return "spaceEvenly";
-	default:
-		return "flexStart";
-	}
+static constexpr std::pair<const char *, YGFlexDirection>
+	FLEX_DIRECTION_TABLE[] = {
+		{"column", YGFlexDirectionColumn},
+		{"columnReverse", YGFlexDirectionColumnReverse},
+		{"row", YGFlexDirectionRow},
+		{"rowReverse", YGFlexDirectionRowReverse},
+};
+
+[[nodiscard]] constexpr const char *flexDirectionToString(
+	YGFlexDirection v
+) noexcept {
+	return enumToString(v, "column", FLEX_DIRECTION_TABLE);
 }
 
-YGJustify stringToJustify(std::string_view s) noexcept {
-	if (s == "center") {
-		return YGJustifyCenter;
-	}
-	if (s == "flexEnd") {
-		return YGJustifyFlexEnd;
-	}
-	if (s == "spaceBetween") {
-		return YGJustifySpaceBetween;
-	}
-	if (s == "spaceAround") {
-		return YGJustifySpaceAround;
-	}
-	if (s == "spaceEvenly") {
-		return YGJustifySpaceEvenly;
-	}
-	return YGJustifyFlexStart;
+[[nodiscard]] YGFlexDirection stringToFlexDirection(
+	std::string_view s
+) noexcept {
+	return stringToEnum(s, YGFlexDirectionColumn, FLEX_DIRECTION_TABLE);
 }
 
-constexpr const char *alignToString(YGAlign v) noexcept {
-	switch (v) {
-	case YGAlignAuto:
-		return "auto";
-	case YGAlignFlexStart:
-		return "flexStart";
-	case YGAlignCenter:
-		return "center";
-	case YGAlignFlexEnd:
-		return "flexEnd";
-	case YGAlignStretch:
-		return "stretch";
-	case YGAlignBaseline:
-		return "baseline";
-	case YGAlignSpaceBetween:
-		return "spaceBetween";
-	case YGAlignSpaceAround:
-		return "spaceAround";
-	case YGAlignSpaceEvenly:
-		return "spaceEvenly";
-	default:
-		return "auto";
-	}
+static constexpr std::pair<const char *, YGJustify> JUSTIFY_TABLE[] = {
+	{"flexStart", YGJustifyFlexStart},
+	{"center", YGJustifyCenter},
+	{"flexEnd", YGJustifyFlexEnd},
+	{"spaceBetween", YGJustifySpaceBetween},
+	{"spaceAround", YGJustifySpaceAround},
+	{"spaceEvenly", YGJustifySpaceEvenly},
+};
+
+[[nodiscard]] constexpr const char *justifyToString(YGJustify v) noexcept {
+	return enumToString(v, "flexStart", JUSTIFY_TABLE);
 }
 
-YGAlign stringToAlign(std::string_view s) noexcept {
-	if (s == "flexStart") {
-		return YGAlignFlexStart;
-	}
-	if (s == "center") {
-		return YGAlignCenter;
-	}
-	if (s == "flexEnd") {
-		return YGAlignFlexEnd;
-	}
-	if (s == "stretch") {
-		return YGAlignStretch;
-	}
-	if (s == "baseline") {
-		return YGAlignBaseline;
-	}
-	if (s == "spaceBetween") {
-		return YGAlignSpaceBetween;
-	}
-	if (s == "spaceAround") {
-		return YGAlignSpaceAround;
-	}
-	if (s == "spaceEvenly") {
-		return YGAlignSpaceEvenly;
-	}
-	return YGAlignAuto;
+[[nodiscard]] YGJustify stringToJustify(std::string_view s) noexcept {
+	return stringToEnum(s, YGJustifyFlexStart, JUSTIFY_TABLE);
 }
 
-constexpr const char *wrapToString(YGWrap v) noexcept {
-	switch (v) {
-	case YGWrapNoWrap:
-		return "noWrap";
-	case YGWrapWrap:
-		return "wrap";
-	case YGWrapWrapReverse:
-		return "wrapReverse";
-	default:
-		return "noWrap";
-	}
+static constexpr std::pair<const char *, YGAlign> ALIGN_TABLE[] = {
+	{"auto", YGAlignAuto},
+	{"flexStart", YGAlignFlexStart},
+	{"center", YGAlignCenter},
+	{"flexEnd", YGAlignFlexEnd},
+	{"stretch", YGAlignStretch},
+	{"baseline", YGAlignBaseline},
+	{"spaceBetween", YGAlignSpaceBetween},
+	{"spaceAround", YGAlignSpaceAround},
+	{"spaceEvenly", YGAlignSpaceEvenly},
+};
+
+[[nodiscard]] constexpr const char *alignToString(YGAlign v) noexcept {
+	return enumToString(v, "auto", ALIGN_TABLE);
 }
 
-YGWrap stringToWrap(std::string_view s) noexcept {
-	if (s == "wrap") {
-		return YGWrapWrap;
-	}
-	if (s == "wrapReverse") {
-		return YGWrapWrapReverse;
-	}
-	return YGWrapNoWrap;
+[[nodiscard]] YGAlign stringToAlign(std::string_view s) noexcept {
+	return stringToEnum(s, YGAlignAuto, ALIGN_TABLE);
 }
 
-constexpr const char *overflowToString(YGOverflow v) noexcept {
-	switch (v) {
-	case YGOverflowVisible:
-		return "visible";
-	case YGOverflowHidden:
-		return "hidden";
-	case YGOverflowScroll:
-		return "scroll";
-	default:
-		return "visible";
-	}
+static constexpr std::pair<const char *, YGWrap> WRAP_TABLE[] = {
+	{"noWrap", YGWrapNoWrap},
+	{"wrap", YGWrapWrap},
+	{"wrapReverse", YGWrapWrapReverse},
+};
+
+[[nodiscard]] constexpr const char *wrapToString(YGWrap v) noexcept {
+	return enumToString(v, "noWrap", WRAP_TABLE);
 }
 
-YGOverflow stringToOverflow(std::string_view s) noexcept {
-	if (s == "hidden") {
-		return YGOverflowHidden;
-	}
-	if (s == "scroll") {
-		return YGOverflowScroll;
-	}
-	return YGOverflowVisible;
+[[nodiscard]] YGWrap stringToWrap(std::string_view s) noexcept {
+	return stringToEnum(s, YGWrapNoWrap, WRAP_TABLE);
 }
 
-constexpr const char *displayToString(YGDisplay v) noexcept {
-	switch (v) {
-	case YGDisplayFlex:
-		return "flex";
-	case YGDisplayNone:
-		return "none";
-	case YGDisplayContents:
-		return "contents";
-	default:
-		return "flex";
-	}
+static constexpr std::pair<const char *, YGOverflow> OVERFLOW_TABLE[] = {
+	{"visible", YGOverflowVisible},
+	{"hidden", YGOverflowHidden},
+	{"scroll", YGOverflowScroll},
+};
+
+[[nodiscard]] constexpr const char *overflowToString(YGOverflow v) noexcept {
+	return enumToString(v, "visible", OVERFLOW_TABLE);
 }
 
-YGDisplay stringToDisplay(std::string_view s) noexcept {
-	if (s == "none") {
-		return YGDisplayNone;
-	}
-	if (s == "contents") {
-		return YGDisplayContents;
-	}
-	return YGDisplayFlex;
+[[nodiscard]] YGOverflow stringToOverflow(std::string_view s) noexcept {
+	return stringToEnum(s, YGOverflowVisible, OVERFLOW_TABLE);
 }
 
-constexpr const char *positionTypeToString(YGPositionType v) noexcept {
-	switch (v) {
-	case YGPositionTypeStatic:
-		return "static";
-	case YGPositionTypeRelative:
-		return "relative";
-	case YGPositionTypeAbsolute:
-		return "absolute";
-	default:
-		return "static";
-	}
+static constexpr std::pair<const char *, YGDisplay> DISPLAY_TABLE[] = {
+	{"flex", YGDisplayFlex},
+	{"none", YGDisplayNone},
+	{"contents", YGDisplayContents},
+};
+
+[[nodiscard]] constexpr const char *displayToString(YGDisplay v) noexcept {
+	return enumToString(v, "flex", DISPLAY_TABLE);
 }
 
-YGPositionType stringToPositionType(std::string_view s) noexcept {
-	if (s == "relative") {
-		return YGPositionTypeRelative;
-	}
-	if (s == "absolute") {
-		return YGPositionTypeAbsolute;
-	}
-	return YGPositionTypeStatic;
+[[nodiscard]] YGDisplay stringToDisplay(std::string_view s) noexcept {
+	return stringToEnum(s, YGDisplayFlex, DISPLAY_TABLE);
 }
 
-constexpr const char *contentAlignHToString(ContentAlignH v) noexcept {
-	switch (v) {
-	case ContentAlignH::Center:
-		return "center";
-	case ContentAlignH::Right:
-		return "right";
-	default:
-		return "left";
-	}
+static constexpr std::pair<const char *, YGPositionType>
+	POSITION_TYPE_TABLE[] = {
+		{"static", YGPositionTypeStatic},
+		{"relative", YGPositionTypeRelative},
+		{"absolute", YGPositionTypeAbsolute},
+};
+
+[[nodiscard]] constexpr const char *positionTypeToString(
+	YGPositionType v
+) noexcept {
+	return enumToString(v, "static", POSITION_TYPE_TABLE);
 }
 
-ContentAlignH stringToContentAlignH(std::string_view s) noexcept {
-	if (s == "center") {
-		return ContentAlignH::Center;
-	}
-	if (s == "right") {
-		return ContentAlignH::Right;
-	}
-	return ContentAlignH::Left;
+[[nodiscard]] YGPositionType stringToPositionType(std::string_view s) noexcept {
+	return stringToEnum(s, YGPositionTypeStatic, POSITION_TYPE_TABLE);
 }
 
-constexpr const char *contentAlignVToString(ContentAlignV v) noexcept {
-	switch (v) {
-	case ContentAlignV::Horizon:
-		return "horizon";
-	case ContentAlignV::Bottom:
-		return "bottom";
-	default:
-		return "top";
-	}
+static constexpr std::pair<const char *, ContentAlignH>
+	CONTENT_ALIGN_H_TABLE[] = {
+		{"left", ContentAlignH::Left},
+		{"center", ContentAlignH::Center},
+		{"right", ContentAlignH::Right},
+};
+
+[[nodiscard]] constexpr const char *contentAlignHToString(
+	ContentAlignH v
+) noexcept {
+	return enumToString(v, "left", CONTENT_ALIGN_H_TABLE);
 }
 
-ContentAlignV stringToContentAlignV(std::string_view s) noexcept {
-	if (s == "horizon") {
-		return ContentAlignV::Horizon;
-	}
-	if (s == "bottom") {
-		return ContentAlignV::Bottom;
-	}
-	return ContentAlignV::Top;
+[[nodiscard]] ContentAlignH stringToContentAlignH(std::string_view s) noexcept {
+	return stringToEnum(s, ContentAlignH::Left, CONTENT_ALIGN_H_TABLE);
+}
+
+static constexpr std::pair<const char *, ContentAlignV>
+	CONTENT_ALIGN_V_TABLE[] = {
+		{"top", ContentAlignV::Top},
+		{"horizon", ContentAlignV::Horizon},
+		{"bottom", ContentAlignV::Bottom},
+};
+
+[[nodiscard]] constexpr const char *contentAlignVToString(
+	ContentAlignV v
+) noexcept {
+	return enumToString(v, "top", CONTENT_ALIGN_V_TABLE);
+}
+
+[[nodiscard]] ContentAlignV stringToContentAlignV(std::string_view s) noexcept {
+	return stringToEnum(s, ContentAlignV::Top, CONTENT_ALIGN_V_TABLE);
 }
 
 JSValue LayoutNode_getEnumProp(
@@ -1476,29 +1427,7 @@ JSValue LayoutNode_getEdgeProp(
 		&self->yoga_node, edge
 	);
 
-	switch (v.unit) {
-	case YGUnitUndefined:
-		return JS_UNDEFINED;
-	case YGUnitAuto:
-		return JS_NewString(ctx, "auto");
-	case YGUnitPoint:
-		if (YGFloatIsUndefined(v.value)) {
-			return JS_UNDEFINED;
-		}
-		return JS_NewFloat64(ctx, v.value);
-	case YGUnitPercent: {
-		char buf[64];
-		auto [ptr, ec] = std::to_chars(
-			buf, buf + sizeof(buf), v.value, std::chars_format::fixed
-		);
-		if (ec == std::errc()) {
-			*ptr++ = '%';
-			return JS_NewStringLen(ctx, buf, ptr - buf);
-		}
-		return JS_UNDEFINED;
-	}
-	}
-	return JS_UNDEFINED;
+	return ygValueToJS(ctx, v);
 }
 
 JSValue LayoutNode_setEdgeProp(

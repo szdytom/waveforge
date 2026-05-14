@@ -88,7 +88,7 @@ struct TextContent final : BindingBase<TextContent> {
 
 struct SpriteContent final : BindingBase<SpriteContent> {
 	static constexpr const char *CLASS_NAME = "SpriteContent";
-	static constexpr int CTOR_LENGTH = 2;
+	static constexpr int CTOR_LENGTH = 1;
 	static const CFunctionList PROTO_FIELDS;
 
 	[[nodiscard]] static JSValue ctor(
