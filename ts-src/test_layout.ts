@@ -18,13 +18,11 @@ function createNode(props: any): waveforge.LayoutNode {
 	return node;
 }
 
-// Store references to button nodes for click testing
 const buttonNodes: waveforge.LayoutNode[] = [];
 
 function buildLayout(): waveforge.LayoutNode {
 	const root = createNode({ width: W, height: H, flexDirection: "column" });
 
-	// ── 1. Header ──
 	const header = createNode({
 		height: 16,
 		backgroundColor: "#282c34",
@@ -39,10 +37,8 @@ function buildLayout(): waveforge.LayoutNode {
 		}),
 	);
 
-	// ── 2. Main content (side-by-side panels) ──
 	const main = createNode({ flexGrow: 1, flexDirection: "row" });
 
-	// left panel: column, center-aligned
 	const leftPanel = createNode({
 		flexGrow: 1,
 		flexDirection: "column",
@@ -64,7 +60,6 @@ function buildLayout(): waveforge.LayoutNode {
 		}),
 	);
 
-	// right panel: column, space-evenly items
 	const rightPanel = createNode({
 		flexGrow: 1,
 		flexDirection: "column",
@@ -99,7 +94,6 @@ function buildLayout(): waveforge.LayoutNode {
 	main.appendChild(leftPanel);
 	main.appendChild(rightPanel);
 
-	// ── 3. Footer ──
 	const footer = createNode({
 		height: 18,
 		backgroundColor: "#282c34",
@@ -161,7 +155,6 @@ function handleClick(event: waveforge.MouseButtonEvent): void {
 		}
 	}
 
-	// Check if a button was clicked
 	const btnIndex = buttonNodes.indexOf(target);
 	if (btnIndex >= 0) {
 		waveforge.log(
@@ -170,31 +163,18 @@ function handleClick(event: waveforge.MouseButtonEvent): void {
 	}
 }
 
-waveforge.setupScene({
-	size() {
-		return [W, H];
-	},
+layoutRoot = buildLayout();
+waveforge.log("layout test ready");
+waveforge.log(`root hasChildNodes: ${layoutRoot.hasChildNodes()}`);
+waveforge.log(`root childCount: ${layoutRoot.childCount}`);
 
-	setup() {
-		layoutRoot = buildLayout();
-		waveforge.log("layout test ready");
-		waveforge.log(`root hasChildNodes: ${layoutRoot.hasChildNodes()}`);
-		waveforge.log(`root childCount: ${layoutRoot.childCount}`);
-	},
+waveforge.addEventListener('step', () => {
+	frameCount++;
+	fpsText.text = `FRAME: ${frameCount}`;
+	waveforge.commitLayout(layoutRoot);
+	waveforge.commitDraw(cmds);
+});
 
-	step() {
-		frameCount++;
-		fpsText.text = `FRAME: ${frameCount}`;
-	},
-
-	render() {
-		waveforge.commitLayout(layoutRoot);
-		waveforge.commitDraw(cmds);
-	},
-
-	handleEvent(event: waveforge.SceneEvent) {
-		if (event.type === "mousedown") {
-			handleClick(event);
-		}
-	},
+waveforge.addEventListener('mousebutton', (event) => {
+	handleClick(event);
 });

@@ -33,32 +33,17 @@ function buildLayout(): void {
 	cmds.push(overlay);
 }
 
-waveforge.setupScene({
-	size() {
-		return [256, 192];
-	},
+buildLayout();
+waveforge.log("typeset test ready");
 
-	setup() {
-		buildLayout();
-		waveforge.log("typeset test ready");
-	},
+waveforge.addEventListener('step', () => {
+	frameCount++;
 
-	step() {
-		frameCount++;
+	const w = 160 + Math.round(Math.sin(frameCount * 0.05) * 60);
+	container.width = w;
+	container.relayout();
 
-		const w = 160 + Math.round(Math.sin(frameCount * 0.05) * 60);
-		container.width = w;
-		container.relayout();
-
-		overlay.text = `frame: ${frameCount}  width: ${w}`;
-	},
-
-	render() {
-		waveforge.commitLayout(root);
-		waveforge.commitDraw(cmds);
-	},
-
-	handleEvent(_event: waveforge.SceneEvent) {
-		// no-op
-	},
+	overlay.text = `frame: ${frameCount}  width: ${w}`;
+	waveforge.commitLayout(root);
+	waveforge.commitDraw(cmds);
 });

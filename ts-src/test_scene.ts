@@ -21,35 +21,29 @@ cmds.push(fpsText);
 
 waveforge.log(`Loaded ${duck.width}x${duck.height} duck texture`);
 waveforge.log("Test scene loading...");
+queueMicrotask(() => {
+	waveforge.log("Microtask executed");
+});
 
-waveforge.setupScene({
-    size() {
-        return [WIDTH, HEIGHT];
-    },
+waveforge.addEventListener('step', () => {
+	frameCount++;
+	x += dx;
+	y += dy;
+	if (x <= 0 || x >= WIDTH - duck.width) dx = -dx;
+	if (y <= 0 || y >= HEIGHT - duck.height) dy = -dy;
+	drawDuckCmd.x = x;
+	drawDuckCmd.y = y;
+	fpsText.text = `FRAME: ${frameCount}`;
+	if (frameCount % 24 === 0) {
+		waveforge.log(`Frame ${frameCount}: ${performance.now()} ms`);
+	}
+	waveforge.commitDraw(cmds);
+});
 
-    setup() {
-        waveforge.log("Test scene setup complete");
-    },
+waveforge.addEventListener('key', (event) => {
+	waveforge.log(`Key: ${event.code} ${event.type}`);
+});
 
-    step() {
-        frameCount++;
-        x += dx;
-        y += dy;
-        if (x <= 0 || x >= WIDTH - duck.width) dx = -dx;
-        if (y <= 0 || y >= HEIGHT - duck.height) dy = -dy;
-        drawDuckCmd.x = x;
-        drawDuckCmd.y = y;
-        fpsText.text = `FRAME: ${frameCount}`;
-    },
-
-    handleEvent(event: waveforge.SceneEvent) {
-		if (event.type === "mousemove") {
-			return; // Too noisy
-		}
-        waveforge.log(`Event: ${event.type}${"code" in event ? ` code=${event.code}` : ""}`);
-    },
-
-    render() {
-        waveforge.commitDraw(cmds);
-    },
+waveforge.addEventListener('mousebutton', (event) => {
+	waveforge.log(`Mouse ${event.type} at (${event.x}, ${event.y})`);
 });

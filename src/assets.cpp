@@ -664,7 +664,9 @@ void fJS(
 			(std::istreambuf_iterator<char>(file_stream)),
 			std::istreambuf_iterator<char>()
 		),
-		.filename = file
+		.filename = file,
+		.width = entry.at("width"),
+		.height = entry.at("height"),
 	};
 	mgr.cacheAsset(id, source);
 }

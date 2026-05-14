@@ -1,7 +1,15 @@
 declare namespace waveforge {
 	function log(message: string): void;
 
-	function setupScene(scene: SceneConfig): void;
+	const width: number;
+	const height: number;
+	function setTitle(title: string): void;
+
+	function addEventListener(type: 'step', callback: () => void): void;
+	function addEventListener(type: 'key', callback: (event: KeyEvent) => void): void;
+	function addEventListener(type: 'mousebutton', callback: (event: MouseButtonEvent) => void): void;
+	function addEventListener(type: 'mousemove', callback: (event: MouseMoveEvent) => void): void;
+	function removeEventListener(type: 'step' | 'key' | 'mousebutton' | 'mousemove', callback: Function): void;
 
 	function commitDraw(cmds: DrawCmdList): void;
 
@@ -243,12 +251,4 @@ declare namespace waveforge {
 	}
 
 	type SceneEvent = KeyEvent | MouseButtonEvent | MouseMoveEvent;
-
-	interface SceneConfig {
-		size(): [number, number];
-		setup?(): void;
-		step?(): void;
-		render?(): void;
-		handleEvent?(event: SceneEvent): void;
-	}
 }

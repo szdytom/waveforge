@@ -5,13 +5,37 @@
 #include <SFML/Window/Event.hpp>
 #include <format>
 #include <iostream>
+#include <tuple>
 #include <utility>
 
 namespace wf {
 
 namespace {
 
-// script engine instance for all scripted scenes
+enum class CallbackIdx : size_t {
+	STEP = 0,
+	KEY,
+	MOUSEBUTTON,
+	MOUSEMOVE,
+	COUNT
+};
+
+CallbackIdx callbackIdx(std::string_view type) noexcept {
+	if (type == "step") {
+		return CallbackIdx::STEP;
+	}
+	if (type == "key") {
+		return CallbackIdx::KEY;
+	}
+	if (type == "mousebutton") {
+		return CallbackIdx::MOUSEBUTTON;
+	}
+	if (type == "mousemove") {
+		return CallbackIdx::MOUSEMOVE;
+	}
+	return CallbackIdx::COUNT;
+}
+
 js::Engine &scriptEngine() {
 	static std::unique_ptr<js::Engine> engine;
 	if (!engine) {
@@ -23,15 +47,15 @@ js::Engine &scriptEngine() {
 } // namespace
 
 struct ScriptedScene::Impl {
-	js::ContextPtr ctx;
-	const Script *script; // not owned, managed by AssetsManager
+	const Script *script = nullptr; // not owned, managed by AssetsManager
 
-	js::Value setup_obj;
-	js::Value size_fn;
-	js::Value setup_fn;
-	js::Value step_fn;
-	js::Value render_fn;
-	js::Value handle_event_fn;
+	int width = 0;
+	int height = 0;
+	SceneManager *scene_mgr = nullptr; // not owned
+
+	js::ContextPtr ctx;
+	std::array<std::vector<js::Value>, std::to_underlying(CallbackIdx::COUNT)>
+		callbacks;
 
 	js::Value cmds_val;
 	js::DrawCmdList *cmds = nullptr;
@@ -39,11 +63,7 @@ struct ScriptedScene::Impl {
 	js::Value layout_root_val;
 	js::LayoutNode *layout_root = nullptr;
 
-	int width;
-	int height;
-
 	explicit Impl(const std::string &script_id);
-	~Impl();
 };
 
 namespace {
@@ -57,7 +77,48 @@ JSValue f_log(
 	return JS_UNDEFINED;
 }
 
-JSValue f_setupScene(
+std::expected<CallbackIdx, JSValue> parseEventType(
+	JSContext *ctx, JSValueConst arg
+) noexcept {
+	size_t type_len;
+	const char *type_cstr = JS_ToCStringLen(ctx, &type_len, arg);
+	if (!type_cstr) {
+		return std::unexpected(
+			JS_ThrowTypeError(ctx, "Event type must be a string")
+		);
+	}
+
+	auto type = callbackIdx({type_cstr, type_len});
+	JS_FreeCString(ctx, type_cstr);
+
+	if (type == CallbackIdx::COUNT) {
+		return std::unexpected(JS_ThrowTypeError(
+			ctx, "Unknown event type (expected step/key/mousebutton/mousemove)"
+		));
+	}
+
+	return type;
+}
+
+// ── waveforge functions ──
+
+JSValue f_set_window_title(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	if (!impl || !impl->scene_mgr) {
+		return JS_UNDEFINED;
+	}
+	const char *title = JS_ToCString(ctx, argv[0]);
+	if (!title) {
+		return JS_ThrowTypeError(ctx, "Title must be a string");
+	}
+	impl->scene_mgr->setWindowTitle(title);
+	JS_FreeCString(ctx, title);
+	return JS_UNDEFINED;
+}
+
+JSValue f_addEventListener(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
 	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
@@ -65,67 +126,41 @@ JSValue f_setupScene(
 		return JS_UNDEFINED;
 	}
 
-	JSValue obj = argv[0];
-	if (!JS_IsObject(obj)) {
-		return JS_ThrowTypeError(ctx, "setupScene expects an object");
+	auto parsed = parseEventType(ctx, argv[0]);
+	if (!parsed) {
+		return parsed.error();
 	}
 
-	impl->setup_obj = js::Value(ctx, JS_DupValue(ctx, obj));
-
-	JSValue size_fn = JS_GetPropertyStr(ctx, obj, "size");
-	if (JS_IsFunction(ctx, size_fn)) {
-		impl->size_fn = js::Value(ctx, size_fn);
-	} else {
-		JS_FreeValue(ctx, size_fn);
-		return JS_ThrowTypeError(ctx, "Missing size()");
+	if (!JS_IsFunction(ctx, argv[1])) {
+		return JS_ThrowTypeError(ctx, "Callback must be a function");
 	}
 
-	JSValue setup_fn = JS_GetPropertyStr(ctx, obj, "setup");
-	if (JS_IsFunction(ctx, setup_fn)) {
-		impl->setup_fn = js::Value(ctx, setup_fn);
-	} else {
-		JS_FreeValue(ctx, setup_fn);
-	}
-
-	JSValue step_fn = JS_GetPropertyStr(ctx, obj, "step");
-	if (JS_IsFunction(ctx, step_fn)) {
-		impl->step_fn = js::Value(ctx, step_fn);
-	} else {
-		JS_FreeValue(ctx, step_fn);
-	}
-
-	JSValue render_fn = JS_GetPropertyStr(ctx, obj, "render");
-	if (JS_IsFunction(ctx, render_fn)) {
-		impl->render_fn = js::Value(ctx, render_fn);
-	} else {
-		JS_FreeValue(ctx, render_fn);
-	}
-
-	JSValue handle_event_fn = JS_GetPropertyStr(ctx, obj, "handleEvent");
-	if (JS_IsFunction(ctx, handle_event_fn)) {
-		impl->handle_event_fn = js::Value(ctx, handle_event_fn);
-	} else {
-		JS_FreeValue(ctx, handle_event_fn);
-	}
-
-	js::Value result_guard(
-		ctx, JS_Call(ctx, *impl->size_fn, *impl->setup_obj, 0, nullptr)
+	impl->callbacks[std::to_underlying(*parsed)].push_back(
+		js::Value(ctx, JS_DupValue(ctx, argv[1]))
 	);
-	JSValue result = *result_guard;
-	if (!JS_IsException(result)) {
-		js::Value w_guard(ctx, JS_GetPropertyUint32(ctx, result, 0));
-		js::Value h_guard(ctx, JS_GetPropertyUint32(ctx, result, 1));
-		int32_t w, h;
-		if (JS_ToInt32(ctx, &w, *w_guard) < 0) {
-			return JS_ThrowTypeError(ctx, "Failed to convert width to int32");
-		}
-		if (JS_ToInt32(ctx, &h, *h_guard) < 0) {
-			return JS_ThrowTypeError(ctx, "Failed to convert height to int32");
-		}
-		impl->width = w;
-		impl->height = h;
+	return JS_UNDEFINED;
+}
+
+JSValue f_removeEventListener(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	if (!impl) {
+		return JS_UNDEFINED;
 	}
 
+	auto parsed = parseEventType(ctx, argv[0]);
+	if (!parsed) {
+		return parsed.error();
+	}
+
+	auto &vec = impl->callbacks[std::to_underlying(*parsed)];
+	for (size_t i = 0; i < vec.size(); i++) {
+		if (JS_IsSameValue(ctx, *vec[i], argv[1])) {
+			vec.erase(vec.begin() + static_cast<std::ptrdiff_t>(i));
+			break;
+		}
+	}
 	return JS_UNDEFINED;
 }
 
@@ -167,43 +202,122 @@ JSValue f_commitDraw(
 	return JS_UNDEFINED;
 }
 
-JSValue createJSEvent(
+// ── Event conversion ──
+
+std::tuple<CallbackIdx, JSValue> createJSEvent(
 	JSContext *ctx, const sf::Event &evt, int scale
 ) noexcept {
 	if (const auto *e = evt.getIf<sf::Event::KeyPressed>()) {
-		return js::KeyEvent::from(ctx, *e);
+		return {CallbackIdx::KEY, js::KeyEvent::from(ctx, *e)};
 	}
 	if (const auto *e = evt.getIf<sf::Event::KeyReleased>()) {
-		return js::KeyEvent::from(ctx, *e);
+		return {CallbackIdx::KEY, js::KeyEvent::from(ctx, *e)};
 	}
 	if (const auto *e = evt.getIf<sf::Event::MouseButtonPressed>()) {
-		return js::MouseButtonEvent::from(ctx, *e, scale);
+		return {
+			CallbackIdx::MOUSEBUTTON, js::MouseButtonEvent::from(ctx, *e, scale)
+		};
 	}
 	if (const auto *e = evt.getIf<sf::Event::MouseButtonReleased>()) {
-		return js::MouseButtonEvent::from(ctx, *e, scale);
+		return {
+			CallbackIdx::MOUSEBUTTON, js::MouseButtonEvent::from(ctx, *e, scale)
+		};
 	}
 	if (const auto *e = evt.getIf<sf::Event::MouseMoved>()) {
-		return js::MouseMoveEvent::from(ctx, *e, scale);
+		return {
+			CallbackIdx::MOUSEMOVE, js::MouseMoveEvent::from(ctx, *e, scale)
+		};
 	}
-	return JS_NULL;
+	return {CallbackIdx::COUNT, JS_NULL};
 }
+
+void invokeCallbacks(
+	JSContext *ctx, const std::vector<js::Value> &callbacks, int argc,
+	JSValueConst *argv
+) noexcept {
+	for (auto &cb : callbacks) {
+		if (JS_IsFunction(ctx, *cb)) {
+			js::Value result_guard(
+				ctx, JS_Call(ctx, *cb, JS_UNDEFINED, argc, argv)
+			);
+			if (JS_IsException(*result_guard)) {
+				js::dumpJSError(ctx);
+			}
+		}
+	}
+}
+
+} // namespace
 
 using SceneBindings = js::BindingList<
 	js::Texture, js::Color, js::TextContent, js::SpriteContent, js::DrawTextCmd,
 	js::DrawSpriteCmd, js::DrawRectCmd, js::DrawCmdList, js::DrawCmdListIter,
 	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent>;
 
-void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
-	JS_SetContextOpaque(ctx, impl);
+// ── Impl constructor / destructor ──
+
+ScriptedScene::Impl::Impl(const std::string &script_id): script(nullptr) {
+	script = AssetsManager::instance().getAssetChecked<Script>(script_id);
+	if (!script) {
+		throw std::runtime_error(
+			std::format("ScriptedScene: script '{}' not found", script_id)
+		);
+	}
+	width = script->width;
+	height = script->height;
+}
+
+ScriptedScene::ScriptedScene(const std::string &script_id)
+	: _impl(std::make_unique<Impl>(script_id)) {}
+
+ScriptedScene::~ScriptedScene() = default;
+
+// ── SceneFacade interface ──
+
+std::array<int, 2> ScriptedScene::size() const {
+	return {_impl->width, _impl->height};
+}
+
+void ScriptedScene::setup(SceneManager &mgr) {
+	auto &impl = *_impl;
+	impl.scene_mgr = &mgr;
+
+	auto &engine = scriptEngine();
+	static bool classes_registered = false;
+	if (!classes_registered) {
+		SceneBindings::registerClass(engine);
+		classes_registered = true;
+	}
+
+	auto *raw_ctx = engine.createContext();
+	engine.releaseContext(raw_ctx);
+	impl.ctx.reset(raw_ctx);
+
+	auto *ctx = impl.ctx.get();
+	JS_SetContextOpaque(ctx, &impl);
 
 	JSValue ns = JS_NewObject(ctx);
-
 	SceneBindings::bindContext(ctx, ns);
+
+	JS_DefinePropertyValueStr(
+		ctx, ns, "width", JS_NewInt32(ctx, impl.width), JS_PROP_CONFIGURABLE
+	);
+	JS_DefinePropertyValueStr(
+		ctx, ns, "height", JS_NewInt32(ctx, impl.height), JS_PROP_CONFIGURABLE
+	);
 
 	JS_SetPropertyStr(ctx, ns, "log", JS_NewCFunction(ctx, f_log, "log", 1));
 	JS_SetPropertyStr(
-		ctx, ns, "setupScene",
-		JS_NewCFunction(ctx, f_setupScene, "setupScene", 1)
+		ctx, ns, "setTitle",
+		JS_NewCFunction(ctx, f_set_window_title, "setTitle", 1)
+	);
+	JS_SetPropertyStr(
+		ctx, ns, "addEventListener",
+		JS_NewCFunction(ctx, f_addEventListener, "addEventListener", 2)
+	);
+	JS_SetPropertyStr(
+		ctx, ns, "removeEventListener",
+		JS_NewCFunction(ctx, f_removeEventListener, "removeEventListener", 2)
 	);
 	JS_SetPropertyStr(
 		ctx, ns, "commitDraw",
@@ -216,160 +330,50 @@ void initJSContext(JSContext *ctx, ScriptedScene::Impl *impl) {
 
 	js::Value global(ctx, JS_GetGlobalObject(ctx));
 	JS_SetPropertyStr(ctx, *global, "waveforge", ns);
-}
-
-} // namespace
-
-ScriptedScene::Impl::Impl(const std::string &script_id): script(nullptr) {
-	script = AssetsManager::instance().getAssetChecked<Script>(script_id);
-	if (!script) {
-		throw std::runtime_error(
-			std::format("ScriptedScene: script '{}' not found", script_id)
-		);
-	}
-
-	auto &engine = scriptEngine();
-	SceneBindings::registerClass(engine);
-
-	auto *raw_ctx = engine.createContext();
-	engine.releaseContext(raw_ctx);
-	ctx.reset(raw_ctx);
-
-	initJSContext(ctx.get(), this);
 
 	js::Value eval_guard(
-		ctx.get(),
+		ctx,
 		JS_Eval(
-			ctx.get(), script->source.c_str(), script->source.size(),
-			script->filename.c_str(), JS_EVAL_TYPE_GLOBAL
+			ctx, impl.script->source.c_str(), impl.script->source.size(),
+			impl.script->filename.c_str(), JS_EVAL_TYPE_GLOBAL
 		)
 	);
 	JSValue result = *eval_guard;
 
 	if (JS_IsException(result)) {
-		js::dumpJSError(ctx.get());
-		throw std::runtime_error(
-			std::format("ScriptedScene: failed to evaluate '{}'", script_id)
-		);
-	}
-
-	if (!JS_IsFunction(ctx.get(), *size_fn)) {
+		js::dumpJSError(ctx);
 		throw std::runtime_error(
 			std::format(
-				"ScriptedScene: script '{}' did not call "
-				"waveforge.setupScene()",
-				script_id
+				"ScriptedScene: failed to evaluate '{}'", impl.script->filename
 			)
 		);
 	}
 }
 
-ScriptedScene::Impl::~Impl() = default;
-
-ScriptedScene::ScriptedScene(const std::string &script_id)
-	: _impl(std::make_unique<Impl>(script_id)) {}
-
-ScriptedScene::~ScriptedScene() = default;
-
-std::array<int, 2> ScriptedScene::size() const {
-	return {_impl->width, _impl->height};
-}
-
-void ScriptedScene::setup(SceneManager &mgr) {
-	if (JS_IsFunction(_impl->ctx.get(), *_impl->setup_fn)) {
-		js::Value result_guard(
-			_impl->ctx.get(),
-			JS_Call(
-				_impl->ctx.get(), *_impl->setup_fn, *_impl->setup_obj, 0,
-				nullptr
-			)
-		);
-		JSValue result = *result_guard;
-		if (JS_IsException(result)) {
-			js::Value exc_guard(
-				_impl->ctx.get(), JS_GetException(_impl->ctx.get())
-			);
-			const char *str = JS_ToCString(_impl->ctx.get(), *exc_guard);
-			std::cerr << "[JS] setup error: " << (str ? str : "unknown")
-					  << "\n";
-			JS_FreeCString(_impl->ctx.get(), str);
-		}
-	}
-}
-
-void ScriptedScene::handleEvent(SceneManager &mgr, sf::Event &evt) {
+void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
 	auto *ctx = _impl->ctx.get();
-	if (!JS_IsFunction(ctx, *_impl->handle_event_fn)) {
+
+	auto [evtType, raw_val] = createJSEvent(ctx, evt, mgr.scale());
+	js::Value evt_guard(ctx, raw_val);
+	if (evtType == CallbackIdx::COUNT) {
 		return;
 	}
 
-	js::Value evt_guard(ctx, createJSEvent(ctx, evt, mgr.scale()));
+	auto &callbacks = _impl->callbacks[std::to_underlying(evtType)];
 	JSValue event_val = *evt_guard;
-	if (JS_IsNull(event_val)) {
-		return;
-	}
-
-	js::Value result_guard(
-		ctx,
-		JS_Call(ctx, *_impl->handle_event_fn, *_impl->setup_obj, 1, &event_val)
-	);
-	JSValue result = *result_guard;
-	if (JS_IsException(result)) {
-		js::Value exc_guard(ctx, JS_GetException(ctx));
-		const char *str = JS_ToCString(ctx, *exc_guard);
-		std::cerr << "[JS] handleEvent error: " << (str ? str : "unknown")
-				  << "\n";
-		JS_FreeCString(ctx, str);
-	}
+	invokeCallbacks(ctx, callbacks, 1, &event_val);
 }
 
 void ScriptedScene::step(SceneManager &mgr) {
-	if (JS_IsFunction(_impl->ctx.get(), *_impl->step_fn)) {
-		js::Value result_guard(
-			_impl->ctx.get(),
-			JS_Call(
-				_impl->ctx.get(), *_impl->step_fn, *_impl->setup_obj, 0, nullptr
-			)
-		);
-		JSValue result = *result_guard;
-		if (JS_IsException(result)) {
-			js::Value exc_guard(
-				_impl->ctx.get(), JS_GetException(_impl->ctx.get())
-			);
-			const char *str = JS_ToCString(_impl->ctx.get(), *exc_guard);
-			std::cerr << "[JS] step error: " << (str ? str : "unknown") << "\n";
-			JS_FreeCString(_impl->ctx.get(), str);
-		}
-	}
+	invokeCallbacks(
+		_impl->ctx.get(),
+		_impl->callbacks[std::to_underlying(CallbackIdx::STEP)], 0, nullptr
+	);
 }
 
 void ScriptedScene::render(
 	const SceneManager &mgr, sf::RenderTarget &target, int scale
 ) const {
-	this->_impl->cmds_val = js::Value();
-	this->_impl->cmds = nullptr;
-	this->_impl->layout_root_val = js::Value();
-	this->_impl->layout_root = nullptr;
-	if (JS_IsFunction(_impl->ctx.get(), *_impl->render_fn)) {
-		js::Value result_guard(
-			_impl->ctx.get(),
-			JS_Call(
-				_impl->ctx.get(), *_impl->render_fn, *_impl->setup_obj, 0,
-				nullptr
-			)
-		);
-		JSValue result = *result_guard;
-		if (JS_IsException(result)) {
-			js::Value exc_guard(
-				_impl->ctx.get(), JS_GetException(_impl->ctx.get())
-			);
-			const char *str = JS_ToCString(_impl->ctx.get(), *exc_guard);
-			std::cerr << "[JS] render error: " << (str ? str : "unknown")
-					  << "\n";
-			JS_FreeCString(_impl->ctx.get(), str);
-		}
-	}
-
 	if (_impl->layout_root) {
 		_impl->layout_root->calculateLayout(
 			static_cast<float>(_impl->width), static_cast<float>(_impl->height)
@@ -380,6 +384,11 @@ void ScriptedScene::render(
 	if (_impl->cmds) {
 		_impl->cmds->render(target, _impl->ctx.get(), scale);
 	}
+
+	_impl->cmds_val = js::Value();
+	_impl->cmds = nullptr;
+	_impl->layout_root_val = js::Value();
+	_impl->layout_root = nullptr;
 }
 
 } // namespace wf
