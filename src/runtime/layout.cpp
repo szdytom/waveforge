@@ -1408,6 +1408,8 @@ struct EdgeProp {
 	EdgeType type : 4;
 	YGEdge edge : 4;
 
+	constexpr EdgeProp(EdgeType t, YGEdge e) noexcept: type(t), edge(e) {}
+
 	static constexpr EdgeProp fromMagic(int16_t magic) noexcept {
 		return {
 			static_cast<EdgeType>((static_cast<uint8_t>(magic) >> 4) & 0xF),
