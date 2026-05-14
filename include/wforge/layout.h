@@ -4,10 +4,8 @@
 #include "wforge/assets.h"
 #include "wforge/runtime.h"
 #include <array>
-#include <memory>
 #include <proxy/proxy.h>
 #include <string>
-#include <vector>
 #include <yoga/Yoga.h>
 #include <yoga/node/Node.h>
 #include <yoga/style/Style.h>
@@ -92,11 +90,6 @@ struct SpriteContent final : BindingBase<SpriteContent> {
 };
 
 struct LayoutNode final : BindingBase<LayoutNode> {
-	struct ChildEntry {
-		JSValue val;
-		LayoutNode *node;
-	};
-
 	static constexpr const char *CLASS_NAME = "LayoutNode";
 	static constexpr int CTOR_LENGTH = 0;
 	static const CFunctionList PROTO_FIELDS;
@@ -109,10 +102,10 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 
 	LayoutNode();
 
-	void appendChild(JSContext *, LayoutNode *, JSValue);
+	void appendChild(JSContext *, LayoutNode *);
 	void removeChild(JSContext *, LayoutNode *);
-	void insertBefore(JSContext *, LayoutNode *, JSValue, LayoutNode *);
-	void replaceChild(JSContext *, LayoutNode *, JSValue, LayoutNode *);
+	void insertBefore(JSContext *, LayoutNode *, LayoutNode *);
+	void replaceChild(JSContext *, LayoutNode *, LayoutNode *);
 
 	void calculateLayout(float avail_width, float avail_height);
 	void render(sf::RenderTarget &, JSContext *, int) const;
@@ -128,6 +121,7 @@ private:
 
 public:
 	// -- data members --
+	JSValue self_val = JS_NULL; // stored without ref count, managed via gcMark
 	facebook::yoga::Node yoga_node;
 
 	pro::proxy_view<ContentFacade> content;
@@ -135,7 +129,10 @@ public:
 	JSValue background_color = JS_NULL;
 	// Indexed by YGEdge (Left=0, Top=1, Right=2, Bottom=3)
 	std::array<JSValue, 4> border_color = {JS_NULL, JS_NULL, JS_NULL, JS_NULL};
-	std::vector<ChildEntry> children;
+	LayoutNode *parent = nullptr;
+	LayoutNode *next_sibling = nullptr;
+	LayoutNode *first_child = nullptr;
+	LayoutNode *last_child = nullptr;
 };
 
 } // namespace wf::js
