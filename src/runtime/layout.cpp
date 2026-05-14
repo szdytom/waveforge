@@ -156,15 +156,11 @@ struct WrappedLine {
 // ===== Content::measure/render implementations =====
 
 int TextContent::charWidth() const noexcept {
-	return AssetsManager::instance().getAsset<PixelFont>("font").charWidth(
-		size
-	);
+	return _font->charWidth(size);
 }
 
 int TextContent::charHeight() const noexcept {
-	return AssetsManager::instance().getAsset<PixelFont>("font").charHeight(
-		size
-	);
+	return _font->charHeight(size);
 }
 
 YGSize TextContent::measure(
@@ -218,8 +214,6 @@ YGSize TextContent::measure(
 void TextContent::render(
 	sf::RenderTarget &target, JSContext *ctx, LayoutParameters lp
 ) const {
-	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
-
 	int cw = charWidth();
 	int ch = charHeight();
 
@@ -242,7 +236,7 @@ void TextContent::render(
 
 	int y = lp.y + dy;
 	for (auto &l : lines) {
-		font.renderText(
+		_font->renderText(
 			target, std::string_view(text.data() + l.start, l.end - l.start),
 			nativeColor(ctx), lp.x + dx, y, lp.scale, size
 		);
@@ -640,6 +634,7 @@ JSValue TextContent::ctor(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
 	auto self = std::make_unique<TextContent>();
+	self->_font = &AssetsManager::instance().getAsset<PixelFont>("font");
 	if (argc > 0) {
 		const char *s = JS_ToCString(ctx, argv[0]);
 		if (s) {

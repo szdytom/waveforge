@@ -77,6 +77,7 @@ struct TextContent final : BindingBase<TextContent> {
 	std::string text;
 	int size = 1;
 	JSValue color = JS_NULL;
+	const PixelFont *_font = nullptr; // not owned, managed by AssetsManager
 
 	[[nodiscard]] int charWidth() const noexcept;
 	[[nodiscard]] int charHeight() const noexcept;

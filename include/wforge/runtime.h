@@ -20,6 +20,8 @@ class Texture;
 class RenderTarget;
 } // namespace sf
 
+class PixelFont;
+
 namespace wf::js {
 
 // Minimal replacement for quickjs-libc's js_std_dump_error.
@@ -293,6 +295,7 @@ struct DrawTextCmd final : BindingBase<DrawTextCmd> {
 	int y;
 	int size;
 	JSValue color = JS_NULL;
+	const PixelFont *_font = nullptr; // not owned, managed by AssetsManager
 
 	DrawTextCmd(std::string text, int x, int y) noexcept;
 

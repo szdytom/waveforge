@@ -193,8 +193,7 @@ sf::Color DrawTextCmd::nativeColor(JSContext *ctx) const noexcept {
 void DrawTextCmd::render(
 	sf::RenderTarget &target, JSContext *ctx, int scale
 ) const {
-	auto &font = AssetsManager::instance().getAsset<PixelFont>("font");
-	font.renderText(target, text, nativeColor(ctx), x, y, scale, size);
+	_font->renderText(target, text, nativeColor(ctx), x, y, scale, size);
 }
 
 static const JSCFunctionListEntry DRAW_TEXT_CMD_PROTO[] = {
@@ -224,6 +223,7 @@ JSValue DrawTextCmd::ctor(
 	}
 
 	auto self = std::make_unique<DrawTextCmd>(std::string(text), x, y);
+	self->_font = &AssetsManager::instance().getAsset<PixelFont>("font");
 	JS_FreeCString(ctx, text);
 
 	// Optional 4th argument for size
