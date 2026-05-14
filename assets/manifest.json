@@ -981,6 +981,14 @@
 			"width": 256,
 			"height": 192,
 			"description": "Loading typesetting test script"
+		},
+		{
+			"id": "scripts/react_hello",
+			"type": "js",
+			"file": "bundled-js/react_hello.js",
+			"width": 256,
+			"height": 192,
+			"description": "React interactive counter demo with Button component and click dispatch"
 		}
 	]
 }

@@ -71,9 +71,14 @@ namespace {
 JSValue f_log(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
-	const char *str = JS_ToCString(ctx, argv[0]);
-	std::cerr << "[JS] " << (str ? str : "null") << "\n";
-	JS_FreeCString(ctx, str);
+	std::string msg;
+	for (int i = 0; i < argc; i++) {
+		if (i > 0) msg += ' ';
+		const char *str = JS_ToCString(ctx, argv[i]);
+		msg += str ? str : "null";
+		JS_FreeCString(ctx, str);
+	}
+	std::cerr << "[JS] " << msg << "\n";
 	return JS_UNDEFINED;
 }
 

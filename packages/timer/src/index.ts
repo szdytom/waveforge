@@ -1,4 +1,3 @@
-/// <reference path="./waveforge.d.ts" />
 
 interface TimerEntry {
 	id: number;
@@ -84,4 +83,5 @@ export function clearInterval(id: number): void {
 	clearTimeout(id);
 }
 
+// Self-register on the step event
 waveforge.addEventListener('step', checkTimers);

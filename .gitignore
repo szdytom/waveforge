@@ -9,3 +9,5 @@ asan*
 *.webm
 *.dat
 *.mp4
+node_modules
+dist

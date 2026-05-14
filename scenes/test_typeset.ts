@@ -1,4 +1,3 @@
-/// <reference path="./waveforge.d.ts" />
 
 import LONG_TEXT from "./typeset.txt";
 
@@ -47,3 +46,5 @@ waveforge.addEventListener('step', () => {
 	waveforge.commitLayout(root);
 	waveforge.commitDraw(cmds);
 });
+
+export {};

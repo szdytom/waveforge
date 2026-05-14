@@ -1,0 +1,19 @@
+{
+  "name": "@waveforge/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@waveforge/timer": "workspace:*",
+    "react": "^19.0.0",
+    "react-reconciler": "^0.31.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-reconciler": "^0.31.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
