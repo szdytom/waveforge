@@ -85,6 +85,22 @@ declare namespace waveforge {
 		paddingTop: number | string | undefined;
 		paddingBottom: number | string | undefined;
 
+		// position
+		left: number | string | undefined;
+		right: number | string | undefined;
+		top: number | string | undefined;
+		bottom: number | string | undefined;
+
+		// border
+		borderLeft: number | undefined;
+		borderRight: number | undefined;
+		borderTop: number | undefined;
+		borderBottom: number | undefined;
+		borderLeftColor: ColorLike | undefined;
+		borderRightColor: ColorLike | undefined;
+		borderTopColor: ColorLike | undefined;
+		borderBottomColor: ColorLike | undefined;
+
 		// background
 		backgroundColor: ColorLike;
 

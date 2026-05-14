@@ -3,6 +3,7 @@
 
 #include "wforge/assets.h"
 #include "wforge/runtime.h"
+#include <array>
 #include <memory>
 #include <proxy/proxy.h>
 #include <string>
@@ -119,6 +120,8 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 	pro::proxy_view<ContentFacade> content;
 	JSValue contentVal = JS_NULL;
 	JSValue backgroundColor = JS_NULL;
+	// Indexed by YGEdge (Left=0, Top=1, Right=2, Bottom=3)
+	std::array<JSValue, 4> border_color = {JS_NULL, JS_NULL, JS_NULL, JS_NULL};
 	std::vector<ChildEntry> children;
 };
 
