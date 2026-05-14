@@ -12,6 +12,25 @@
 
 namespace wf::js {
 
+// -- content alignment bitfield --
+
+enum class ContentAlignH : uint8_t {
+	Left = 0,
+	Center = 1,
+	Right = 2,
+};
+
+enum class ContentAlignV : uint8_t {
+	Top = 0,
+	Horizon = 1,
+	Bottom = 2,
+};
+
+struct ContentAlign {
+	ContentAlignH h : 2 = ContentAlignH::Left;
+	ContentAlignV v : 2 = ContentAlignV::Top;
+};
+
 namespace _dispatch {
 
 PRO_DEF_MEM_DISPATCH(MemContentMeasure, measure);
@@ -25,6 +44,7 @@ struct LayoutParameters {
 	int y;
 	int w;
 	int h;
+	ContentAlign align{};
 };
 
 /* clang-format off */
@@ -129,6 +149,7 @@ public:
 	JSValue background_color = JS_NULL;
 	// Indexed by YGEdge (Left=0, Top=1, Right=2, Bottom=3)
 	std::array<JSValue, 4> border_color = {JS_NULL, JS_NULL, JS_NULL, JS_NULL};
+	ContentAlign content_align{};
 	LayoutNode *parent = nullptr;
 	LayoutNode *next_sibling = nullptr;
 	LayoutNode *first_child = nullptr;
