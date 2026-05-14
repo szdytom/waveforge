@@ -1,4 +1,3 @@
-
 interface TimerEntry {
 	id: number;
 	callback: () => void;
@@ -85,3 +84,11 @@ export function clearInterval(id: number): void {
 
 // Self-register on the step event
 waveforge.addEventListener('step', checkTimers);
+
+// Wire into the delegate API set up by the esbuild banner.
+// The banner's globalThis.setTimeout etc. forward to these functions.
+const api = (globalThis as any).__timerApi;
+api.setTimeout = setTimeout;
+api.clearTimeout = clearTimeout;
+api.setInterval = setInterval;
+api.clearInterval = clearInterval;

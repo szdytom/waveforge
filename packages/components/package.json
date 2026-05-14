@@ -6,6 +6,7 @@
   "main": "src/index.tsx",
   "dependencies": {
     "@waveforge/renderer": "workspace:*",
+    "@waveforge/styles": "workspace:*",
     "react": "^19.0.0"
   },
   "devDependencies": {

@@ -7,6 +7,7 @@
     "@waveforge/timer": "workspace:*",
     "@waveforge/renderer": "workspace:*",
     "@waveforge/components": "workspace:*",
+    "@waveforge/styles": "workspace:*",
     "react": "^19.0.0"
   },
   "devDependencies": {

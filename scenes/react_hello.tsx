@@ -1,10 +1,31 @@
+// Must be first: timer globals needed by react-reconciler's scheduler
+import '@waveforge/timer';
 import React from 'react';
 import { render, View, Text } from '@waveforge/renderer';
 import { Button } from '@waveforge/components';
+import { style, size, padding, margin, border, bg, row, column, center, centerV, centerH, flex, textColor } from '@waveforge/styles';
 
 waveforge.log("Counter demo loading...");
 
 const BG_COLORS = ['#f0e6ff', '#e6f5ff', '#fff0e6', '#e6ffe6', '#fffae6'];
+
+const headerStyle = style(
+	{ height: 18, backgroundColor: '#2d2d5e' },
+	row(), centerV(), centerH(),
+	border(0, '#4ecdc455'), { borderBottom: 1 },
+);
+
+const counterCard = style(
+	bg('#ffffffcc'),
+	padding(6, 24),
+	border(2, '#4ecdc4'),
+);
+
+const footerStyle = style(
+	{ height: 12, backgroundColor: '#2d2d5e' },
+	row(), centerV(), centerH(),
+	border(0, '#4ecdc455'), { borderTop: 1 },
+);
 
 function App() {
 	const [count, setCount] = React.useState(0);
@@ -24,98 +45,35 @@ function App() {
 	}, []);
 
 	return (
-		<View style={{
-			width: 256,
-			height: 192,
-			flexDirection: 'column',
-			backgroundColor: BG_COLORS[bgIndex],
-		}}>
-			{/* Header */}
-			<View style={{
-				height: 18,
-				backgroundColor: '#2d2d5e',
-				flexDirection: 'row',
-				alignItems: 'center',
-				justifyContent: 'center',
-				borderBottom: 1,
-				borderBottomColor: '#4ecdc455',
-			}}>
-				<Text style={{ color: '#ffffff' }}>{`REACT COUNTER DEMO`}</Text>
+		<View style={style(size(256, 192), column(), bg(BG_COLORS[bgIndex]))}>
+			<View style={headerStyle}>
+				<Text style={textColor('#ffffff')}>{`REACT COUNTER DEMO`}</Text>
 			</View>
 
-			{/* Counter display */}
-			<View style={{
-				flexGrow: 1,
-				flexDirection: 'column',
-				justifyContent: 'center',
-				alignItems: 'center',
-			}}>
-				<View style={{
-					backgroundColor: '#ffffffcc',
-					paddingTop: 6,
-					paddingRight: 24,
-					paddingBottom: 6,
-					paddingLeft: 24,
-					borderLeft: 2,
-					borderLeftColor: '#4ecdc4',
-					borderRight: 2,
-					borderRightColor: '#4ecdc4',
-					marginBottom: 10,
-				}}>
-					<Text style={{ color: '#2d2d5e' }}>{`COUNT: ${count}`}</Text>
+			<View style={style(flex(1), column(), center())}>
+				<View style={style(counterCard, { marginBottom: 10 })}>
+					<Text style={textColor('#2d2d5e')}>{`COUNT: ${count}`}</Text>
 				</View>
 
-				{/* Button row */}
-				<View style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-				}}>
-					<Button
-						label={"+1"}
-						variant="primary"
-						onClick={() => increment(1)}
-						style={{ marginRight: 4, marginLeft: 4 }}
-					/>
-					<Button
-						label={"+5"}
-						variant="accent"
-						onClick={() => increment(5)}
-						style={{ marginRight: 4, marginLeft: 4 }}
-					/>
-					<Button
-						label={"RESET"}
-						variant="secondary"
-						onClick={reset}
-						style={{ marginRight: 4, marginLeft: 4 }}
-					/>
+				<View style={row()}>
+					<Button label="+1" variant="primary" onClick={() => increment(1)} style={margin(0, 4)} />
+					<Button label="+5" variant="accent" onClick={() => increment(5)} style={margin(0, 4)} />
+					<Button label="RESET" variant="secondary" onClick={reset} style={margin(0, 4)} />
 				</View>
 
 				<View style={{ height: 6 }} />
 
-				<Text style={{ color: '#555' }}>{`CLICK +1 OR +5`}</Text>
-				<Text style={{ color: '#555' }}>{`TO CHANGE COLOR`}</Text>
+				<Text style={textColor('#555')}>CLICK +1 OR +5</Text>
+				<Text style={textColor('#555')}>TO CHANGE COLOR</Text>
 			</View>
 
-			{/* Footer */}
-			<View style={{
-				height: 12,
-				flexDirection: 'row',
-				alignItems: 'center',
-				justifyContent: 'center',
-				backgroundColor: '#2d2d5e',
-				borderTop: 1,
-				borderTopColor: '#4ecdc455',
-			}}>
-				<Text style={{ color: '#ffffff' }}>{`+- POWERED BY REACT`}</Text>
+			<View style={footerStyle}>
+				<Text style={textColor('#ffffff')}>{`+- POWERED BY REACT`}</Text>
 			</View>
 		</View>
 	);
 }
 
-const rootNode = new waveforge.LayoutNode();
-rootNode.width = 256;
-rootNode.height = 192;
-
-render(<App />, rootNode);
+render(<App />);
 
 waveforge.log("Counter demo ready");
