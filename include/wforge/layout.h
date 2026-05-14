@@ -21,6 +21,14 @@ PRO_DEF_MEM_DISPATCH(MemContentRender, render);
 
 } // namespace _dispatch
 
+struct LayoutParameters {
+	int scale;
+	int x;
+	int y;
+	int w;
+	int h;
+};
+
 /* clang-format off */
 struct ContentFacade : pro::facade_builder
 	::add_convention<
@@ -29,7 +37,7 @@ struct ContentFacade : pro::facade_builder
 	>
 	::add_convention<
 		_dispatch::MemContentRender,
-		void(sf::RenderTarget&, JSContext*, int, float, float, float, float) const
+		void(sf::RenderTarget&, JSContext*, LayoutParameters) const
 	>
 	::support_relocation<pro::constraint_level::nontrivial>
 	::build {};
@@ -51,17 +59,13 @@ struct TextContent final : BindingBase<TextContent> {
 	std::string text;
 	int size = 1;
 	JSValue color = JS_NULL;
-	sf::Color _nativeColor{0, 0, 0};
 
-	// ContentFacade implementation
 	[[nodiscard]] int charWidth() const noexcept;
 	[[nodiscard]] int charHeight() const noexcept;
 
 	[[nodiscard]] sf::Color nativeColor(JSContext *ctx) const noexcept;
 	YGSize measure(YGMeasureMode, float, YGMeasureMode, float) const noexcept;
-	void render(
-		sf::RenderTarget &, JSContext *, int, float, float, float, float
-	) const;
+	void render(sf::RenderTarget &, JSContext *, LayoutParameters) const;
 };
 
 struct SpriteContent final : BindingBase<SpriteContent> {
@@ -84,9 +88,7 @@ struct SpriteContent final : BindingBase<SpriteContent> {
 
 	// ContentFacade implementation
 	YGSize measure(YGMeasureMode, float, YGMeasureMode, float) const noexcept;
-	void render(
-		sf::RenderTarget &, JSContext *, int, float, float, float, float
-	) const;
+	void render(sf::RenderTarget &, JSContext *, LayoutParameters) const;
 };
 
 struct LayoutNode final : BindingBase<LayoutNode> {
@@ -114,7 +116,7 @@ struct LayoutNode final : BindingBase<LayoutNode> {
 
 	void calculateLayout(float avail_width, float avail_height);
 	void render(sf::RenderTarget &, JSContext *, int) const;
-	void render(sf::RenderTarget &, JSContext *, int, float, float) const;
+	void render(sf::RenderTarget &, JSContext *, LayoutParameters) const;
 
 	// -- data members --
 	facebook::yoga::Node yoga_node;
