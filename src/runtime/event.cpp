@@ -225,11 +225,11 @@ static const JSCFunctionListEntry MOUSE_BUTTON_EVENT_PROTO[] = {
 const CFunctionList MouseButtonEvent::PROTO_FIELDS{MOUSE_BUTTON_EVENT_PROTO};
 
 JSValue MouseButtonEvent::from(
-	JSContext *ctx, const sf::Event::MouseButtonPressed &evt
+	JSContext *ctx, const sf::Event::MouseButtonPressed &evt, int scale
 ) noexcept {
 	auto self = std::make_unique<MouseButtonEvent>(
-		Type::MouseDown, std::to_underlying(evt.button), evt.position.x,
-		evt.position.y
+		Type::MouseDown, std::to_underlying(evt.button), evt.position.x / scale,
+		evt.position.y / scale
 	);
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
@@ -243,11 +243,11 @@ JSValue MouseButtonEvent::from(
 }
 
 JSValue MouseButtonEvent::from(
-	JSContext *ctx, const sf::Event::MouseButtonReleased &evt
+	JSContext *ctx, const sf::Event::MouseButtonReleased &evt, int scale
 ) noexcept {
 	auto self = std::make_unique<MouseButtonEvent>(
-		Type::MouseUp, std::to_underlying(evt.button), evt.position.x,
-		evt.position.y
+		Type::MouseUp, std::to_underlying(evt.button), evt.position.x / scale,
+		evt.position.y / scale
 	);
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
@@ -281,10 +281,10 @@ static const JSCFunctionListEntry MOUSE_MOVE_EVENT_PROTO[] = {
 const CFunctionList MouseMoveEvent::PROTO_FIELDS{MOUSE_MOVE_EVENT_PROTO};
 
 JSValue MouseMoveEvent::from(
-	JSContext *ctx, const sf::Event::MouseMoved &evt
+	JSContext *ctx, const sf::Event::MouseMoved &evt, int scale
 ) noexcept {
 	auto self = std::make_unique<MouseMoveEvent>(
-		Type::MouseMove, evt.position.x, evt.position.y
+		Type::MouseMove, evt.position.x / scale, evt.position.y / scale
 	);
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {

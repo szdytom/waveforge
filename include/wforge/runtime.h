@@ -442,11 +442,11 @@ struct MouseButtonEvent final : BindingBase<MouseButtonEvent> {
 	MouseButtonEvent(Type type, int button, int x, int y) noexcept;
 
 	[[nodiscard]] static JSValue from(
-		JSContext *ctx, const sf::Event::MouseButtonPressed &evt
+		JSContext *ctx, const sf::Event::MouseButtonPressed &evt, int scale = 1
 	) noexcept;
 
 	[[nodiscard]] static JSValue from(
-		JSContext *ctx, const sf::Event::MouseButtonReleased &evt
+		JSContext *ctx, const sf::Event::MouseButtonReleased &evt, int scale = 1
 	) noexcept;
 };
 
@@ -467,7 +467,7 @@ struct MouseMoveEvent final : BindingBase<MouseMoveEvent> {
 	MouseMoveEvent(Type type, int x, int y) noexcept;
 
 	[[nodiscard]] static JSValue from(
-		JSContext *ctx, const sf::Event::MouseMoved &evt
+		JSContext *ctx, const sf::Event::MouseMoved &evt, int scale = 1
 	) noexcept;
 };
 

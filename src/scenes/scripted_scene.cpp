@@ -167,7 +167,9 @@ JSValue f_commitDraw(
 	return JS_UNDEFINED;
 }
 
-JSValue createJSEvent(JSContext *ctx, const sf::Event &evt) noexcept {
+JSValue createJSEvent(
+	JSContext *ctx, const sf::Event &evt, int scale
+) noexcept {
 	if (const auto *e = evt.getIf<sf::Event::KeyPressed>()) {
 		return js::KeyEvent::from(ctx, *e);
 	}
@@ -175,13 +177,13 @@ JSValue createJSEvent(JSContext *ctx, const sf::Event &evt) noexcept {
 		return js::KeyEvent::from(ctx, *e);
 	}
 	if (const auto *e = evt.getIf<sf::Event::MouseButtonPressed>()) {
-		return js::MouseButtonEvent::from(ctx, *e);
+		return js::MouseButtonEvent::from(ctx, *e, scale);
 	}
 	if (const auto *e = evt.getIf<sf::Event::MouseButtonReleased>()) {
-		return js::MouseButtonEvent::from(ctx, *e);
+		return js::MouseButtonEvent::from(ctx, *e, scale);
 	}
 	if (const auto *e = evt.getIf<sf::Event::MouseMoved>()) {
-		return js::MouseMoveEvent::from(ctx, *e);
+		return js::MouseMoveEvent::from(ctx, *e, scale);
 	}
 	return JS_NULL;
 }
@@ -301,7 +303,7 @@ void ScriptedScene::handleEvent(SceneManager &mgr, sf::Event &evt) {
 		return;
 	}
 
-	js::Value evt_guard(ctx, createJSEvent(ctx, evt));
+	js::Value evt_guard(ctx, createJSEvent(ctx, evt, mgr.scale()));
 	JSValue event_val = *evt_guard;
 	if (JS_IsNull(event_val)) {
 		return;
