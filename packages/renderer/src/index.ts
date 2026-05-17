@@ -1,4 +1,3 @@
-import '@waveforge/timer';
 
 import Reconciler from 'react-reconciler';
 import { DefaultEventPriority } from 'react-reconciler/constants';

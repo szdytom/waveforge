@@ -43,7 +43,7 @@ async function build() {
 			'process.env.NODE_ENV': '"production"',
 		},
 		banner: {
-			js: 'globalThis.process??={};globalThis.process.env??={};globalThis.process.env.NODE_ENV="production";globalThis.console??={};globalThis.console.warn=waveforge.log;globalThis.__timerApi={setTimeout:function(){},clearTimeout:function(){},setInterval:function(){},clearInterval:function(){}};globalThis.setTimeout=function(f,d){return globalThis.__timerApi.setTimeout(f,d)};globalThis.clearTimeout=function(i){globalThis.__timerApi.clearTimeout(i)};globalThis.setInterval=function(f,d){return globalThis.__timerApi.setInterval(f,d)};globalThis.clearInterval=function(i){globalThis.__timerApi.clearInterval(i)};',
+			js: 'globalThis.process??={};globalThis.process.env??={};globalThis.process.env.NODE_ENV="production";globalThis.console??={};globalThis.console.warn=waveforge.log;',
 		},
 		sourcemap: false,
 		logLevel: 'info',

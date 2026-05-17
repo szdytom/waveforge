@@ -53,7 +53,7 @@ struct ScriptedScene::Impl {
 	int height = 0;
 	SceneManager *scene_mgr = nullptr; // not owned
 
-	js::ContextPtr ctx;
+	js::EngineContext engineCtx;
 	std::array<std::vector<js::Value>, std::to_underlying(CallbackIdx::COUNT)>
 		callbacks;
 
@@ -107,12 +107,18 @@ std::expected<CallbackIdx, JSValue> parseEventType(
 	return type;
 }
 
+// ── Impl accessor ──
+
+ScriptedScene::Impl *getImpl(JSContext *ctx) noexcept {
+	return js::EngineContext::opaqueFrom<ScriptedScene::Impl>(ctx);
+}
+
 // ── waveforge functions ──
 
 JSValue f_set_window_title(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
-	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	auto *impl = getImpl(ctx);
 	if (!impl || !impl->scene_mgr) {
 		return JS_UNDEFINED;
 	}
@@ -128,7 +134,7 @@ JSValue f_set_window_title(
 JSValue f_addEventListener(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
-	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	auto *impl = getImpl(ctx);
 	if (!impl) {
 		return JS_UNDEFINED;
 	}
@@ -151,7 +157,7 @@ JSValue f_addEventListener(
 JSValue f_removeEventListener(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
-	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	auto *impl = getImpl(ctx);
 	if (!impl) {
 		return JS_UNDEFINED;
 	}
@@ -174,7 +180,7 @@ JSValue f_removeEventListener(
 JSValue f_commitLayout(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
-	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	auto *impl = getImpl(ctx);
 	if (!impl) {
 		return JS_UNDEFINED;
 	}
@@ -193,7 +199,7 @@ JSValue f_commitLayout(
 JSValue f_commitDraw(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
-	auto *impl = static_cast<ScriptedScene::Impl *>(JS_GetContextOpaque(ctx));
+	auto *impl = getImpl(ctx);
 	if (!impl) {
 		return JS_UNDEFINED;
 	}
@@ -259,17 +265,6 @@ void invokeCallbacks(
 	}
 }
 
-void drainJSPromises(JSContext *ctx) noexcept {
-	JSRuntime *rt = JS_GetRuntime(ctx);
-	while (JS_IsJobPending(rt)) {
-		JSContext *ctx1 = nullptr;
-		int ret = JS_ExecutePendingJob(rt, &ctx1);
-		if (ret < 0 && ctx1) {
-			js::dumpJSError(ctx1);
-		}
-	}
-}
-
 } // namespace
 
 using SceneBindings = js::BindingList<
@@ -312,12 +307,10 @@ void ScriptedScene::setup(SceneManager &mgr) {
 		classes_registered = true;
 	}
 
-	auto *raw_ctx = engine.createContext();
-	engine.releaseContext(raw_ctx);
-	impl.ctx.reset(raw_ctx);
-
-	auto *ctx = impl.ctx.get();
-	JS_SetContextOpaque(ctx, &impl);
+	impl.engineCtx = engine.createContext();
+	auto *ctx = impl.engineCtx.ctx();
+	impl.engineCtx.setOpaque<ScriptedScene::Impl>(&impl);
+	impl.engineCtx.bindTimerGlobals();
 
 	JSValue ns = JS_NewObject(ctx);
 	SceneBindings::bindContext(ctx, ns);
@@ -374,7 +367,7 @@ void ScriptedScene::setup(SceneManager &mgr) {
 }
 
 void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
-	auto *ctx = _impl->ctx.get();
+	auto *ctx = _impl->engineCtx.ctx();
 
 	auto [evtType, raw_val] = createJSEvent(ctx, evt, mgr.scale());
 	js::Value evt_guard(ctx, raw_val);
@@ -385,15 +378,16 @@ void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
 	auto &callbacks = _impl->callbacks[std::to_underlying(evtType)];
 	JSValue event_val = *evt_guard;
 	invokeCallbacks(ctx, callbacks, 1, &event_val);
-	drainJSPromises(ctx);
+	_impl->engineCtx.drainPromises();
 }
 
 void ScriptedScene::step(SceneManager &mgr) {
+	_impl->engineCtx.processTimers();
 	invokeCallbacks(
-		_impl->ctx.get(),
+		_impl->engineCtx.ctx(),
 		_impl->callbacks[std::to_underlying(CallbackIdx::STEP)], 0, nullptr
 	);
-	drainJSPromises(_impl->ctx.get());
+	_impl->engineCtx.drainPromises();
 }
 
 void ScriptedScene::render(
@@ -403,11 +397,11 @@ void ScriptedScene::render(
 		_impl->layout_root->calculateLayout(
 			static_cast<float>(_impl->width), static_cast<float>(_impl->height)
 		);
-		_impl->layout_root->render(target, _impl->ctx.get(), scale);
+		_impl->layout_root->render(target, _impl->engineCtx.ctx(), scale);
 	}
 
 	if (_impl->cmds) {
-		_impl->cmds->render(target, _impl->ctx.get(), scale);
+		_impl->cmds->render(target, _impl->engineCtx.ctx(), scale);
 	}
 
 	_impl->cmds_val = js::Value();
