@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@waveforge/timer": "workspace:*",
     "@waveforge/renderer": "workspace:*",
     "@waveforge/components": "workspace:*",
     "@waveforge/styles": "workspace:*",

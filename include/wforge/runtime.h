@@ -4,7 +4,9 @@
 #include "ctti.h"
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Window/Event.hpp>
+#include <chrono>
 #include <concepts>
+#include <cstdlib>
 #include <exception>
 #include <expected>
 #include <format>
@@ -33,10 +35,7 @@ struct RuntimeDeleter {
 };
 using RuntimePtr = std::unique_ptr<JSRuntime, RuntimeDeleter>;
 
-struct ContextDeleter {
-	void operator()(JSContext *ctx) const noexcept;
-};
-using ContextPtr = std::unique_ptr<JSContext, ContextDeleter>;
+class EngineContext;
 
 class Engine {
 public:
@@ -45,9 +44,7 @@ public:
 	Engine(Engine &&) noexcept = default;
 	Engine &operator=(Engine &&) noexcept = default;
 
-	JSContext *createContext();
-	void destroyContext(JSContext *ctx) noexcept;
-	void releaseContext(JSContext *ctx) noexcept;
+	EngineContext createContext();
 
 	JSRuntime *runtime() const noexcept {
 		return _runtime.get();
@@ -88,7 +85,58 @@ private:
 
 	std::vector<ClassEntry> _cls;
 	RuntimePtr _runtime;
-	std::vector<ContextPtr> _contexts;
+};
+
+class EngineContext {
+public:
+	EngineContext() noexcept;
+	~EngineContext();
+
+	EngineContext(EngineContext &&other) noexcept;
+	EngineContext &operator=(EngineContext &&other) noexcept;
+
+	EngineContext(const EngineContext &) = delete;
+	EngineContext &operator=(const EngineContext &) = delete;
+
+	explicit operator bool() const noexcept;
+
+	JSContext *ctx() const noexcept;
+
+	void processTimers();
+	void drainPromises();
+	void bindTimerGlobals();
+
+	// Type-safe opaque (setOpaque/opaqueFrom must use the same T)
+	template<typename T>
+	void setOpaque(T *ptr) noexcept {
+		_setOpaque(ptr, typeHash<T>());
+	}
+
+	template<typename T>
+	static T *opaqueFrom(JSContext *ctx) noexcept {
+		auto e = _opaqueFrom(ctx);
+#ifndef NDEBUG
+		if (e.typeHash != typeHash<T>()) {
+			std::abort();
+		}
+#endif
+		return static_cast<T *>(e.ptr);
+	}
+
+	struct Impl;
+
+private:
+	friend class Engine;
+	EngineContext(JSRuntime *rt);
+
+	struct OpaqueEntry {
+		void *ptr;
+		std::size_t typeHash;
+	};
+	void _setOpaque(void *ptr, std::size_t typeHash) noexcept;
+	static OpaqueEntry _opaqueFrom(JSContext *ctx) noexcept;
+
+	std::unique_ptr<Impl> _impl;
 };
 
 // RAII wrapper for JSValue to ensure JS_FreeValue is called

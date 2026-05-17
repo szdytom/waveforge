@@ -1,5 +1,6 @@
 #include "hacks.h"
 #include "wforge/runtime.h"
+#include <chrono>
 #include <cpptrace/cpptrace.hpp>
 #include <iostream>
 #include <utility>
@@ -33,84 +34,354 @@ void RuntimeDeleter::operator()(JSRuntime *rt) const noexcept {
 	}
 }
 
-void ContextDeleter::operator()(JSContext *ctx) const noexcept {
-	if (ctx) {
-		JS_FreeContext(ctx);
+// ── Internal context deleter (only used by EngineContext) ──
+
+namespace {
+
+struct ContextDeleter {
+	void operator()(JSContext *ctx) const noexcept {
+		if (ctx) {
+			JS_FreeContext(ctx);
+		}
 	}
-}
+};
+using ContextPtr = std::unique_ptr<JSContext, ContextDeleter>;
+
+} // namespace
+
+// ── Engine ──
 
 Engine::Engine(): _runtime(JS_NewRuntime()) {
 	if (!_runtime) {
 		throw std::runtime_error("Failed to create QuickJS runtime");
 	}
-
 	JS_SetRuntimeOpaque(_runtime.get(), this);
 }
 
-JSContext *Engine::createContext() {
-	auto ctx = JS_NewContext(_runtime.get());
-	if (!ctx) {
-		throw std::runtime_error("Failed to create QuickJS context");
-	}
-	_contexts.emplace_back(ctx);
-	return ctx;
+EngineContext Engine::createContext() {
+	return EngineContext(_runtime.get());
 }
 
-void Engine::releaseContext(JSContext *ctx) noexcept {
-	if (!ctx) {
-		return;
+// ── EngineContext::Impl ──
+
+struct EngineContext::Impl {
+	ContextPtr ctx;
+	OpaqueEntry opaque;
+
+	// Timer
+	struct TimerEntry {
+		uint64_t fireAt;
+		JSValue callback;          // owned via manual JS_DupValue/JS_FreeValue
+		std::vector<JSValue> args; // extra args forwarded to callback
+		uint32_t id;
+		uint32_t intervalMs;
+		bool isInterval;
+	};
+	std::vector<TimerEntry> timers;
+	uint32_t nextTimerId = 1;
+	std::chrono::steady_clock::time_point epoch;
+
+	explicit Impl(JSRuntime *rt)
+		: ctx(JS_NewContext(rt)), epoch(std::chrono::steady_clock::now()) {
+		if (!ctx) {
+			throw std::runtime_error("Failed to create QuickJS context");
+		}
+		JS_SetContextOpaque(ctx.get(), this);
 	}
 
-	// Quick path for createContext/releaseContext pairs
-	if (_contexts.back().get() == ctx) {
-		_contexts.back().release();
-		_contexts.pop_back();
-		return;
-	}
-
-	for (auto it = _contexts.begin(); it != _contexts.end(); ++it) {
-		if (it->get() == ctx) {
-			it->release();
-			_contexts.erase(it);
-			return;
+	~Impl() {
+		auto *c = ctx.get();
+		for (auto &t : timers) {
+			if (!JS_IsUndefined(t.callback)) {
+				JS_FreeValue(c, t.callback);
+			}
+			for (auto &arg : t.args) {
+				JS_FreeValue(c, arg);
+			}
 		}
 	}
 
-	std::cerr << "Context not found in engine's context list. Double free or "
-				 "corruption."
-			  << std::endl;
-	cpptrace::generate_trace().print(std::cerr);
-	std::abort();
-}
+	Impl &operator=(const Impl &) = delete;
 
-void Engine::destroyContext(JSContext *ctx) noexcept {
-	if (ctx == nullptr) {
-		return;
+	// Timer API (called directly by native timer functions)
+	uint32_t setTimeout(
+		JSValueConst callback, uint32_t delayMs, int numArgs, JSValueConst *args
+	) {
+		auto *c = ctx.get();
+		uint32_t id = nextTimerId++;
+		uint64_t fireAt = nowMs() + delayMs;
+		TimerEntry entry = {fireAt, JS_DupValue(c, callback), {}, id, 0, false};
+		for (int i = 0; i < numArgs; i++) {
+			entry.args.push_back(JS_DupValue(c, args[i]));
+		}
+		timers.push_back(std::move(entry));
+		return id;
 	}
 
-#ifndef NDEBUG
-	if (JS_GetRuntime(ctx) != _runtime.get()) {
-		std::cerr
-			<< "Cannot destroy context that does not belong to this engine."
-			<< std::endl;
-		cpptrace::generate_trace().print(std::cerr);
-		std::abort();
-	}
-#endif
-
-	for (auto it = _contexts.begin(); it != _contexts.end(); ++it) {
-		if (it->get() == ctx) {
-			_contexts.erase(it);
-			return;
+	void clearTimeout(uint32_t id) {
+		auto *c = ctx.get();
+		for (auto &t : timers) {
+			if (t.id == id) {
+				JS_FreeValue(c, t.callback);
+				t.callback = JS_UNDEFINED;
+				for (auto &arg : t.args) {
+					JS_FreeValue(c, arg);
+				}
+				t.args.clear();
+				break;
+			}
 		}
 	}
 
-	std::cerr << "Context not found in engine's context list. Double free or "
-				 "corruption."
-			  << std::endl;
-	cpptrace::generate_trace().print(std::cerr);
-	std::abort();
+	uint32_t setInterval(
+		JSValueConst callback, uint32_t intervalMs, int numArgs,
+		JSValueConst *args
+	) {
+		auto *c = ctx.get();
+		uint32_t id = nextTimerId++;
+		uint64_t fireAt = nowMs() + intervalMs;
+		TimerEntry entry = {
+			fireAt, JS_DupValue(c, callback), {}, id, intervalMs, true
+		};
+		for (int i = 0; i < numArgs; i++) {
+			entry.args.push_back(JS_DupValue(c, args[i]));
+		}
+		timers.push_back(std::move(entry));
+		return id;
+	}
+
+	void processTimers() {
+		auto *c = ctx.get();
+		auto now = nowMs();
+
+		std::vector<uint32_t> due;
+		for (size_t i = 0; i < timers.size(); i++) {
+			auto &t = timers[i];
+			if (!JS_IsUndefined(t.callback) && now >= t.fireAt) {
+				due.push_back(t.id);
+			}
+		}
+
+		for (auto id : due) {
+			auto it = std::find_if(
+				timers.begin(), timers.end(), [id](const auto &t) {
+				return t.id == id && !JS_IsUndefined(t.callback);
+			}
+			);
+			if (it == timers.end()) {
+				continue;
+			}
+
+			auto idx = static_cast<size_t>(it - timers.begin());
+			bool isInterval = it->isInterval;
+			uint32_t intervalMs = it->intervalMs;
+
+			JSValue ret = JS_Call(
+				c, timers[idx].callback, JS_UNDEFINED,
+				static_cast<int>(timers[idx].args.size()),
+				timers[idx].args.data()
+			);
+			if (JS_IsException(ret)) {
+				dumpJSError(c);
+			}
+			JS_FreeValue(c, ret);
+
+			if (isInterval) {
+				timers[idx].fireAt = nowMs() + intervalMs;
+			} else {
+				JS_FreeValue(c, timers[idx].callback);
+				timers[idx].callback = JS_UNDEFINED;
+				for (auto &arg : timers[idx].args) {
+					JS_FreeValue(c, arg);
+				}
+				timers[idx].args.clear();
+			}
+		}
+
+		std::erase_if(timers, [](const auto &t) {
+			return JS_IsUndefined(t.callback);
+		});
+	}
+
+	void drainPromises() {
+		auto *c = ctx.get();
+		auto *rt = JS_GetRuntime(c);
+		while (JS_IsJobPending(rt)) {
+			JSContext *ctx1 = nullptr;
+			int ret = JS_ExecutePendingJob(rt, &ctx1);
+			if (ret < 0 && ctx1) {
+				dumpJSError(ctx1);
+			}
+		}
+	}
+
+	[[nodiscard]] uint64_t nowMs() const noexcept {
+		auto elapsed = std::chrono::steady_clock::now() - epoch;
+		return static_cast<uint64_t>(
+			std::chrono::duration_cast<std::chrono::milliseconds>(elapsed)
+				.count()
+		);
+	}
+};
+
+// ── EngineContext ──
+
+EngineContext::EngineContext(JSRuntime *rt)
+	: _impl(std::make_unique<Impl>(rt)) {}
+
+EngineContext::~EngineContext() = default;
+
+EngineContext::EngineContext() noexcept = default;
+
+EngineContext::EngineContext(EngineContext &&other) noexcept
+	: _impl(std::move(other._impl)) {}
+
+EngineContext &EngineContext::operator=(EngineContext &&other) noexcept {
+	if (this != &other) {
+		_impl = std::move(other._impl);
+	}
+	return *this;
 }
+
+JSContext *EngineContext::ctx() const noexcept {
+	return _impl ? _impl->ctx.get() : nullptr;
+}
+
+EngineContext::operator bool() const noexcept {
+	return _impl != nullptr;
+}
+
+void EngineContext::processTimers() {
+	_impl->processTimers();
+}
+
+void EngineContext::drainPromises() {
+	_impl->drainPromises();
+}
+
+void EngineContext::_setOpaque(void *ptr, std::size_t typeHash) noexcept {
+	_impl->opaque = {ptr, typeHash};
+}
+
+EngineContext::OpaqueEntry EngineContext::_opaqueFrom(JSContext *ctx) noexcept {
+	auto *impl = static_cast<Impl *>(JS_GetContextOpaque(ctx));
+	return impl->opaque;
+}
+
+// ── Native timer functions ──
+
+namespace {
+
+JSValue global_setTimeout(
+	JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
+) noexcept {
+	if (!JS_IsFunction(ctx, argv[0])) {
+		// setTimeout(code, delay) is valid JS
+		// but discouraged and not worth supporting
+		return JS_ThrowTypeError(
+			ctx, "code argument to setTimeout not supported"
+		);
+	}
+
+	uint32_t delayMs = 0;
+	if (argc > 1) {
+		if (JS_ToUint32(ctx, &delayMs, argv[1]) < 0) {
+			return JS_ThrowTypeError(ctx, "Invalid delay value for setTimeout");
+		}
+	}
+	auto *impl = static_cast<EngineContext::Impl *>(JS_GetContextOpaque(ctx));
+	if (!impl) {
+		return JS_ThrowTypeError(ctx, "Internal error: no EngineContext");
+	}
+	int numArgs = argc > 2 ? argc - 2 : 0;
+	uint32_t id = impl->setTimeout(argv[0], delayMs, numArgs, argv + 2);
+	return JS_NewUint32(ctx, id);
+}
+
+JSValue global_clearTimeout(
+	JSContext *ctx, JSValueConst, int, JSValueConst *argv
+) noexcept {
+	uint32_t id;
+	if (JS_ToUint32(ctx, &id, argv[0]) < 0) {
+		return JS_ThrowTypeError(ctx, "Invalid timeout ID for clearTimeout");
+	}
+	auto *impl = static_cast<EngineContext::Impl *>(JS_GetContextOpaque(ctx));
+	if (impl) {
+		impl->clearTimeout(id);
+	}
+	return JS_UNDEFINED;
+}
+
+JSValue global_setInterval(
+	JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
+) noexcept {
+	if (!JS_IsFunction(ctx, argv[0])) {
+		// setInterval(code) is valid JS
+		// but discouraged and not worth supporting
+		return JS_ThrowTypeError(
+			ctx, "code argument to setInterval not supported"
+		);
+	}
+
+	uint32_t intervalMs = 0;
+	if (argc > 1) {
+		if (JS_ToUint32(ctx, &intervalMs, argv[1]) < 0) {
+			return JS_ThrowTypeError(
+				ctx, "Invalid interval value for setInterval"
+			);
+		}
+	}
+	auto *impl = static_cast<EngineContext::Impl *>(JS_GetContextOpaque(ctx));
+	if (!impl) {
+		return JS_ThrowTypeError(ctx, "Internal error: no EngineContext");
+	}
+	int numArgs = argc > 2 ? argc - 2 : 0;
+	uint32_t id = impl->setInterval(argv[0], intervalMs, numArgs, argv + 2);
+	return JS_NewUint32(ctx, id);
+}
+
+JSValue global_clearInterval(
+	JSContext *ctx, JSValueConst, int, JSValueConst *argv
+) noexcept {
+	uint32_t id;
+	if (JS_ToUint32(ctx, &id, argv[0]) < 0) {
+		return JS_ThrowTypeError(ctx, "Invalid interval ID for clearInterval");
+	}
+
+	auto *impl = static_cast<EngineContext::Impl *>(JS_GetContextOpaque(ctx));
+	if (impl) {
+		impl->clearTimeout(id);
+	}
+	return JS_UNDEFINED;
+}
+
+} // namespace
+
+void EngineContext::bindTimerGlobals() {
+	auto *ctx = _impl->ctx.get();
+	JSValue global = JS_GetGlobalObject(ctx);
+
+	JS_SetPropertyStr(
+		ctx, global, "setTimeout",
+		JS_NewCFunction(ctx, global_setTimeout, "setTimeout", 1)
+	);
+	JS_SetPropertyStr(
+		ctx, global, "clearTimeout",
+		JS_NewCFunction(ctx, global_clearTimeout, "clearTimeout", 1)
+	);
+	JS_SetPropertyStr(
+		ctx, global, "setInterval",
+		JS_NewCFunction(ctx, global_setInterval, "setInterval", 1)
+	);
+	JS_SetPropertyStr(
+		ctx, global, "clearInterval",
+		JS_NewCFunction(ctx, global_clearInterval, "clearInterval", 1)
+	);
+
+	JS_FreeValue(ctx, global);
+}
+
+// ── Value RAII, bindContextImpl, bindContextImplNoCtor ──
 
 void bindContextImpl(
 	JSContext *ctx, JSValueConst ns, const char *class_name, int class_id,
@@ -231,6 +502,8 @@ void bindContextImplNoCtor(
 	JS_SetClassProto(ctx, class_id, proto);
 	proto_guard.release();
 }
+
+// ── Value ──
 
 Value::Value() noexcept: _ctx(nullptr), _value(JS_UNDEFINED) {}
 

@@ -1,5 +1,4 @@
 // Must be first: timer globals needed by react-reconciler's scheduler
-import '@waveforge/timer';
 import React from 'react';
 import { render, View, Text } from '@waveforge/renderer';
 import { Button } from '@waveforge/components';
@@ -47,7 +46,7 @@ function App() {
 	return (
 		<View style={style(size(256, 192), column(), bg(BG_COLORS[bgIndex]))}>
 			<View style={headerStyle}>
-				<Text style={textColor('#ffffff')}>{`REACT COUNTER DEMO`}</Text>
+				<Text style={textColor('#ffffff')}>REACT COUNTER DEMO</Text>
 			</View>
 
 			<View style={style(flex(1), column(), center())}>

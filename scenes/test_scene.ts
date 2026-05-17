@@ -1,5 +1,4 @@
 // Must be first: timer globals needed by scenes that use setTimeout etc.
-import '@waveforge/timer';
 
 const WIDTH = 256;
 const HEIGHT = 192;
