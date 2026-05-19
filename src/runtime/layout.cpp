@@ -787,179 +787,6 @@ void SpriteContent::finalize(JSRuntime *rt, JSValue val) noexcept {
 
 namespace {
 
-// -- dimension properties (dispatched via magic) --
-enum class LayoutDim {
-	Width,
-	Height,
-	MinWidth,
-	MaxWidth,
-	MinHeight,
-	MaxHeight,
-};
-
-JSValue LayoutNode_getDimProp(
-	JSContext *ctx, JSValueConst this_val, int magic
-) noexcept {
-	auto *self = LayoutNode::unwrap(ctx, this_val);
-	if (!self) {
-		return JS_UNDEFINED;
-	}
-
-	YGValue v;
-	switch (static_cast<LayoutDim>(magic)) {
-	case LayoutDim::Width:
-		v = YGNodeStyleGetWidth(&self->yoga_node);
-		break;
-	case LayoutDim::Height:
-		v = YGNodeStyleGetHeight(&self->yoga_node);
-		break;
-	case LayoutDim::MinWidth:
-		v = YGNodeStyleGetMinWidth(&self->yoga_node);
-		break;
-	case LayoutDim::MaxWidth:
-		v = YGNodeStyleGetMaxWidth(&self->yoga_node);
-		break;
-	case LayoutDim::MinHeight:
-		v = YGNodeStyleGetMinHeight(&self->yoga_node);
-		break;
-	case LayoutDim::MaxHeight:
-		v = YGNodeStyleGetMaxHeight(&self->yoga_node);
-		break;
-	}
-
-	return ygValueToJS(ctx, v);
-}
-
-JSValue LayoutNode_setDimProp(
-	JSContext *ctx, JSValueConst this_val, JSValueConst val, int magic
-) noexcept {
-	auto *self = LayoutNode::unwrap(ctx, this_val);
-	if (!self) {
-		return JS_UNDEFINED;
-	}
-
-	auto dim = static_cast<LayoutDim>(magic);
-
-	// undefined / null → set undefined (YGUndefined)
-	if (JS_IsUndefined(val) || JS_IsNull(val)) {
-		switch (dim) {
-		case LayoutDim::Width:
-			YGNodeStyleSetWidth(&self->yoga_node, YGUndefined);
-			break;
-		case LayoutDim::Height:
-			YGNodeStyleSetHeight(&self->yoga_node, YGUndefined);
-			break;
-		case LayoutDim::MinWidth:
-			YGNodeStyleSetMinWidth(&self->yoga_node, YGUndefined);
-			break;
-		case LayoutDim::MaxWidth:
-			YGNodeStyleSetMaxWidth(&self->yoga_node, YGUndefined);
-			break;
-		case LayoutDim::MinHeight:
-			YGNodeStyleSetMinHeight(&self->yoga_node, YGUndefined);
-			break;
-		case LayoutDim::MaxHeight:
-			YGNodeStyleSetMaxHeight(&self->yoga_node, YGUndefined);
-			break;
-		}
-		return JS_UNDEFINED;
-	}
-
-	// number → point
-	double v;
-	if (JS_ToFloat64(ctx, &v, val) == 0) {
-		switch (dim) {
-		case LayoutDim::Width:
-			YGNodeStyleSetWidth(&self->yoga_node, static_cast<float>(v));
-			break;
-		case LayoutDim::Height:
-			YGNodeStyleSetHeight(&self->yoga_node, static_cast<float>(v));
-			break;
-		case LayoutDim::MinWidth:
-			YGNodeStyleSetMinWidth(&self->yoga_node, static_cast<float>(v));
-			break;
-		case LayoutDim::MaxWidth:
-			YGNodeStyleSetMaxWidth(&self->yoga_node, static_cast<float>(v));
-			break;
-		case LayoutDim::MinHeight:
-			YGNodeStyleSetMinHeight(&self->yoga_node, static_cast<float>(v));
-			break;
-		case LayoutDim::MaxHeight:
-			YGNodeStyleSetMaxHeight(&self->yoga_node, static_cast<float>(v));
-			break;
-		}
-		return JS_UNDEFINED;
-	}
-
-	// string
-	size_t len;
-	const char *s = JS_ToCStringLen(ctx, &len, val);
-	if (!s) {
-		return JS_UNDEFINED;
-	}
-	std::string_view sv(s, len);
-
-	// "auto"
-	if (sv == "auto") {
-		switch (dim) {
-		case LayoutDim::Width:
-			YGNodeStyleSetWidthAuto(&self->yoga_node);
-			break;
-		case LayoutDim::Height:
-			YGNodeStyleSetHeightAuto(&self->yoga_node);
-			break;
-		default:
-			JS_FreeCString(ctx, s);
-			return JS_ThrowTypeError(
-				ctx, "\"auto\" is only valid for width and height"
-			);
-		}
-		JS_FreeCString(ctx, s);
-		return JS_UNDEFINED;
-	}
-
-	// "XX%" → percent
-	if (!sv.empty() && sv.back() == '%') {
-		auto numPart = sv.substr(0, sv.size() - 1);
-		float pct;
-		auto result = std::from_chars(
-			numPart.data(), numPart.data() + numPart.size(), pct
-		);
-		if (result.ec == std::errc()
-		    && result.ptr == numPart.data() + numPart.size()) {
-			switch (dim) {
-			case LayoutDim::Width:
-				YGNodeStyleSetWidthPercent(&self->yoga_node, pct);
-				break;
-			case LayoutDim::Height:
-				YGNodeStyleSetHeightPercent(&self->yoga_node, pct);
-				break;
-			case LayoutDim::MinWidth:
-				YGNodeStyleSetMinWidthPercent(&self->yoga_node, pct);
-				break;
-			case LayoutDim::MaxWidth:
-				YGNodeStyleSetMaxWidthPercent(&self->yoga_node, pct);
-				break;
-			case LayoutDim::MinHeight:
-				YGNodeStyleSetMinHeightPercent(&self->yoga_node, pct);
-				break;
-			case LayoutDim::MaxHeight:
-				YGNodeStyleSetMaxHeightPercent(&self->yoga_node, pct);
-				break;
-			}
-			JS_FreeCString(ctx, s);
-			return JS_UNDEFINED;
-		}
-	}
-
-	JS_FreeCString(ctx, s);
-	return JS_ThrowTypeError(
-		ctx,
-		"Invalid dimension value; expected a number, \"auto\", "
-		"\"<number>%%\", or undefined"
-	);
-}
-
 // -- enum properties (dispatched via magic) --
 enum class LayoutProp {
 	Direction,
@@ -1435,6 +1262,12 @@ enum class YgValueProp : uint8_t {
 	Position,
 	Border,
 	Gap,
+	Width,
+	Height,
+	MinWidth,
+	MaxWidth,
+	MinHeight,
+	MaxHeight,
 };
 
 constexpr int16_t toMagic(YgValueProp type, int value) noexcept {
@@ -1480,6 +1313,20 @@ void callSetAuto(YGNodeRef node, int16_t magic) noexcept {
 	Fn(node, static_cast<YGEdge>(magic & 0xF));
 }
 
+// Template wrappers for dimension Yoga API functions (no edge/gutter param).
+template<auto Fn>
+[[nodiscard]] YGValue getDim(YGNodeConstRef node, int16_t) noexcept {
+	return Fn(node);
+}
+template<auto Fn>
+void setDim(YGNodeRef node, int16_t, float value) noexcept {
+	Fn(node, value);
+}
+template<auto Fn>
+void setDimAuto(YGNodeRef node, int16_t) noexcept {
+	Fn(node);
+}
+
 /* clang-format off */
 static constexpr YgValueFuncs YG_VALUE_FUNCS[] = {
 	{
@@ -1510,6 +1357,42 @@ static constexpr YgValueFuncs YG_VALUE_FUNCS[] = {
 		.get = getGap,
 		.set = setGap,
 		.set_percent = setGapPercent,
+		.set_auto = nullptr
+	},
+	{
+		.get = getDim<YGNodeStyleGetWidth>,
+		.set = setDim<YGNodeStyleSetWidth>,
+		.set_percent = setDim<YGNodeStyleSetWidthPercent>,
+		.set_auto = setDimAuto<YGNodeStyleSetWidthAuto>
+	},
+	{
+		.get = getDim<YGNodeStyleGetHeight>,
+		.set = setDim<YGNodeStyleSetHeight>,
+		.set_percent = setDim<YGNodeStyleSetHeightPercent>,
+		.set_auto = setDimAuto<YGNodeStyleSetHeightAuto>
+	},
+	{
+		.get = getDim<YGNodeStyleGetMinWidth>,
+		.set = setDim<YGNodeStyleSetMinWidth>,
+		.set_percent = setDim<YGNodeStyleSetMinWidthPercent>,
+		.set_auto = nullptr
+	},
+	{
+		.get = getDim<YGNodeStyleGetMaxWidth>,
+		.set = setDim<YGNodeStyleSetMaxWidth>,
+		.set_percent = setDim<YGNodeStyleSetMaxWidthPercent>,
+		.set_auto = nullptr
+	},
+	{
+		.get = getDim<YGNodeStyleGetMinHeight>,
+		.set = setDim<YGNodeStyleSetMinHeight>,
+		.set_percent = setDim<YGNodeStyleSetMinHeightPercent>,
+		.set_auto = nullptr
+	},
+	{
+		.get = getDim<YGNodeStyleGetMaxHeight>,
+		.set = setDim<YGNodeStyleSetMaxHeight>,
+		.set_percent = setDim<YGNodeStyleSetMaxHeightPercent>,
 		.set_auto = nullptr
 	},
 };
@@ -1838,28 +1721,28 @@ JSValue LayoutNode_hitTest(
 
 static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 	cGetSetMagicDef(
-		"width", LayoutNode_getDimProp, LayoutNode_setDimProp,
-		static_cast<int16_t>(LayoutDim::Width)
+		"width", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Width, 0)
 	),
 	cGetSetMagicDef(
-		"height", LayoutNode_getDimProp, LayoutNode_setDimProp,
-		static_cast<int16_t>(LayoutDim::Height)
+		"height", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Height, 0)
 	),
 	cGetSetMagicDef(
-		"minWidth", LayoutNode_getDimProp, LayoutNode_setDimProp,
-		static_cast<int16_t>(LayoutDim::MinWidth)
+		"minWidth", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::MinWidth, 0)
 	),
 	cGetSetMagicDef(
-		"maxWidth", LayoutNode_getDimProp, LayoutNode_setDimProp,
-		static_cast<int16_t>(LayoutDim::MaxWidth)
+		"maxWidth", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::MaxWidth, 0)
 	),
 	cGetSetMagicDef(
-		"minHeight", LayoutNode_getDimProp, LayoutNode_setDimProp,
-		static_cast<int16_t>(LayoutDim::MinHeight)
+		"minHeight", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::MinHeight, 0)
 	),
 	cGetSetMagicDef(
-		"maxHeight", LayoutNode_getDimProp, LayoutNode_setDimProp,
-		static_cast<int16_t>(LayoutDim::MaxHeight)
+		"maxHeight", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::MaxHeight, 0)
 	),
 
 	cGetSetMagicDef(
