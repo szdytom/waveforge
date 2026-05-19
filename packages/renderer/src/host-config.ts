@@ -33,6 +33,10 @@ const LAYOUT_PROP_MAP: Record<string, string> = {
 	paddingTop: 'paddingTop',
 	paddingBottom: 'paddingBottom',
 
+	gap: 'gap',
+	rowGap: 'rowGap',
+	columnGap: 'columnGap',
+
 	left: 'left',
 	right: 'right',
 	top: 'top',

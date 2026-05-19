@@ -8,7 +8,6 @@
 #include <string>
 #include <yoga/Yoga.h>
 #include <yoga/node/Node.h>
-#include <yoga/style/Style.h>
 
 namespace wf::js {
 

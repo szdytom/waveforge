@@ -100,6 +100,20 @@ export function column(): Style {
 	return { flexDirection: 'column' };
 }
 
+// ── Gap ──
+
+export function gap(v: number | string): Style {
+	return { gap: v };
+}
+
+export function rowGap(v: number | string): Style {
+	return { rowGap: v };
+}
+
+export function columnGap(v: number | string): Style {
+	return { columnGap: v };
+}
+
 // ── Alignment ──
 
 export function center(): Style {
