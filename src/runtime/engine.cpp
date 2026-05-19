@@ -363,6 +363,22 @@ JSValue global_clearInterval(
 	return JS_UNDEFINED;
 }
 
+JSValue f_consoleLog(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	std::string msg;
+	for (int i = 0; i < argc; i++) {
+		if (i > 0) {
+			msg += ' ';
+		}
+		const char *str = JS_ToCString(ctx, argv[i]);
+		msg += str ? str : "null";
+		JS_FreeCString(ctx, str);
+	}
+	std::cerr << "[JS] " << msg << "\n";
+	return JS_UNDEFINED;
+}
+
 } // namespace
 
 void EngineContext::bindTimerGlobals() {
@@ -385,6 +401,52 @@ void EngineContext::bindTimerGlobals() {
 		ctx, global, "clearInterval",
 		JS_NewCFunction(ctx, global_clearInterval, "clearInterval", 1)
 	);
+
+	// Set process.env.NODE_ENV for React / bundler conventions.
+	// JS_SetPropertyStr / JS_DefinePropertyValueStr consume the value ref,
+	// so always dup() to keep a local handle.
+	JSValue process_obj = JS_GetPropertyStr(ctx, global, "process");
+	if (JS_IsUndefined(process_obj)) {
+		process_obj = JS_NewObject(ctx);
+		JS_SetPropertyStr(
+			ctx, global, "process", JS_DupValue(ctx, process_obj)
+		);
+	} // else: process_obj has +1 ref from GetPropertyStr, needs FreeValue
+
+	JSValue env_obj = JS_GetPropertyStr(ctx, process_obj, "env");
+	if (JS_IsUndefined(env_obj)) {
+		env_obj = JS_NewObject(ctx);
+		JS_SetPropertyStr(ctx, process_obj, "env", JS_DupValue(ctx, env_obj));
+	} // else: env_obj has +1 ref from GetPropertyStr, needs FreeValue
+
+#ifndef NDEBUG
+	JS_SetPropertyStr(
+		ctx, env_obj, "NODE_ENV", JS_NewString(ctx, "development")
+	);
+#else
+	JS_SetPropertyStr(
+		ctx, env_obj, "NODE_ENV", JS_NewString(ctx, "production")
+	);
+#endif
+
+	JS_FreeValue(ctx, env_obj);
+	JS_FreeValue(ctx, process_obj);
+
+	// Set up console.log / console.warn
+	JSValue console_obj = JS_GetPropertyStr(ctx, global, "console");
+	if (JS_IsUndefined(console_obj)) {
+		console_obj = JS_NewObject(ctx);
+		JS_SetPropertyStr(
+			ctx, global, "console", JS_DupValue(ctx, console_obj)
+		);
+	}
+	JS_SetPropertyStr(
+		ctx, console_obj, "log", JS_NewCFunction(ctx, f_consoleLog, "log", 1)
+	);
+	JS_SetPropertyStr(
+		ctx, console_obj, "warn", JS_NewCFunction(ctx, f_consoleLog, "warn", 1)
+	);
+	JS_FreeValue(ctx, console_obj);
 
 	JS_FreeValue(ctx, global);
 }

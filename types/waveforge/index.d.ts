@@ -6,8 +6,6 @@ declare module '*.txt' {
 
 // ── waveforge runtime namespace (exposed by C++ host) ──
 declare namespace waveforge {
-	function log(message: string): void;
-
 	const width: number;
 	const height: number;
 	function setTitle(title: string): void;

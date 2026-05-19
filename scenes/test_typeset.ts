@@ -32,7 +32,7 @@ function buildLayout(): void {
 }
 
 buildLayout();
-waveforge.log('typeset test ready');
+console.log('typeset test ready');
 
 waveforge.addEventListener('step', () => {
 	frameCount++;

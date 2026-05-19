@@ -19,7 +19,7 @@ import {
 } from '@waveforge/styles';
 import React from 'react';
 
-waveforge.log('Counter demo loading...');
+console.log('Counter demo loading...');
 
 const BG_COLORS = ['#f0e6ff', '#e6f5ff', '#fff0e6', '#e6ffe6', '#fffae6'];
 
@@ -92,4 +92,4 @@ function App() {
 
 render(<App />);
 
-waveforge.log('Counter demo ready');
+console.log('Counter demo ready');

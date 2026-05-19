@@ -68,22 +68,6 @@ struct ScriptedScene::Impl {
 
 namespace {
 
-JSValue f_log(
-	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
-) noexcept {
-	std::string msg;
-	for (int i = 0; i < argc; i++) {
-		if (i > 0) {
-			msg += ' ';
-		}
-		const char *str = JS_ToCString(ctx, argv[i]);
-		msg += str ? str : "null";
-		JS_FreeCString(ctx, str);
-	}
-	std::cerr << "[JS] " << msg << "\n";
-	return JS_UNDEFINED;
-}
-
 std::expected<CallbackIdx, JSValue> parseEventType(
 	JSContext *ctx, JSValueConst arg
 ) noexcept {
@@ -322,7 +306,6 @@ void ScriptedScene::setup(SceneManager &mgr) {
 		ctx, ns, "height", JS_NewInt32(ctx, impl.height), JS_PROP_CONFIGURABLE
 	);
 
-	JS_SetPropertyStr(ctx, ns, "log", JS_NewCFunction(ctx, f_log, "log", 1));
 	JS_SetPropertyStr(
 		ctx, ns, "setTitle",
 		JS_NewCFunction(ctx, f_set_window_title, "setTitle", 1)

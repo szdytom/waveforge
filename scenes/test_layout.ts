@@ -124,41 +124,41 @@ function buildLayout(): waveforge.LayoutNode {
 }
 
 function handleClick(event: waveforge.MouseButtonEvent): void {
-	waveforge.log(`Click at (${event.x}, ${event.y})`);
+	console.log(`Click at (${event.x}, ${event.y})`);
 
 	const target = layoutRoot.hitTest(event.x, event.y);
 	if (!target) {
-		waveforge.log('  → no node hit');
+		console.log('  → no node hit');
 		return;
 	}
 
 	const bounds = target.getComputedBounds();
 	if (bounds) {
-		waveforge.log(`  → hit node bounds=(${bounds.x},${bounds.y} ${bounds.width}x${bounds.height})`);
+		console.log(`  → hit node bounds=(${bounds.x},${bounds.y} ${bounds.width}x${bounds.height})`);
 	}
 
-	waveforge.log(`  → hasChildNodes: ${target.hasChildNodes()}`);
+	console.log(`  → hasChildNodes: ${target.hasChildNodes()}`);
 
 	const root = target.getRootNode();
-	waveforge.log(`  → root node === layoutRoot: ${root === layoutRoot}`);
+	console.log(`  → root node === layoutRoot: ${root === layoutRoot}`);
 
 	if (target.parent) {
 		const pb = target.parent.getComputedBounds();
 		if (pb) {
-			waveforge.log(`  → parent bounds=(${pb.x},${pb.y} ${pb.width}x${pb.height})`);
+			console.log(`  → parent bounds=(${pb.x},${pb.y} ${pb.width}x${pb.height})`);
 		}
 	}
 
 	const btnIndex = buttonNodes.indexOf(target);
 	if (btnIndex >= 0) {
-		waveforge.log(`  → BUTTON "${['PLAY', 'HELP', 'EXIT'][btnIndex]}" clicked!`);
+		console.log(`  → BUTTON "${['PLAY', 'HELP', 'EXIT'][btnIndex]}" clicked!`);
 	}
 }
 
 layoutRoot = buildLayout();
-waveforge.log('layout test ready');
-waveforge.log(`root hasChildNodes: ${layoutRoot.hasChildNodes()}`);
-waveforge.log(`root childCount: ${layoutRoot.childCount}`);
+console.log('layout test ready');
+console.log(`root hasChildNodes: ${layoutRoot.hasChildNodes()}`);
+console.log(`root childCount: ${layoutRoot.childCount}`);
 
 waveforge.addEventListener('step', () => {
 	frameCount++;

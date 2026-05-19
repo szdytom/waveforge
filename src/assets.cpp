@@ -651,7 +651,8 @@ void fUIScene(
 	int width = entry.at("width");
 	int height = entry.at("height");
 
-	// Derive file path from id: "scripts/react_hello" → "bundled-js/react_hello.js"
+	// Derive file path from id: "scripts/react_hello" →
+	// "bundled-js/react_hello.js"
 	auto slash = id.find('/');
 	std::string name = (slash != std::string::npos) ? id.substr(slash + 1) : id;
 
