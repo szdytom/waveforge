@@ -47,6 +47,12 @@ float resolveDim(float intrinsic, float avail, YGMeasureMode mode) noexcept {
 		}
 		return JS_UNDEFINED;
 	}
+	case YGUnitMaxContent:
+		return JS_NewString(ctx, "max-content");
+	case YGUnitFitContent:
+		return JS_NewString(ctx, "fit-content");
+	case YGUnitStretch:
+		return JS_NewString(ctx, "stretch");
 	}
 	return JS_UNDEFINED;
 }
@@ -1420,73 +1426,96 @@ JSValue LayoutNode_setBorderColor(
 }
 
 // -- edge properties (margin, padding, position, border) --
-enum class EdgeType : uint8_t {
+// -- YGValue properties (margin, padding, position, border, gap) --
+// Each entry in the table interprets the low nibble of magic independently.
+
+enum class YgValueProp : uint8_t {
 	Margin,
 	Padding,
 	Position,
 	Border,
+	Gap,
 };
 
-struct EdgeProp {
-	EdgeType type : 4;
-	YGEdge edge : 4;
-
-	constexpr EdgeProp(EdgeType t, YGEdge e) noexcept: type(t), edge(e) {}
-
-	static constexpr EdgeProp fromMagic(int16_t magic) noexcept {
-		return {
-			static_cast<EdgeType>((static_cast<uint8_t>(magic) >> 4) & 0xF),
-			static_cast<YGEdge>(static_cast<uint8_t>(magic) & 0xF),
-		};
-	}
-};
-
-constexpr int16_t toMagic(EdgeType type, YGEdge edge) noexcept {
+constexpr int16_t toMagic(YgValueProp type, int value) noexcept {
 	return static_cast<int16_t>(
-		(static_cast<uint8_t>(type) << 4) | static_cast<uint8_t>(edge)
+		(static_cast<uint8_t>(type) << 4) | (value & 0xF)
 	);
 }
 
-struct EdgeFuncs {
-	YGValue (*get)(YGNodeConstRef, YGEdge);
-	void (*set)(YGNodeRef, YGEdge, float);
-	void (*set_percent)(YGNodeRef, YGEdge, float);
-	void (*set_auto)(YGNodeRef, YGEdge);
+struct YgValueFuncs {
+	YGValue (*get)(YGNodeConstRef, int16_t magic);
+	void (*set)(YGNodeRef, int16_t magic, float);
+	void (*set_percent)(YGNodeRef, int16_t magic, float);
+	void (*set_auto)(YGNodeRef, int16_t magic);
 };
 
-// Border getter returns float directly; wrap as YGValue for the unified getter.
-static YGValue getBorder(YGNodeConstRef node, YGEdge edge) noexcept {
+// Border getter returns float directly; wrap as YGValue.
+static YGValue getBorder(YGNodeConstRef node, int16_t magic) noexcept {
+	auto edge = static_cast<YGEdge>(magic & 0xF);
 	return {YGNodeStyleGetBorder(node, edge), YGUnitPoint};
 }
 
-static constexpr EdgeFuncs EDGE_FUNCS[] = {
+static YGValue getGap(YGNodeConstRef node, int16_t magic) noexcept {
+	return YGNodeStyleGetGap(node, static_cast<YGGutter>(magic & 0xF));
+}
+static void setGap(YGNodeRef node, int16_t magic, float value) noexcept {
+	YGNodeStyleSetGap(node, static_cast<YGGutter>(magic & 0xF), value);
+}
+static void setGapPercent(YGNodeRef node, int16_t magic, float value) noexcept {
+	YGNodeStyleSetGapPercent(node, static_cast<YGGutter>(magic & 0xF), value);
+}
+
+// Template wrappers for YGEdge-based Yoga API functions.
+template<auto Fn>
+[[nodiscard]] YGValue callGet(YGNodeConstRef node, int16_t magic) noexcept {
+	return Fn(node, static_cast<YGEdge>(magic & 0xF));
+}
+template<auto Fn>
+void callSet(YGNodeRef node, int16_t magic, float value) noexcept {
+	Fn(node, static_cast<YGEdge>(magic & 0xF), value);
+}
+template<auto Fn>
+void callSetAuto(YGNodeRef node, int16_t magic) noexcept {
+	Fn(node, static_cast<YGEdge>(magic & 0xF));
+}
+
+/* clang-format off */
+static constexpr YgValueFuncs YG_VALUE_FUNCS[] = {
 	{
-		YGNodeStyleGetMargin,
-		YGNodeStyleSetMargin,
-		YGNodeStyleSetMarginPercent,
-		YGNodeStyleSetMarginAuto,
+		.get = callGet<YGNodeStyleGetMargin>,
+		.set = callSet<YGNodeStyleSetMargin>,
+		.set_percent = callSet<YGNodeStyleSetMarginPercent>,
+		.set_auto = callSetAuto<YGNodeStyleSetMarginAuto>
 	},
 	{
-		YGNodeStyleGetPadding,
-		YGNodeStyleSetPadding,
-		YGNodeStyleSetPaddingPercent,
-		nullptr,
+		.get = callGet<YGNodeStyleGetPadding>,
+		.set = callSet<YGNodeStyleSetPadding>,
+		.set_percent = callSet<YGNodeStyleSetPaddingPercent>,
+		.set_auto = nullptr
 	},
 	{
-		YGNodeStyleGetPosition,
-		YGNodeStyleSetPosition,
-		YGNodeStyleSetPositionPercent,
-		YGNodeStyleSetPositionAuto,
+		.get = callGet<YGNodeStyleGetPosition>,
+		.set = callSet<YGNodeStyleSetPosition>,
+		.set_percent = callSet<YGNodeStyleSetPositionPercent>,
+		.set_auto = callSetAuto<YGNodeStyleSetPositionAuto>
 	},
 	{
-		getBorder,
-		YGNodeStyleSetBorder,
-		nullptr,
-		nullptr,
+		.get = getBorder,
+		.set = callSet<YGNodeStyleSetBorder>,
+		.set_percent = nullptr,
+		.set_auto = nullptr
+	},
+	{
+		.get = getGap,
+		.set = setGap,
+		.set_percent = setGapPercent,
+		.set_auto = nullptr
 	},
 };
+/* clang-format on */
 
-JSValue LayoutNode_getEdgeProp(
+JSValue LayoutNode_getYgValue(
 	JSContext *ctx, JSValueConst this_val, int magic
 ) noexcept {
 	auto *self = LayoutNode::unwrap(ctx, this_val);
@@ -1494,15 +1523,17 @@ JSValue LayoutNode_getEdgeProp(
 		return JS_UNDEFINED;
 	}
 
-	auto [type, edge] = EdgeProp::fromMagic(magic);
-	YGValue v = EDGE_FUNCS[static_cast<uint8_t>(type)].get(
-		&self->yoga_node, edge
+	auto type = static_cast<YgValueProp>(
+		(static_cast<uint8_t>(magic) >> 4) & 0xF
+	);
+	YGValue v = YG_VALUE_FUNCS[static_cast<uint8_t>(type)].get(
+		&self->yoga_node, static_cast<int16_t>(magic & 0xF)
 	);
 
 	return ygValueToJS(ctx, v);
 }
 
-JSValue LayoutNode_setEdgeProp(
+JSValue LayoutNode_setYgValue(
 	JSContext *ctx, JSValueConst this_val, JSValueConst val, int magic
 ) noexcept {
 	auto *self = LayoutNode::unwrap(ctx, this_val);
@@ -1510,19 +1541,22 @@ JSValue LayoutNode_setEdgeProp(
 		return JS_UNDEFINED;
 	}
 
-	auto [type, edge] = EdgeProp::fromMagic(magic);
-	const auto &funcs = EDGE_FUNCS[static_cast<uint8_t>(type)];
+	auto type = static_cast<YgValueProp>(
+		(static_cast<uint8_t>(magic) >> 4) & 0xF
+	);
+	const auto &funcs = YG_VALUE_FUNCS[static_cast<uint8_t>(type)];
+	auto subMagic = static_cast<int16_t>(magic & 0xF);
 
 	// undefined / null → unset
 	if (JS_IsUndefined(val) || JS_IsNull(val)) {
-		funcs.set(&self->yoga_node, edge, YGUndefined);
+		funcs.set(&self->yoga_node, subMagic, YGUndefined);
 		return JS_UNDEFINED;
 	}
 
 	// number → point
 	double v;
 	if (JS_ToFloat64(ctx, &v, val) == 0) {
-		funcs.set(&self->yoga_node, edge, static_cast<float>(v));
+		funcs.set(&self->yoga_node, subMagic, static_cast<float>(v));
 		return JS_UNDEFINED;
 	}
 
@@ -1537,7 +1571,7 @@ JSValue LayoutNode_setEdgeProp(
 	// "auto"
 	if (sv == "auto") {
 		if (funcs.set_auto) {
-			funcs.set_auto(&self->yoga_node, edge);
+			funcs.set_auto(&self->yoga_node, subMagic);
 			JS_FreeCString(ctx, s);
 			return JS_UNDEFINED;
 		}
@@ -1557,7 +1591,7 @@ JSValue LayoutNode_setEdgeProp(
 		if (result.ec == std::errc()
 		    && result.ptr == numPart.data() + numPart.size()) {
 			if (funcs.set_percent) {
-				funcs.set_percent(&self->yoga_node, edge, pct);
+				funcs.set_percent(&self->yoga_node, subMagic, pct);
 				JS_FreeCString(ctx, s);
 				return JS_UNDEFINED;
 			}
@@ -1895,71 +1929,71 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 	),
 
 	cGetSetMagicDef(
-		"marginLeft", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Margin, YGEdgeLeft)
+		"marginLeft", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Margin, YGEdgeLeft)
 	),
 	cGetSetMagicDef(
-		"marginRight", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Margin, YGEdgeRight)
+		"marginRight", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Margin, YGEdgeRight)
 	),
 	cGetSetMagicDef(
-		"marginTop", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Margin, YGEdgeTop)
+		"marginTop", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Margin, YGEdgeTop)
 	),
 	cGetSetMagicDef(
-		"marginBottom", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Margin, YGEdgeBottom)
-	),
-
-	cGetSetMagicDef(
-		"paddingLeft", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Padding, YGEdgeLeft)
-	),
-	cGetSetMagicDef(
-		"paddingRight", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Padding, YGEdgeRight)
-	),
-	cGetSetMagicDef(
-		"paddingTop", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Padding, YGEdgeTop)
-	),
-	cGetSetMagicDef(
-		"paddingBottom", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Padding, YGEdgeBottom)
+		"marginBottom", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Margin, YGEdgeBottom)
 	),
 
 	cGetSetMagicDef(
-		"left", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Position, YGEdgeLeft)
+		"paddingLeft", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Padding, YGEdgeLeft)
 	),
 	cGetSetMagicDef(
-		"right", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Position, YGEdgeRight)
+		"paddingRight", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Padding, YGEdgeRight)
 	),
 	cGetSetMagicDef(
-		"top", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Position, YGEdgeTop)
+		"paddingTop", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Padding, YGEdgeTop)
 	),
 	cGetSetMagicDef(
-		"bottom", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Position, YGEdgeBottom)
+		"paddingBottom", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Padding, YGEdgeBottom)
 	),
 
 	cGetSetMagicDef(
-		"borderLeft", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Border, YGEdgeLeft)
+		"left", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Position, YGEdgeLeft)
 	),
 	cGetSetMagicDef(
-		"borderRight", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Border, YGEdgeRight)
+		"right", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Position, YGEdgeRight)
 	),
 	cGetSetMagicDef(
-		"borderTop", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Border, YGEdgeTop)
+		"top", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Position, YGEdgeTop)
 	),
 	cGetSetMagicDef(
-		"borderBottom", LayoutNode_getEdgeProp, LayoutNode_setEdgeProp,
-		toMagic(EdgeType::Border, YGEdgeBottom)
+		"bottom", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Position, YGEdgeBottom)
+	),
+
+	cGetSetMagicDef(
+		"borderLeft", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Border, YGEdgeLeft)
+	),
+	cGetSetMagicDef(
+		"borderRight", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Border, YGEdgeRight)
+	),
+	cGetSetMagicDef(
+		"borderTop", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Border, YGEdgeTop)
+	),
+	cGetSetMagicDef(
+		"borderBottom", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Border, YGEdgeBottom)
 	),
 
 	cGetSetMagicDef(
@@ -1977,6 +2011,19 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 	cGetSetMagicDef(
 		"borderBottomColor", LayoutNode_getBorderColor,
 		LayoutNode_setBorderColor, YGEdgeBottom
+	),
+
+	cGetSetMagicDef(
+		"gap", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Gap, YGGutterAll)
+	),
+	cGetSetMagicDef(
+		"rowGap", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Gap, YGGutterRow)
+	),
+	cGetSetMagicDef(
+		"columnGap", LayoutNode_getYgValue, LayoutNode_setYgValue,
+		toMagic(YgValueProp::Gap, YGGutterColumn)
 	),
 
 	// tree getters (read-only, no setter)

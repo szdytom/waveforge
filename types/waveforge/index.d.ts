@@ -95,6 +95,10 @@ declare namespace waveforge {
 		paddingTop: number | string | undefined;
 		paddingBottom: number | string | undefined;
 
+		gap: number | string | undefined;
+		rowGap: number | string | undefined;
+		columnGap: number | string | undefined;
+
 		left: number | string | undefined;
 		right: number | string | undefined;
 		top: number | string | undefined;

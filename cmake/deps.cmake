@@ -67,7 +67,7 @@ FetchContent_MakeAvailable(quickjs)
 FetchContent_Declare(
 	yoga
 	GIT_REPOSITORY https://github.com/facebook/yoga.git
-	GIT_TAG v3.2.1
+	GIT_TAG 966107fd5fafd76cea40f19521c3e0d626fac834
 	GIT_SHALLOW ON
 	EXCLUDE_FROM_ALL SYSTEM
 )
