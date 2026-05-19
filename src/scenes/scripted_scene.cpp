@@ -347,11 +347,20 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	js::Value global(ctx, JS_GetGlobalObject(ctx));
 	JS_SetPropertyStr(ctx, *global, "waveforge", ns);
 
+	// Look up source: ModuleRegistry first (ES module), then Script (global
+	// fallback)
+	auto &registry = js::ModuleRegistry::instance();
+	const std::string *module_source = registry.find(impl.script->filename);
+	const std::string *source = module_source
+		? module_source
+		: &impl.script->source;
+	int eval_flags = module_source ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
+
 	js::Value eval_guard(
 		ctx,
 		JS_Eval(
-			ctx, impl.script->source.c_str(), impl.script->source.size(),
-			impl.script->filename.c_str(), JS_EVAL_TYPE_GLOBAL
+			ctx, source->c_str(), source->size(), impl.script->filename.c_str(),
+			eval_flags
 		)
 	);
 	JSValue result = *eval_guard;

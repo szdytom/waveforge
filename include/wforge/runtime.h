@@ -9,12 +9,15 @@
 #include <cstdlib>
 #include <exception>
 #include <expected>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <proxy/proxy.h>
 #include <quickjs.h>
 #include <span>
+#include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 namespace sf {
@@ -161,6 +164,52 @@ private:
 	JSContext *_ctx;
 	JSValue _value;
 };
+
+// Module name → source code, populated from esbuild metafile at startup.
+// Used by the QuickJS module loader to serve ESM import requests.
+class ModuleRegistry {
+public:
+	static ModuleRegistry &instance();
+
+	// Load all JS modules listed in esbuild's .metafile.json
+	// metafile_path: absolute path to the metafile
+	// assets_root: absolute path to the assets/ directory
+	void loadFromMetafile(
+		const std::filesystem::path &metafile_path,
+		const std::filesystem::path &assets_root
+	);
+
+	// Look up module source by module name (e.g.
+	// "bundled-js/chunks/react-ABC123.js") Returns nullptr if not found.
+	const std::string *find(const std::string &module_name) const;
+
+	// Derive entry module name from scene ID
+	// "scripts/react_hello" → "bundled-js/react_hello.js"
+	static std::string entryModuleFor(const std::string &scene_id);
+
+private:
+	std::unordered_map<std::string, std::string> _sources;
+};
+
+// Module loader callbacks for QuickJS (called by JS engine at runtime).
+// Registered via JS_SetModuleLoaderFunc2 on the JSRuntime.
+extern "C" {
+char *moduleNormalizer(
+	JSContext *ctx, const char *module_base_name, const char *module_name,
+	void *opaque
+);
+JSModuleDef *moduleLoader(
+	JSContext *ctx, const char *module_name, void *opaque,
+	JSValueConst attributes
+);
+int moduleCheckAttributes(
+	JSContext *ctx, void *opaque, JSValueConst attributes
+);
+} // extern "C"
+
+// Simplified import.meta initializer (replaces quickjs-libc's version).
+// Sets import.meta.url to "file://<module_name>".
+int setModuleImportMeta(JSContext *ctx, JSValueConst func_val);
 
 using CFunctionList = std::span<const JSCFunctionListEntry>;
 

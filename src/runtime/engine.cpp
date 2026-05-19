@@ -56,6 +56,14 @@ Engine::Engine(): _runtime(JS_NewRuntime()) {
 		throw std::runtime_error("Failed to create QuickJS runtime");
 	}
 	JS_SetRuntimeOpaque(_runtime.get(), this);
+
+	// Register ES module loader (normalizer + loader + attributes checker).
+	// Callbacks use ModuleRegistry::instance() as opaque; the registry must
+	// be populated (via loadFromMetafile) before any module import triggers.
+	JS_SetModuleLoaderFunc2(
+		_runtime.get(), moduleNormalizer, moduleLoader, moduleCheckAttributes,
+		&ModuleRegistry::instance()
+	);
 }
 
 EngineContext Engine::createContext() {

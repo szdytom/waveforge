@@ -960,35 +960,31 @@
 		},
 		{
 			"id": "scripts/test_scene",
-			"type": "js",
-			"file": "bundled-js/test_scene.js",
+			"type": "ui-scene",
 			"width": 256,
 			"height": 192,
-			"description": "Loading test script for ScriptedScene"
+			"description": "Loading scripts/test_scene"
 		},
 		{
 			"id": "scripts/test_layout",
-			"type": "js",
-			"file": "bundled-js/test_layout.js",
+			"type": "ui-scene",
 			"width": 256,
 			"height": 192,
-			"description": "Loading layout test script for ScriptedScene"
+			"description": "Loading scripts/test_layout"
 		},
 		{
 			"id": "scripts/test_typeset",
-			"type": "js",
-			"file": "bundled-js/test_typeset.js",
+			"type": "ui-scene",
 			"width": 256,
 			"height": 192,
-			"description": "Loading typesetting test script"
+			"description": "Loading scripts/test_typeset"
 		},
 		{
 			"id": "scripts/react_hello",
-			"type": "js",
-			"file": "bundled-js/react_hello.js",
+			"type": "ui-scene",
 			"width": 256,
 			"height": 192,
-			"description": "React interactive counter demo with Button component and click dispatch"
+			"description": "Loading scripts/react_hello"
 		}
 	]
 }
