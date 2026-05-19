@@ -68,7 +68,7 @@ FetchContent_Declare(
 	yoga
 	GIT_REPOSITORY https://github.com/facebook/yoga.git
 	GIT_TAG 966107fd5fafd76cea40f19521c3e0d626fac834
-	GIT_SHALLOW ON
+	GIT_SHALLOW OFF
 	EXCLUDE_FROM_ALL SYSTEM
 )
 FetchContent_MakeAvailable(yoga)

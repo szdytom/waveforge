@@ -365,13 +365,13 @@ struct DrawSpriteCmd final : BindingBase<DrawSpriteCmd> {
 	) noexcept;
 	static void finalize(JSRuntime *rt, JSValue val) noexcept;
 
-	JSValue textureVal;
+	JSValue texture_val;
 	sf::Texture *texture; // not owned, managed by AssetsManager
 	int x;
 	int y;
 
 	DrawSpriteCmd(
-		JSValue textureVal, sf::Texture *texture, int x, int y
+		JSValue texture_val, sf::Texture *texture, int x, int y
 	) noexcept;
 
 	void render(sf::RenderTarget &target, JSContext *ctx, int scale) const;
