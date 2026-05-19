@@ -22,10 +22,10 @@ cmds.push(redRect);
 cmds.push(drawDuckCmd);
 cmds.push(fpsText);
 
-waveforge.log(`Loaded ${duck.width}x${duck.height} duck texture`);
-waveforge.log('Test scene loading...');
+console.log(`Loaded ${duck.width}x${duck.height} duck texture`);
+console.log('Test scene loading...');
 queueMicrotask(() => {
-	waveforge.log('Microtask executed');
+	console.log('Microtask executed');
 });
 
 // setTimeout demo: after 2s, turn background red
@@ -43,17 +43,17 @@ waveforge.addEventListener('step', () => {
 	drawDuckCmd.y = y;
 	fpsText.text = `FRAME: ${frameCount}`;
 	if (frameCount % 24 === 0) {
-		waveforge.log(`Frame ${frameCount}: ${performance.now()} ms`);
+		console.log(`Frame ${frameCount}: ${performance.now()} ms`);
 	}
 	waveforge.commitDraw(cmds);
 });
 
 waveforge.addEventListener('key', (event) => {
-	waveforge.log(`Key: ${event.code} ${event.type}`);
+	console.log(`Key: ${event.code} ${event.type}`);
 });
 
 waveforge.addEventListener('mousebutton', (event) => {
-	waveforge.log(`Mouse ${event.type} at (${event.x}, ${event.y})`);
+	console.log(`Mouse ${event.type} at (${event.x}, ${event.y})`);
 });
 
 export {};

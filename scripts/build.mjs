@@ -47,7 +47,7 @@ async function build() {
 			'process.env.NODE_ENV': '"production"',
 		},
 		banner: {
-			js: 'globalThis.process??={};globalThis.process.env??={};globalThis.process.env.NODE_ENV="production";globalThis.console??={};globalThis.console.warn=waveforge.log;',
+			js: '',
 		},
 		sourcemap: false,
 		logLevel: 'info',
