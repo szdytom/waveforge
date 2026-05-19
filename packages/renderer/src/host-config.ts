@@ -59,6 +59,7 @@ export type HostType = 'view' | 'text' | 'sprite';
 const DEFAULT_TEXT_COLOR = '#f0e6ff';
 
 function storeEventHandlers(node: waveforge.LayoutNode, props: Record<string, any> | null): void {
+	// biome-ignore lint/complexity/noBannedTypes: event handler storage
 	const hd: Record<string, Function> = {};
 	if (props) {
 		for (const key of EVENT_PROPS) {
@@ -79,18 +80,20 @@ function setTextContent(node: waveforge.LayoutNode, text: string, color?: string
 }
 
 function resolveTextColor(props: Record<string, any> | null): string | undefined {
-	if (!props) return undefined;
+	if (!props) {
+		return undefined;
+	}
 	const fromStyle = props.style?.color;
-	if (fromStyle) return fromStyle;
+	if (fromStyle) {
+		return fromStyle;
+	}
 	return props.color;
 }
 
-export function applyProps(
-	node: waveforge.LayoutNode,
-	type: HostType,
-	props: Record<string, any> | null,
-): void {
-	if (!props) return;
+export function applyProps(node: waveforge.LayoutNode, type: HostType, props: Record<string, any> | null): void {
+	if (!props) {
+		return;
+	}
 
 	const style: Record<string, any> = props.style || {};
 	for (const [key, value] of Object.entries(style)) {
@@ -101,8 +104,12 @@ export function applyProps(
 	}
 
 	for (const [key, value] of Object.entries(props)) {
-		if (SKIP_PROPS.has(key) || key === 'style') continue;
-		if (EVENT_PROPS.has(key)) continue;
+		if (SKIP_PROPS.has(key) || key === 'style') {
+			continue;
+		}
+		if (EVENT_PROPS.has(key)) {
+			continue;
+		}
 		const propName = LAYOUT_PROP_MAP[key];
 		if (propName && value !== undefined && value !== null) {
 			(node as any)[propName] = value;
@@ -141,10 +148,13 @@ export function clearNode(node: waveforge.LayoutNode): void {
 
 export function dispatchClick(root: waveforge.LayoutNode, x: number, y: number): boolean {
 	const target = root.hitTest(x, y);
-	if (!target) return false;
+	if (!target) {
+		return false;
+	}
 
 	let node: any = target;
 	while (node) {
+		// biome-ignore lint/complexity/noBannedTypes: event handler storage
 		const handlers = node._wfEv as Record<string, Function> | undefined;
 		if (handlers?.onClick) {
 			handlers.onClick();

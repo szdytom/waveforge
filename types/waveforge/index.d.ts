@@ -16,6 +16,7 @@ declare namespace waveforge {
 	function addEventListener(type: 'key', callback: (event: KeyEvent) => void): void;
 	function addEventListener(type: 'mousebutton', callback: (event: MouseButtonEvent) => void): void;
 	function addEventListener(type: 'mousemove', callback: (event: MouseMoveEvent) => void): void;
+	// biome-ignore lint/complexity/noBannedTypes: waveforge C++ host accepts any callback
 	function removeEventListener(type: 'step' | 'key' | 'mousebutton' | 'mousemove', callback: Function): void;
 
 	function commitDraw(cmds: DrawCmdList): void;
@@ -30,12 +31,7 @@ declare namespace waveforge {
 		constructor(id: string);
 	}
 
-	type ColorLike =
-		| Color
-		| string
-		| number
-		| [number, number, number]
-		| [number, number, number, number];
+	type ColorLike = Color | string | number | [number, number, number] | [number, number, number, number];
 
 	class LayoutNode {
 		width: number | string | undefined;
@@ -45,57 +41,51 @@ declare namespace waveforge {
 		minHeight: number | string | undefined;
 		maxHeight: number | string | undefined;
 
-		direction: "inherit" | "ltr" | "rtl";
-		flexDirection: "column" | "columnReverse" | "row" | "rowReverse";
-		justifyContent:
-			| "flexStart"
-			| "center"
-			| "flexEnd"
-			| "spaceBetween"
-			| "spaceAround"
-			| "spaceEvenly";
+		direction: 'inherit' | 'ltr' | 'rtl';
+		flexDirection: 'column' | 'columnReverse' | 'row' | 'rowReverse';
+		justifyContent: 'flexStart' | 'center' | 'flexEnd' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly';
 		alignItems:
-			| "auto"
-			| "flexStart"
-			| "center"
-			| "flexEnd"
-			| "stretch"
-			| "baseline"
-			| "spaceBetween"
-			| "spaceAround"
-			| "spaceEvenly";
+			| 'auto'
+			| 'flexStart'
+			| 'center'
+			| 'flexEnd'
+			| 'stretch'
+			| 'baseline'
+			| 'spaceBetween'
+			| 'spaceAround'
+			| 'spaceEvenly';
 		alignSelf:
-			| "auto"
-			| "flexStart"
-			| "center"
-			| "flexEnd"
-			| "stretch"
-			| "baseline"
-			| "spaceBetween"
-			| "spaceAround"
-			| "spaceEvenly";
+			| 'auto'
+			| 'flexStart'
+			| 'center'
+			| 'flexEnd'
+			| 'stretch'
+			| 'baseline'
+			| 'spaceBetween'
+			| 'spaceAround'
+			| 'spaceEvenly';
 		alignContent:
-			| "auto"
-			| "flexStart"
-			| "center"
-			| "flexEnd"
-			| "stretch"
-			| "baseline"
-			| "spaceBetween"
-			| "spaceAround"
-			| "spaceEvenly";
-		flexWrap: "noWrap" | "wrap" | "wrapReverse";
-		overflow: "visible" | "hidden" | "scroll";
-		display: "flex" | "none" | "contents";
-		positionType: "static" | "relative" | "absolute";
+			| 'auto'
+			| 'flexStart'
+			| 'center'
+			| 'flexEnd'
+			| 'stretch'
+			| 'baseline'
+			| 'spaceBetween'
+			| 'spaceAround'
+			| 'spaceEvenly';
+		flexWrap: 'noWrap' | 'wrap' | 'wrapReverse';
+		overflow: 'visible' | 'hidden' | 'scroll';
+		display: 'flex' | 'none' | 'contents';
+		positionType: 'static' | 'relative' | 'absolute';
 
 		flex: number;
 		flexGrow: number;
 		flexShrink: number;
 
 		content: TextContent | SpriteContent | null;
-		contentAlignH: "left" | "center" | "right";
-		contentAlignV: "top" | "horizon" | "bottom";
+		contentAlignH: 'left' | 'center' | 'right';
+		contentAlignV: 'top' | 'horizon' | 'bottom';
 		marginLeft: number | string | undefined;
 		marginRight: number | string | undefined;
 		marginTop: number | string | undefined;
@@ -211,23 +201,95 @@ declare namespace waveforge {
 	}
 
 	type KeyCode =
-		| "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j"
-		| "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t"
-		| "u" | "v" | "w" | "x" | "y" | "z"
-		| "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-		| "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9"
-		| "F10" | "F11" | "F12" | "F13" | "F14" | "F15"
-		| "Control" | "Shift" | "Alt" | "Meta"
-		| "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown"
-		| "PageUp" | "PageDown" | "Home" | "End" | "Insert" | "Delete"
-		| "Escape" | "Space" | "Enter" | "Backspace" | "Tab" | "Pause"
-		| "ContextMenu"
-		| "[" | "]" | ";" | "," | "." | "'" | "/" | "\\" | "`" | "="
-		| "-" | "+" | "*"
-		| "Unknown";
+		| 'a'
+		| 'b'
+		| 'c'
+		| 'd'
+		| 'e'
+		| 'f'
+		| 'g'
+		| 'h'
+		| 'i'
+		| 'j'
+		| 'k'
+		| 'l'
+		| 'm'
+		| 'n'
+		| 'o'
+		| 'p'
+		| 'q'
+		| 'r'
+		| 's'
+		| 't'
+		| 'u'
+		| 'v'
+		| 'w'
+		| 'x'
+		| 'y'
+		| 'z'
+		| '0'
+		| '1'
+		| '2'
+		| '3'
+		| '4'
+		| '5'
+		| '6'
+		| '7'
+		| '8'
+		| '9'
+		| 'F1'
+		| 'F2'
+		| 'F3'
+		| 'F4'
+		| 'F5'
+		| 'F6'
+		| 'F7'
+		| 'F8'
+		| 'F9'
+		| 'F10'
+		| 'F11'
+		| 'F12'
+		| 'F13'
+		| 'F14'
+		| 'F15'
+		| 'Control'
+		| 'Shift'
+		| 'Alt'
+		| 'Meta'
+		| 'ArrowLeft'
+		| 'ArrowRight'
+		| 'ArrowUp'
+		| 'ArrowDown'
+		| 'PageUp'
+		| 'PageDown'
+		| 'Home'
+		| 'End'
+		| 'Insert'
+		| 'Delete'
+		| 'Escape'
+		| 'Space'
+		| 'Enter'
+		| 'Backspace'
+		| 'Tab'
+		| 'Pause'
+		| 'ContextMenu'
+		| '['
+		| ']'
+		| ';'
+		| ','
+		| '.'
+		| "'"
+		| '/'
+		| '\\'
+		| '`'
+		| '='
+		| '-'
+		| '+'
+		| '*'
+		| 'Unknown';
 
 	class KeyEvent {
-		readonly type: "keydown" | "keyup";
+		readonly type: 'keydown' | 'keyup';
 		readonly code: KeyCode;
 		readonly alt: boolean;
 		readonly control: boolean;
@@ -236,14 +298,14 @@ declare namespace waveforge {
 	}
 
 	class MouseButtonEvent {
-		readonly type: "mousedown" | "mouseup";
+		readonly type: 'mousedown' | 'mouseup';
 		readonly button: number;
 		readonly x: number;
 		readonly y: number;
 	}
 
 	class MouseMoveEvent {
-		readonly type: "mousemove";
+		readonly type: 'mousemove';
 		readonly x: number;
 		readonly y: number;
 	}

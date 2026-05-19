@@ -1,13 +1,12 @@
-
 const W = 256;
 const H = 192;
 
 let frameCount = 0;
 let layoutRoot: waveforge.LayoutNode;
 
-const fpsText = new waveforge.DrawTextCmd("FRAME: 0", 4, 160, 1, "#ffffff");
+const fpsText = new waveforge.DrawTextCmd('FRAME: 0', 4, 160, 1, '#ffffff');
 
-const duck = new waveforge.Texture("duck/texture");
+const duck = new waveforge.Texture('duck/texture');
 const cmds = new waveforge.DrawCmdList();
 cmds.push(fpsText);
 
@@ -20,30 +19,30 @@ function createNode(props: any): waveforge.LayoutNode {
 const buttonNodes: waveforge.LayoutNode[] = [];
 
 function buildLayout(): waveforge.LayoutNode {
-	const root = createNode({ width: W, height: H, flexDirection: "column" });
+	const root = createNode({ width: W, height: H, flexDirection: 'column' });
 
 	const header = createNode({
 		height: 16,
-		backgroundColor: "#282c34",
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
+		backgroundColor: '#282c34',
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
 	});
 
 	header.appendChild(
 		createNode({
-			content: new waveforge.TextContent("WAVEFORGE LAYOUT TEST", 1, "#dcdcdc"),
+			content: new waveforge.TextContent('WAVEFORGE LAYOUT TEST', 1, '#dcdcdc'),
 		}),
 	);
 
-	const main = createNode({ flexGrow: 1, flexDirection: "row" });
+	const main = createNode({ flexGrow: 1, flexDirection: 'row' });
 
 	const leftPanel = createNode({
 		flexGrow: 1,
-		flexDirection: "column",
-		alignItems: "center",
-		justifyContent: "center",
-		backgroundColor: "#3c404a",
+		flexDirection: 'column',
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: '#3c404a',
 	});
 
 	leftPanel.appendChild(
@@ -55,22 +54,22 @@ function buildLayout(): waveforge.LayoutNode {
 
 	leftPanel.appendChild(
 		createNode({
-			content: new waveforge.TextContent("rubber duck", 1, "#c8c8c8"),
+			content: new waveforge.TextContent('rubber duck', 1, '#c8c8c8'),
 		}),
 	);
 
 	const rightPanel = createNode({
 		flexGrow: 1,
-		flexDirection: "column",
-		justifyContent: "spaceEvenly",
-		alignItems: "center",
-		backgroundColor: "#323640",
+		flexDirection: 'column',
+		justifyContent: 'spaceEvenly',
+		alignItems: 'center',
+		backgroundColor: '#323640',
 	});
 
-	const elements = ["sand", "water", "fire", "stone"];
-	const elementColors = ["#d2be82", "#3c78b4", "#ff5028", "#8c8278"];
+	const elements = ['sand', 'water', 'fire', 'stone'];
+	const elementColors = ['#d2be82', '#3c78b4', '#ff5028', '#8c8278'];
 	for (let i = 0; i < elements.length; i++) {
-		const row = createNode({ flexDirection: "row", alignItems: "center" });
+		const row = createNode({ flexDirection: 'row', alignItems: 'center' });
 
 		row.appendChild(
 			createNode({
@@ -83,7 +82,7 @@ function buildLayout(): waveforge.LayoutNode {
 
 		row.appendChild(
 			createNode({
-				content: new waveforge.TextContent(elements[i], 1, "#bebebe"),
+				content: new waveforge.TextContent(elements[i], 1, '#bebebe'),
 			}),
 		);
 
@@ -95,23 +94,23 @@ function buildLayout(): waveforge.LayoutNode {
 
 	const footer = createNode({
 		height: 18,
-		backgroundColor: "#282c34",
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "spaceAround",
+		backgroundColor: '#282c34',
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'spaceAround',
 	});
 
-	const buttons = ["PLAY", "HELP", "EXIT"];
+	const buttons = ['PLAY', 'HELP', 'EXIT'];
 	for (const label of buttons) {
 		const btn = createNode({
-			content: new waveforge.TextContent(label, 1, "#b4c8f0"),
+			content: new waveforge.TextContent(label, 1, '#b4c8f0'),
 			paddingTop: 2,
 			paddingRight: 6,
 			paddingBottom: 2,
 			paddingLeft: 6,
-			backgroundColor: "#3c465a",
-			contentAlignH: "center",
-			contentAlignV: "horizon",
+			backgroundColor: '#3c465a',
+			contentAlignH: 'center',
+			contentAlignV: 'horizon',
 		});
 		footer.appendChild(btn);
 		buttonNodes.push(btn);
@@ -129,15 +128,13 @@ function handleClick(event: waveforge.MouseButtonEvent): void {
 
 	const target = layoutRoot.hitTest(event.x, event.y);
 	if (!target) {
-		waveforge.log("  → no node hit");
+		waveforge.log('  → no node hit');
 		return;
 	}
 
 	const bounds = target.getComputedBounds();
 	if (bounds) {
-		waveforge.log(
-			`  → hit node bounds=(${bounds.x},${bounds.y} ${bounds.width}x${bounds.height})`,
-		);
+		waveforge.log(`  → hit node bounds=(${bounds.x},${bounds.y} ${bounds.width}x${bounds.height})`);
 	}
 
 	waveforge.log(`  → hasChildNodes: ${target.hasChildNodes()}`);
@@ -148,22 +145,18 @@ function handleClick(event: waveforge.MouseButtonEvent): void {
 	if (target.parent) {
 		const pb = target.parent.getComputedBounds();
 		if (pb) {
-			waveforge.log(
-				`  → parent bounds=(${pb.x},${pb.y} ${pb.width}x${pb.height})`,
-			);
+			waveforge.log(`  → parent bounds=(${pb.x},${pb.y} ${pb.width}x${pb.height})`);
 		}
 	}
 
 	const btnIndex = buttonNodes.indexOf(target);
 	if (btnIndex >= 0) {
-		waveforge.log(
-			`  → BUTTON "${["PLAY", "HELP", "EXIT"][btnIndex]}" clicked!`,
-		);
+		waveforge.log(`  → BUTTON "${['PLAY', 'HELP', 'EXIT'][btnIndex]}" clicked!`);
 	}
 }
 
 layoutRoot = buildLayout();
-waveforge.log("layout test ready");
+waveforge.log('layout test ready');
 waveforge.log(`root hasChildNodes: ${layoutRoot.hasChildNodes()}`);
 waveforge.log(`root childCount: ${layoutRoot.childCount}`);
 
