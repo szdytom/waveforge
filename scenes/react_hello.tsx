@@ -1,29 +1,46 @@
 // Must be first: timer globals needed by react-reconciler's scheduler
-import React from 'react';
-import { render, View, Text } from '@waveforge/renderer';
-import { Button } from '@waveforge/components';
-import { style, size, padding, margin, border, bg, row, column, center, centerV, centerH, flex, textColor } from '@waveforge/styles';
 
-waveforge.log("Counter demo loading...");
+import { Button } from '@waveforge/components';
+import { render, Text, View } from '@waveforge/renderer';
+import {
+	bg,
+	border,
+	center,
+	centerH,
+	centerV,
+	column,
+	flex,
+	margin,
+	padding,
+	row,
+	size,
+	style,
+	textColor,
+} from '@waveforge/styles';
+import React from 'react';
+
+waveforge.log('Counter demo loading...');
 
 const BG_COLORS = ['#f0e6ff', '#e6f5ff', '#fff0e6', '#e6ffe6', '#fffae6'];
 
 const headerStyle = style(
 	{ height: 18, backgroundColor: '#2d2d5e' },
-	row(), centerV(), centerH(),
-	border(0, '#4ecdc455'), { borderBottom: 1 },
+	row(),
+	centerV(),
+	centerH(),
+	border(0, '#4ecdc455'),
+	{ borderBottom: 1 },
 );
 
-const counterCard = style(
-	bg('#ffffffcc'),
-	padding(6, 24),
-	border(2, '#4ecdc4'),
-);
+const counterCard = style(bg('#ffffffcc'), padding(6, 24), border(2, '#4ecdc4'));
 
 const footerStyle = style(
 	{ height: 12, backgroundColor: '#2d2d5e' },
-	row(), centerV(), centerH(),
-	border(0, '#4ecdc455'), { borderTop: 1 },
+	row(),
+	centerV(),
+	centerH(),
+	border(0, '#4ecdc455'),
+	{ borderTop: 1 },
 );
 
 function App() {
@@ -31,7 +48,7 @@ function App() {
 	const [bgIndex, setBgIndex] = React.useState(0);
 
 	const increment = React.useCallback((n: number) => {
-		setCount(c => {
+		setCount((c) => {
 			const next = c + n;
 			setBgIndex(Math.floor(Math.abs(next) / 5) % BG_COLORS.length);
 			return next;
@@ -75,4 +92,4 @@ function App() {
 
 render(<App />);
 
-waveforge.log("Counter demo ready");
+waveforge.log('Counter demo ready');

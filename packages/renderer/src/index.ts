@@ -1,7 +1,14 @@
-
 import Reconciler from 'react-reconciler';
 import { DefaultEventPriority } from 'react-reconciler/constants';
-import { applyProps, createNode, createTextNode, clearNode, updateTextNode, dispatchClick, HostType } from './host-config.js';
+import {
+	applyProps,
+	clearNode,
+	createNode,
+	createTextNode,
+	dispatchClick,
+	type HostType,
+	updateTextNode,
+} from './host-config.js';
 
 // ── Priority tracking (needed by reconciler internally) ──
 let _currentUpdatePriority = 0;
@@ -47,12 +54,7 @@ const hostConfig = {
 		return createNode(type, props);
 	},
 
-	createTextInstance(
-		text: string,
-		_rootContainer: any,
-		_hostContext: any,
-		_internalHandle: any,
-	): any {
+	createTextInstance(text: string, _rootContainer: any, _hostContext: any, _internalHandle: any): any {
 		return createTextNode(text);
 	},
 
@@ -90,11 +92,9 @@ const hostConfig = {
 		return null;
 	},
 
-	resetAfterCommit(_container: any): void {
-	},
+	resetAfterCommit(_container: any): void {},
 
-	preparePortalMount(_containerInfo: any): void {
-	},
+	preparePortalMount(_containerInfo: any): void {},
 
 	scheduleTimeout: (fn: () => void, delay: number) => setTimeout(fn, delay ?? 0),
 	cancelTimeout: (id: any) => clearTimeout(id),
@@ -142,22 +142,13 @@ const hostConfig = {
 
 	commitTextUpdate(textInstance: any, _prevText: string, nextText: string): void {
 		const existing = textInstance.content;
-		const color = existing instanceof waveforge.TextContent
-			? existing.color?.toString()
-			: undefined;
+		const color = existing instanceof waveforge.TextContent ? existing.color?.toString() : undefined;
 		updateTextNode(textInstance, nextText, color);
 	},
 
-	commitMount(_instance: any, _type: string, _props: any, _internalHandle: any): void {
-	},
+	commitMount(_instance: any, _type: string, _props: any, _internalHandle: any): void {},
 
-	commitUpdate(
-		instance: any,
-		_type: HostType,
-		_prevProps: any,
-		nextProps: any,
-		_internalHandle: any,
-	): void {
+	commitUpdate(instance: any, _type: HostType, _prevProps: any, nextProps: any, _internalHandle: any): void {
 		applyProps(instance, _type, nextProps);
 	},
 
@@ -185,11 +176,9 @@ const hostConfig = {
 		return false;
 	},
 
-	detachDeletedInstance(): void {
-	},
+	detachDeletedInstance(): void {},
 
-	resetFormInstance(): void {
-	},
+	resetFormInstance(): void {},
 };
 
 // ── Reconciler Instance ──
@@ -202,7 +191,9 @@ let _currentRoot: waveforge.LayoutNode | null = null;
 let _setup = false;
 
 function setupEngine(): void {
-	if (_setup) return;
+	if (_setup) {
+		return;
+	}
 	_setup = true;
 
 	waveforge.addEventListener('step', () => {
@@ -212,7 +203,9 @@ function setupEngine(): void {
 	});
 
 	waveforge.addEventListener('mousebutton', (event) => {
-		if (event.type !== 'mouseup' || !_currentRoot) return;
+		if (event.type !== 'mouseup' || !_currentRoot) {
+			return;
+		}
 		dispatchClick(_currentRoot, event.x, event.y);
 	});
 }
@@ -230,11 +223,11 @@ export function render(element: any, rootNode?: waveforge.LayoutNode): any {
 
 	const container = reconciler.createContainer(
 		rootNode,
-		0,    // tag: LegacyRoot
+		0, // tag: LegacyRoot
 		null, // hydrationCallbacks
-		false,// isStrictMode
+		false, // isStrictMode
 		null, // concurrentUpdatesByDefault
-		'',   // identifierPrefix
+		'', // identifierPrefix
 		console.error,
 		null, // transitionCallbacks
 	);

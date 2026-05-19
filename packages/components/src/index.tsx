@@ -1,6 +1,5 @@
-import React from 'react';
-import { View, Text } from '@waveforge/renderer';
-import { style, padding, contentAlignH, contentAlignV } from '@waveforge/styles';
+import { Text, View } from '@waveforge/renderer';
+import { contentAlignH, contentAlignV, padding, style } from '@waveforge/styles';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'accent';
 
