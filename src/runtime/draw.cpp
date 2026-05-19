@@ -57,7 +57,7 @@ JSValue DrawSpriteCmd_getTexture(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	return JS_DupValue(ctx, self->textureVal);
+	return JS_DupValue(ctx, self->texture_val);
 }
 
 JSValue DrawSpriteCmd_setTexture(
@@ -73,8 +73,8 @@ JSValue DrawSpriteCmd_setTexture(
 		return JS_ThrowTypeError(ctx, "Expected a Texture object");
 	}
 
-	JS_FreeValue(ctx, self->textureVal);
-	self->textureVal = JS_DupValue(ctx, val);
+	JS_FreeValue(ctx, self->texture_val);
+	self->texture_val = JS_DupValue(ctx, val);
 	self->texture = tex->texture;
 	return JS_UNDEFINED;
 }
@@ -272,9 +272,9 @@ void DrawRectCmd::render(
 }
 
 DrawSpriteCmd::DrawSpriteCmd(
-	JSValue textureVal, sf::Texture *texture, int x, int y
+	JSValue texture_val, sf::Texture *texture, int x, int y
 ) noexcept
-	: textureVal(textureVal), texture(texture), x(x), y(y) {}
+	: texture_val(texture_val), texture(texture), x(x), y(y) {}
 
 void DrawSpriteCmd::render(
 	sf::RenderTarget &target, JSContext * /*ctx*/, int scale
@@ -289,12 +289,12 @@ void DrawSpriteCmd::gcMark(
 	JSRuntime *rt, JSValueConst val, JS_MarkFunc *mark_func
 ) noexcept {
 	auto *self = unwrap(rt, val);
-	JS_MarkValue(rt, self->textureVal, mark_func);
+	JS_MarkValue(rt, self->texture_val, mark_func);
 }
 
 void DrawSpriteCmd::finalize(JSRuntime *rt, JSValue val) noexcept {
 	auto *self = unwrap(rt, val);
-	JS_FreeValueRT(rt, self->textureVal);
+	JS_FreeValueRT(rt, self->texture_val);
 	delete self;
 }
 

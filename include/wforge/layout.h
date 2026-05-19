@@ -100,7 +100,7 @@ struct SpriteContent final : BindingBase<SpriteContent> {
 	) noexcept;
 	static void finalize(JSRuntime *rt, JSValue val) noexcept;
 
-	JSValue textureVal = JS_NULL;
+	JSValue texture_val = JS_NULL;
 	sf::Texture *texture = nullptr; // not owned, managed by AssetsManager
 	int size = 1;                   // scale multiplier
 

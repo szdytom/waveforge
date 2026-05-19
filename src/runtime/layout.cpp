@@ -58,15 +58,15 @@ float resolveDim(float intrinsic, float avail, YGMeasureMode mode) noexcept {
 }
 
 std::pair<int, int> computeContentOffset(
-	int contentW, int contentH, const LayoutParameters &lp
+	int content_w, int content_h, const LayoutParameters &lp
 ) noexcept {
 	int dx = 0;
 	switch (lp.align.h) {
 	case ContentAlignH::Center:
-		dx = (lp.w - contentW) / 2;
+		dx = (lp.w - content_w) / 2;
 		break;
 	case ContentAlignH::Right:
-		dx = lp.w - contentW;
+		dx = lp.w - content_w;
 		break;
 	default:
 		break;
@@ -74,10 +74,10 @@ std::pair<int, int> computeContentOffset(
 	int dy = 0;
 	switch (lp.align.v) {
 	case ContentAlignV::Horizon:
-		dy = (lp.h - contentH) / 2;
+		dy = (lp.h - content_h) / 2;
 		break;
 	case ContentAlignV::Bottom:
-		dy = lp.h - contentH;
+		dy = lp.h - content_h;
 		break;
 	default:
 		break;
@@ -89,6 +89,7 @@ YGConfigRef pixelConfig() noexcept {
 	static YGConfigRef config = []() noexcept {
 		YGConfigRef cfg = YGConfigNew();
 		YGConfigSetPointScaleFactor(cfg, 1.0f);
+		YGConfigSetUseWebDefaults(cfg, false);
 		return cfg;
 	}();
 	return config;
@@ -103,19 +104,19 @@ struct WrappedLine {
 };
 
 [[nodiscard]] static std::vector<WrappedLine> computeWrappedLines(
-	std::string_view text, int maxPixels, int charW
+	std::string_view text, int max_pixels, int char_w
 ) noexcept {
 	std::vector<WrappedLine> lines;
 	if (text.empty()) {
 		return lines;
 	}
 
-	int maxPerLine = std::max(1, maxPixels / charW);
+	int line_max = std::max(1, max_pixels / char_w);
 
 	size_t pos = 0;
-	size_t lineStart = 0;
-	int curLen = 0;
-	size_t lastWordEnd = 0;
+	size_t line_start = 0;
+	int cur_n = 0;
+	size_t last_word_end = 0;
 
 	while (true) {
 		// skip leading whitespace
@@ -127,31 +128,31 @@ struct WrappedLine {
 			break;
 		}
 
-		size_t wordStart = pos;
+		size_t word_start = pos;
 		while (pos < text.size()
 		       && !std::isspace(static_cast<unsigned char>(text[pos]))) {
 			pos++;
 		}
-		size_t wordEnd = pos;
-		int wordLen = static_cast<int>(wordEnd - wordStart);
+		size_t word_end = pos;
+		int word_n = static_cast<int>(word_end - word_start);
 
-		if (curLen == 0) {
-			lineStart = wordStart;
-			lastWordEnd = wordEnd;
-			curLen = wordLen;
-		} else if ((curLen + 1 + wordLen) <= maxPerLine) {
-			lastWordEnd = wordEnd;
-			curLen += 1 + wordLen;
+		if (cur_n == 0) {
+			line_start = word_start;
+			last_word_end = word_end;
+			cur_n = word_n;
+		} else if ((cur_n + 1 + word_n) <= line_max) {
+			last_word_end = word_end;
+			cur_n += 1 + word_n;
 		} else {
-			lines.push_back({lineStart, lastWordEnd});
-			lineStart = wordStart;
-			lastWordEnd = wordEnd;
-			curLen = wordLen;
+			lines.emplace_back(line_start, last_word_end);
+			line_start = word_start;
+			last_word_end = word_end;
+			cur_n = word_n;
 		}
 	}
 
-	if (curLen > 0) {
-		lines.push_back({lineStart, lastWordEnd});
+	if (cur_n > 0) {
+		lines.emplace_back(line_start, last_word_end);
 	}
 
 	return lines;
@@ -180,17 +181,17 @@ YGSize TextContent::measure(
 		};
 	}
 
-	float measuredW;
-	int lineCount;
+	float measured_w;
+	int line_count;
 
 	if (width_mode == YGMeasureModeUndefined) {
-		measuredW = static_cast<float>(text.length() * charWidth());
-		lineCount = 1;
+		measured_w = static_cast<float>(text.length() * charWidth());
+		line_count = 1;
 	} else {
 		auto lines = computeWrappedLines(
 			text, static_cast<int>(width), charWidth()
 		);
-		lineCount = static_cast<int>(lines.size());
+		line_count = static_cast<int>(lines.size());
 		if (lines.empty()) {
 			return {
 				resolveDim(0, width, width_mode),
@@ -199,21 +200,21 @@ YGSize TextContent::measure(
 				),
 			};
 		}
-		measuredW = 0;
+		measured_w = 0;
 		for (auto &l : lines) {
 			float lw = static_cast<float>((l.end - l.start) * charWidth());
-			if (lw > measuredW) {
-				measuredW = lw;
+			if (lw > measured_w) {
+				measured_w = lw;
 			}
 		}
-		measuredW = std::min(width, measuredW);
+		measured_w = std::min(width, measured_w);
 	}
 
-	float measuredH = static_cast<float>(lineCount * charHeight());
+	float measured_h = static_cast<float>(line_count * charHeight());
 
 	return {
-		resolveDim(measuredW, width, width_mode),
-		resolveDim(measuredH, height, height_mode),
+		resolveDim(measured_w, width, width_mode),
+		resolveDim(measured_h, height, height_mode),
 	};
 }
 
@@ -229,16 +230,16 @@ void TextContent::render(
 	}
 
 	// total text block dimensions for alignment
-	int textW = 0;
+	int text_w = 0;
 	for (auto &l : lines) {
 		int lw = static_cast<int>(l.end - l.start) * cw;
-		if (lw > textW) {
-			textW = lw;
+		if (lw > text_w) {
+			text_w = lw;
 		}
 	}
-	int textH = static_cast<int>(lines.size()) * ch;
+	int text_h = static_cast<int>(lines.size()) * ch;
 
-	auto [dx, dy] = computeContentOffset(textW, textH, lp);
+	auto [dx, dy] = computeContentOffset(text_w, text_h, lp);
 
 	int y = lp.y + dy;
 	for (auto &l : lines) {
@@ -258,21 +259,21 @@ YGSize SpriteContent::measure(
 	YGMeasureMode width_mode, float width, YGMeasureMode height_mode,
 	float height
 ) const noexcept {
-	float texW = texture->getSize().x * size;
-	float texH = texture->getSize().y * size;
+	float tex_w = texture->getSize().x * size;
+	float tex_h = texture->getSize().y * size;
 	return {
-		resolveDim(texW, width, width_mode),
-		resolveDim(texH, height, height_mode),
+		resolveDim(tex_w, width, width_mode),
+		resolveDim(tex_h, height, height_mode),
 	};
 }
 
 void SpriteContent::render(
 	sf::RenderTarget &target, JSContext * /*ctx*/, LayoutParameters lp
 ) const {
-	int spriteW = static_cast<int>(texture->getSize().x) * size;
-	int spriteH = static_cast<int>(texture->getSize().y) * size;
+	int sprite_w = static_cast<int>(texture->getSize().x) * size;
+	int sprite_h = static_cast<int>(texture->getSize().y) * size;
 
-	auto [dx, dy] = computeContentOffset(spriteW, spriteH, lp);
+	auto [dx, dy] = computeContentOffset(sprite_w, sprite_h, lp);
 
 	sf::Sprite sprite(*texture);
 	sprite.setPosition(
@@ -326,111 +327,112 @@ void LayoutNode::removeChild(JSContext *ctx, LayoutNode *child) {
 			break;
 		}
 	}
+
 	if (found) {
 		YGNodeRemoveChild(&yoga_node, &child->yoga_node);
 	}
 }
 
 void LayoutNode::insertBefore(
-	JSContext *ctx, LayoutNode *newChild, LayoutNode *referenceChild
+	JSContext *ctx, LayoutNode *new_child, LayoutNode *ref_child
 ) {
-	if (!referenceChild) {
-		appendChild(ctx, newChild);
+	if (!ref_child) {
+		appendChild(ctx, new_child);
 		return;
 	}
 
-	// First verify referenceChild exists
+	// First verify ref_child exists
 	bool found = false;
 	for (auto *cur = first_child; cur; cur = cur->next_sibling) {
-		if (cur == referenceChild) {
+		if (cur == ref_child) {
 			found = true;
 			break;
 		}
 	}
 	if (!found) {
-		JS_ThrowTypeError(ctx, "referenceChild is not a child of this node");
+		JS_ThrowTypeError(ctx, "ref_child is not a child of this node");
 		return;
 	}
 
-	// Detach newChild from old parent
-	if (newChild->parent) {
-		newChild->parent->removeChild(ctx, newChild);
+	// Detach new_child from old parent
+	if (new_child->parent) {
+		new_child->parent->removeChild(ctx, new_child);
 	}
 
-	// Find referenceChild and insert newChild before it
+	// Find ref_child and insert new_child before it
 	size_t index = 0;
 	LayoutNode *prev = nullptr;
 	for (auto *cur = first_child; cur;
 	     prev = cur, cur = cur->next_sibling, index++) {
-		if (cur == referenceChild) {
-			JS_DupValue(ctx, newChild->self_val);
-			newChild->parent = this;
+		if (cur == ref_child) {
+			JS_DupValue(ctx, new_child->self_val);
+			new_child->parent = this;
 			if (prev) {
-				prev->next_sibling = newChild;
+				prev->next_sibling = new_child;
 			} else {
-				first_child = newChild;
+				first_child = new_child;
 			}
-			newChild->next_sibling = referenceChild;
-			YGNodeInsertChild(&yoga_node, &newChild->yoga_node, index);
+			new_child->next_sibling = ref_child;
+			YGNodeInsertChild(&yoga_node, &new_child->yoga_node, index);
 			return;
 		}
 	}
 }
 
 void LayoutNode::replaceChild(
-	JSContext *ctx, LayoutNode *newChild, LayoutNode *oldChild
+	JSContext *ctx, LayoutNode *new_child, LayoutNode *old_child
 ) {
-	if (newChild == oldChild) {
+	if (new_child == old_child) {
 		return;
 	}
 
-	// First verify oldChild exists
+	// First verify old_child exists
 	bool found = false;
 	for (auto *cur = first_child; cur; cur = cur->next_sibling) {
-		if (cur == oldChild) {
+		if (cur == old_child) {
 			found = true;
 			break;
 		}
 	}
 	if (!found) {
-		JS_ThrowTypeError(ctx, "oldChild is not a child of this node");
+		JS_ThrowTypeError(ctx, "old_child is not a child of this node");
 		return;
 	}
 
-	// Detach newChild from old parent (may modify this list if same parent)
-	if (newChild->parent) {
-		newChild->parent->removeChild(ctx, newChild);
+	// Detach new_child from old parent (may modify this list if same parent)
+	if (new_child->parent) {
+		new_child->parent->removeChild(ctx, new_child);
 	}
 
-	// Re-derive oldChild position after potential list modification
+	// Re-derive old_child position after potential list modification
 	size_t index = 0;
 	LayoutNode *prev = nullptr;
 	for (auto *cur = first_child; cur;
 	     prev = cur, cur = cur->next_sibling, index++) {
-		if (cur == oldChild) {
-			JS_DupValue(ctx, newChild->self_val);
-			JS_FreeValue(ctx, oldChild->self_val);
-			newChild->parent = this;
+		if (cur == old_child) {
+			JS_DupValue(ctx, new_child->self_val);
+			JS_FreeValue(ctx, old_child->self_val);
+			new_child->parent = this;
 			if (prev) {
-				prev->next_sibling = newChild;
+				prev->next_sibling = new_child;
 			} else {
-				first_child = newChild;
+				first_child = new_child;
 			}
-			newChild->next_sibling = oldChild->next_sibling;
-			if (oldChild == last_child) {
-				last_child = newChild;
+			new_child->next_sibling = old_child->next_sibling;
+			if (old_child == last_child) {
+				last_child = new_child;
 			}
-			oldChild->parent = nullptr;
-			oldChild->next_sibling = nullptr;
-			YGNodeRemoveChild(&yoga_node, &oldChild->yoga_node);
-			YGNodeInsertChild(&yoga_node, &newChild->yoga_node, index);
+			old_child->parent = nullptr;
+			old_child->next_sibling = nullptr;
+			YGNodeRemoveChild(&yoga_node, &old_child->yoga_node);
+			YGNodeInsertChild(&yoga_node, &new_child->yoga_node, index);
 			return;
 		}
 	}
 }
 
-void LayoutNode::calculateLayout(float availWidth, float availHeight) {
-	YGNodeCalculateLayout(&yoga_node, availWidth, availHeight, YGDirectionLTR);
+void LayoutNode::calculateLayout(float avail_w, float avail_h) {
+	YGNodeCalculateLayout(&yoga_node, avail_w, avail_h, YGDirectionLTR);
 }
 
 void LayoutNode::relayout() noexcept {
@@ -509,10 +511,10 @@ void LayoutNode::_drawBorders(
 			break;
 		}
 
-		sf::RectangleShape borderRect(sf::Vector2f(bw2 * scale, bh2 * scale));
-		borderRect.setPosition(sf::Vector2f(bx * scale, by * scale));
-		borderRect.setFillColor(*color);
-		target.draw(borderRect);
+		sf::RectangleShape border_rect(sf::Vector2f(bw2 * scale, bh2 * scale));
+		border_rect.setPosition(sf::Vector2f(bx * scale, by * scale));
+		border_rect.setFillColor(*color);
+		target.draw(border_rect);
 	}
 }
 
@@ -523,24 +525,24 @@ void LayoutNode::render(
 	_drawBorders(target, ctx, lp);
 
 	if (content.has_value()) {
-		auto padLeft = static_cast<int>(
+		auto pad_left = static_cast<int>(
 			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeLeft))
 		);
-		auto padTop = static_cast<int>(
+		auto pad_top = static_cast<int>(
 			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeTop))
 		);
-		auto padRight = static_cast<int>(
+		auto pad_right = static_cast<int>(
 			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeRight))
 		);
-		auto padBottom = static_cast<int>(
+		auto pad_bottom = static_cast<int>(
 			std::round(YGNodeLayoutGetPadding(&yoga_node, YGEdgeBottom))
 		);
 		LayoutParameters content_lp{
 			.scale = lp.scale,
-			.x = lp.x + padLeft,
-			.y = lp.y + padTop,
-			.w = std::max(0, lp.w - padLeft - padRight),
-			.h = std::max(0, lp.h - padTop - padBottom),
+			.x = lp.x + pad_left,
+			.y = lp.y + pad_top,
+			.w = std::max(0, lp.w - pad_left - pad_right),
+			.h = std::max(0, lp.h - pad_top - pad_bottom),
 			.align = content_align,
 		};
 		content->render(target, ctx, content_lp);
@@ -595,7 +597,9 @@ WF_JS_DEF_SETTER_STR(TextContent, setText, text)
 WF_JS_DEF_GETTER_I32(TextContent, getSize, self->size)
 WF_JS_DEF_SETTER(TextContent, setSize, {
 	int32_t v;
-	JS_ToInt32(ctx, &v, val);
+	if (JS_ToInt32(ctx, &v, val)) {
+		return JS_ThrowTypeError(ctx, "Failed to convert value to integer");
+	}
 	self->size = std::max(1, v);
 })
 
@@ -700,7 +704,7 @@ JSValue SpriteContent_getTexture(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
-	return JS_DupValue(ctx, self->textureVal);
+	return JS_DupValue(ctx, self->texture_val);
 }
 
 JSValue SpriteContent_setTexture(
@@ -714,8 +718,8 @@ JSValue SpriteContent_setTexture(
 	if (!texObj) {
 		return JS_ThrowTypeError(ctx, "Expected a Texture");
 	}
-	JS_FreeValue(ctx, self->textureVal);
-	self->textureVal = JS_DupValue(ctx, val);
+	JS_FreeValue(ctx, self->texture_val);
+	self->texture_val = JS_DupValue(ctx, val);
 	self->texture = texObj->texture;
 	return JS_UNDEFINED;
 }
@@ -723,7 +727,9 @@ JSValue SpriteContent_setTexture(
 WF_JS_DEF_GETTER_I32(SpriteContent, getSize, self->size)
 WF_JS_DEF_SETTER(SpriteContent, setSize, {
 	int32_t v;
-	JS_ToInt32(ctx, &v, val);
+	if (JS_ToInt32(ctx, &v, val)) {
+		return JS_ThrowTypeError(ctx, "Failed to convert value to integer");
+	}
 	self->size = std::max(1, v);
 })
 
@@ -750,7 +756,7 @@ JSValue SpriteContent::ctor(
 		return JS_ThrowTypeError(ctx, "Expected a Texture");
 	}
 	auto self = std::make_unique<SpriteContent>();
-	self->textureVal = JS_DupValue(ctx, argv[0]);
+	self->texture_val = JS_DupValue(ctx, argv[0]);
 	self->texture = texObj->texture;
 	if (argc > 1) {
 		int32_t v;
@@ -759,7 +765,7 @@ JSValue SpriteContent::ctor(
 	}
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
-		JS_FreeValue(ctx, self->textureVal);
+		JS_FreeValue(ctx, self->texture_val);
 		return obj;
 	}
 	JS_SetOpaque(obj, self.release());
@@ -773,7 +779,7 @@ void SpriteContent::gcMark(
 	if (!self) {
 		return;
 	}
-	JS_MarkValue(rt, self->textureVal, mark_func);
+	JS_MarkValue(rt, self->texture_val, mark_func);
 }
 
 void SpriteContent::finalize(JSRuntime *rt, JSValue val) noexcept {
@@ -781,7 +787,7 @@ void SpriteContent::finalize(JSRuntime *rt, JSValue val) noexcept {
 	if (!self) {
 		return;
 	}
-	JS_FreeValueRT(rt, self->textureVal);
+	JS_FreeValueRT(rt, self->texture_val);
 	delete self;
 }
 
@@ -1068,54 +1074,69 @@ JSValue LayoutNode_setEnumPropStr(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
+
 	size_t len;
 	const char *s = JS_ToCStringLen(ctx, &len, val);
 	if (!s) {
 		return JS_ThrowTypeError(ctx, "Expected a string");
 	}
 	std::string_view sv(s, len);
+
 	switch (static_cast<LayoutProp>(magic)) {
 	case LayoutProp::Direction:
 		YGNodeStyleSetDirection(&self->yoga_node, stringToDirection(sv));
 		break;
+
 	case LayoutProp::FlexDirection:
 		YGNodeStyleSetFlexDirection(
 			&self->yoga_node, stringToFlexDirection(sv)
 		);
 		break;
+
 	case LayoutProp::JustifyContent:
 		YGNodeStyleSetJustifyContent(&self->yoga_node, stringToJustify(sv));
 		break;
+
 	case LayoutProp::AlignItems:
 		YGNodeStyleSetAlignItems(&self->yoga_node, stringToAlign(sv));
 		break;
+
 	case LayoutProp::AlignSelf:
 		YGNodeStyleSetAlignSelf(&self->yoga_node, stringToAlign(sv));
 		break;
+
 	case LayoutProp::AlignContent:
 		YGNodeStyleSetAlignContent(&self->yoga_node, stringToAlign(sv));
 		break;
+
 	case LayoutProp::FlexWrap:
 		YGNodeStyleSetFlexWrap(&self->yoga_node, stringToWrap(sv));
 		break;
+
 	case LayoutProp::Overflow:
 		YGNodeStyleSetOverflow(&self->yoga_node, stringToOverflow(sv));
 		break;
+
 	case LayoutProp::Display:
 		YGNodeStyleSetDisplay(&self->yoga_node, stringToDisplay(sv));
 		break;
+
 	case LayoutProp::PositionType:
 		YGNodeStyleSetPositionType(&self->yoga_node, stringToPositionType(sv));
 		break;
+
 	case LayoutProp::ContentAlignH:
 		self->content_align.h = stringToContentAlignH(sv);
 		break;
+
 	case LayoutProp::ContentAlignV:
 		self->content_align.v = stringToContentAlignV(sv);
 		break;
+
 	default:
 		break;
 	}
+
 	JS_FreeCString(ctx, s);
 	return JS_UNDEFINED;
 }
@@ -1127,8 +1148,12 @@ JSValue LayoutNode_setEnumPropFloat(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
+
 	double v;
-	JS_ToFloat64(ctx, &v, val);
+	if (JS_ToFloat64(ctx, &v, val)) {
+		return JS_ThrowTypeError(ctx, "Failed to convert value to float");
+	}
+
 	switch (static_cast<LayoutProp>(magic)) {
 	case LayoutProp::Flex:
 		YGNodeStyleSetFlex(&self->yoga_node, static_cast<float>(v));
@@ -1151,6 +1176,7 @@ JSValue LayoutNode_getContent(JSContext *ctx, JSValueConst this_val) noexcept {
 	if (!self) {
 		return JS_UNDEFINED;
 	}
+
 	if (JS_IsNull(self->content_val)) {
 		return JS_NULL;
 	}
@@ -1229,6 +1255,7 @@ JSValue LayoutNode_getBorderColor(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
+
 	auto edge = static_cast<YGEdge>(magic);
 	return JS_DupValue(ctx, self->border_color[edge]);
 }
@@ -1428,18 +1455,18 @@ JSValue LayoutNode_setYgValue(
 		(static_cast<uint8_t>(magic) >> 4) & 0xF
 	);
 	const auto &funcs = YG_VALUE_FUNCS[static_cast<uint8_t>(type)];
-	auto subMagic = static_cast<int16_t>(magic & 0xF);
+	auto sub_magic = static_cast<int16_t>(magic & 0xF);
 
 	// undefined / null → unset
 	if (JS_IsUndefined(val) || JS_IsNull(val)) {
-		funcs.set(&self->yoga_node, subMagic, YGUndefined);
+		funcs.set(&self->yoga_node, sub_magic, YGUndefined);
 		return JS_UNDEFINED;
 	}
 
 	// number → point
 	double v;
 	if (JS_ToFloat64(ctx, &v, val) == 0) {
-		funcs.set(&self->yoga_node, subMagic, static_cast<float>(v));
+		funcs.set(&self->yoga_node, sub_magic, static_cast<float>(v));
 		return JS_UNDEFINED;
 	}
 
@@ -1454,7 +1481,7 @@ JSValue LayoutNode_setYgValue(
 	// "auto"
 	if (sv == "auto") {
 		if (funcs.set_auto) {
-			funcs.set_auto(&self->yoga_node, subMagic);
+			funcs.set_auto(&self->yoga_node, sub_magic);
 			JS_FreeCString(ctx, s);
 			return JS_UNDEFINED;
 		}
@@ -1474,7 +1501,7 @@ JSValue LayoutNode_setYgValue(
 		if (result.ec == std::errc()
 		    && result.ptr == numPart.data() + numPart.size()) {
 			if (funcs.set_percent) {
-				funcs.set_percent(&self->yoga_node, subMagic, pct);
+				funcs.set_percent(&self->yoga_node, sub_magic, pct);
 				JS_FreeCString(ctx, s);
 				return JS_UNDEFINED;
 			}
@@ -1501,6 +1528,7 @@ JSValue LayoutNode_getChildCount(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
+
 	int32_t count = 0;
 	for (auto *child = self->first_child; child; child = child->next_sibling) {
 		count++;
@@ -1515,6 +1543,7 @@ JSValue LayoutNode_getFirstChild(
 	if (!self || !self->first_child) {
 		return JS_UNDEFINED;
 	}
+
 	return JS_DupValue(ctx, self->first_child->self_val);
 }
 
@@ -1525,6 +1554,7 @@ JSValue LayoutNode_getLastChild(
 	if (!self || !self->last_child) {
 		return JS_UNDEFINED;
 	}
+
 	return JS_DupValue(ctx, self->last_child->self_val);
 }
 
@@ -1534,6 +1564,7 @@ WF_JS_METHOD(LayoutNode, appendChild, {
 	if (!child) {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
+
 	self->appendChild(ctx, child);
 	return JS_UNDEFINED;
 })
@@ -1543,38 +1574,43 @@ WF_JS_METHOD(LayoutNode, removeChild, {
 	if (!child) {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
+
 	self->removeChild(ctx, child);
 	return JS_UNDEFINED;
 })
 
 WF_JS_METHOD(LayoutNode, insertBefore, {
-	auto *newChild = LayoutNode::unwrap(ctx, argv[0]);
-	if (!newChild) {
+	auto *new_child = LayoutNode::unwrap(ctx, argv[0]);
+	if (!new_child) {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
-	LayoutNode *referenceChild = nullptr;
+
+	LayoutNode *ref_child = nullptr;
 	if (argc > 1 && !JS_IsUndefined(argv[1]) && !JS_IsNull(argv[1])) {
-		referenceChild = LayoutNode::unwrap(ctx, argv[1]);
-		if (!referenceChild) {
+		ref_child = LayoutNode::unwrap(ctx, argv[1]);
+		if (!ref_child) {
 			return JS_ThrowTypeError(
 				ctx, "Expected a LayoutNode as second argument"
 			);
 		}
 	}
-	self->insertBefore(ctx, newChild, referenceChild);
+
+	self->insertBefore(ctx, new_child, ref_child);
 	return JS_UNDEFINED;
 })
 
 WF_JS_METHOD(LayoutNode, replaceChild, {
-	auto *newChild = LayoutNode::unwrap(ctx, argv[0]);
-	if (!newChild) {
+	auto *new_child = LayoutNode::unwrap(ctx, argv[0]);
+	if (!new_child) {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
-	auto *oldChild = LayoutNode::unwrap(ctx, argv[1]);
-	if (!oldChild) {
+
+	auto *old_child = LayoutNode::unwrap(ctx, argv[1]);
+	if (!old_child) {
 		return JS_ThrowTypeError(ctx, "Expected a LayoutNode");
 	}
-	self->replaceChild(ctx, newChild, oldChild);
+
+	self->replaceChild(ctx, new_child, old_child);
 	return JS_UNDEFINED;
 })
 
@@ -1603,10 +1639,12 @@ WF_JS_METHOD(LayoutNode, childItem, {
 	if (index < 0) {
 		return JS_NULL;
 	}
+
 	auto *child = self->first_child;
 	for (int32_t i = 0; child && i < index; i++) {
 		child = child->next_sibling;
 	}
+
 	if (!child) {
 		return JS_NULL;
 	}
@@ -1622,14 +1660,13 @@ JSValue LayoutNode_getParent(JSContext *ctx, JSValueConst this_val) noexcept {
 }
 
 JSValue LayoutNode_getComputedBounds(
-	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+	JSContext *ctx, JSValueConst this_val, int, JSValueConst *
 ) noexcept {
-	(void)argc;
-	(void)argv;
 	auto *self = LayoutNode::unwrap(ctx, this_val);
 	if (!self) {
 		return JS_UNDEFINED;
 	}
+
 	auto x = static_cast<int>(
 		std::round(YGNodeLayoutGetLeft(&self->yoga_node))
 	);
@@ -1640,7 +1677,8 @@ JSValue LayoutNode_getComputedBounds(
 	auto h = static_cast<int>(
 		std::round(YGNodeLayoutGetHeight(&self->yoga_node))
 	);
-	if (w == 0 && h == 0) {
+
+	if ((w == 0 && h == 0) || YGNodeIsDirty(&self->yoga_node)) {
 		return JS_NULL;
 	}
 
@@ -1702,6 +1740,7 @@ JSValue LayoutNode_hitTest(
 	if (argc < 2) {
 		return JS_ThrowTypeError(ctx, "Expected two arguments");
 	}
+
 	int32_t x;
 	int32_t y;
 	if (JS_ToInt32(ctx, &x, argv[0]) != 0
