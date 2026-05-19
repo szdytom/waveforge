@@ -1,6 +1,7 @@
 #include "wforge/assets.h"
 #include "wforge/colorpalette.h"
 #include "wforge/level.h"
+#include "wforge/runtime.h"
 #include "wforge/xoroshiro.h"
 #include <SFML/Audio.hpp>
 #include <SFML/Audio/SoundBuffer.hpp>
@@ -643,32 +644,24 @@ void fAnimationFrames(
 	mgr.cacheAsset(id, animation_frames);
 }
 
-void fJS(
+void fUIScene(
 	const nlohmann::json &entry, const fs::path &assets_root, AssetsManager &mgr
 ) {
-	const std::string &file = entry.at("file");
-	auto file_path = assets_root / file;
 	const std::string &id = entry.at("id");
+	int width = entry.at("width");
+	int height = entry.at("height");
 
-	std::ifstream file_stream(file_path);
-	if (!file_stream.is_open()) {
-		throw std::runtime_error(
-			std::format(
-				"AssetsManager: failed to open JS file '{}'", file_path.string()
-			)
-		);
-	}
+	// Derive file path from id: "scripts/react_hello" → "bundled-js/react_hello.js"
+	auto slash = id.find('/');
+	std::string name = (slash != std::string::npos) ? id.substr(slash + 1) : id;
 
-	auto source = new Script{
-		.source = std::string(
-			(std::istreambuf_iterator<char>(file_stream)),
-			std::istreambuf_iterator<char>()
-		),
-		.filename = file,
-		.width = entry.at("width"),
-		.height = entry.at("height"),
+	auto script = new Script{
+		.source = {},
+		.filename = "bundled-js/" + name + ".js",
+		.width = width,
+		.height = height,
 	};
-	mgr.cacheAsset(id, source);
+	mgr.cacheAsset(id, script);
 }
 
 void fLevelSequence(
@@ -718,7 +711,7 @@ void AssetsManager::loadAllAssets() {
 		{"create-pixel-shape-of-all-facings", fPixelShapeAllRotated},
 		{"create-checkpoint-sprite", fCheckpointSprite},
 		{"level-metadata", fLevelMetadata},
-		{"js", fJS},
+		{"ui-scene", fUIScene},
 		{"font", fFont},
 		{"animation", fAnimationFrames},
 		{"level-sequence", fLevelSequence},
@@ -763,6 +756,17 @@ void AssetsManager::loadAllAssets() {
 		total_entries,
 		std::chrono::duration_cast<std::chrono::milliseconds>(dur).count()
 	);
+
+	// Load ES module registry from esbuild metafile
+	auto metafile_path = assets_root / "bundled-js" / ".metafile.json";
+	if (fs::exists(metafile_path)) {
+		wf::js::ModuleRegistry::instance().loadFromMetafile(
+			metafile_path, assets_root
+		);
+	} else {
+		std::cerr << "ModuleRegistry: no metafile found at " << metafile_path
+				  << "\n";
+	}
 }
 
 } // namespace wf

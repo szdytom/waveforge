@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { readdirSync, mkdirSync } from 'fs';
+import { readdirSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -30,8 +30,12 @@ async function build() {
 		format: 'esm',
 		platform: 'neutral',
 		bundle: true,
+		splitting: true,
 		minify: true,
 		treeShaking: true,
+		entryNames: '[name]',
+		chunkNames: 'chunks/[name]-[hash]',
+		metafile: true,
 		mainFields: ['main'],
 		loader: {
 			'.txt': 'text',
@@ -53,8 +57,14 @@ async function build() {
 		await ctx.watch();
 		console.log('Watching for changes...');
 	} else {
-		await ctx.rebuild();
+		const result = await ctx.rebuild();
 		await ctx.dispose();
+
+		// Write metafile for C++ module loader
+		const metaPath = join(OUT_DIR, '.metafile.json');
+		writeFileSync(metaPath, JSON.stringify(result.metafile, null, 2));
+		console.log(`Wrote metafile → ${metaPath}`);
+
 		console.log(`Built ${entries.length} scene(s) → ${OUT_DIR}`);
 	}
 }
