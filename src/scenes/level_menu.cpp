@@ -1,7 +1,7 @@
 #include "wforge/assets.h"
 #include "wforge/audio.h"
 #include "wforge/level.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <SFML/Graphics/Texture.hpp>
 #include <nlohmann/json.hpp>
@@ -65,10 +65,9 @@ LevelSelectionMenu::LevelSelectionMenu()
 	_level_link_texture_activated = loadTexture("link-activated");
 	_level_link_texture_locked = loadTexture("link-locked");
 
-	auto &save_data = SaveData::instance();
-	_selected_index = save_data.completed_levels;
-	if (_selected_index >= _level_seq.levels.size()) {
-		_selected_index = _level_seq.levels.size() - 1;
+	_selected_index = SaveKV::instance().getInt("completed_levels");
+	if (_selected_index >= static_cast<int>(_level_seq.levels.size())) {
+		_selected_index = static_cast<int>(_level_seq.levels.size()) - 1;
 	}
 }
 
@@ -82,7 +81,7 @@ void LevelSelectionMenu::setup(SceneManager &mgr) {
 }
 
 void LevelSelectionMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
-	const auto &save = SaveData::instance();
+	int completed_levels = SaveKV::instance().getInt("completed_levels");
 	if (auto kb = evt.getIf<sf::Event::KeyPressed>()) {
 		switch (kb->code) {
 		case sf::Keyboard::Key::Left:
@@ -96,7 +95,7 @@ void LevelSelectionMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 		case sf::Keyboard::Key::Right:
 		case sf::Keyboard::Key::D:
 			UISounds::instance().forward.play();
-			if (_selected_index + 1 <= save.completed_levels
+			if (_selected_index + 1 <= completed_levels
 			    && _selected_index + 1 < _level_seq.levels.size()) {
 				_selected_index++;
 			}
@@ -104,9 +103,9 @@ void LevelSelectionMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 
 		case sf::Keyboard::Key::Enter:
 		case sf::Keyboard::Key::Space:
-			if (_selected_index <= save.completed_levels) {
+			if (_selected_index <= completed_levels) {
 				UISounds::instance().forward.play();
-				if (save.user_settings.skip_animations) {
+				if (SaveKV::instance().getBool("settings.skip_animations")) {
 					mgr.changeScene(
 						pro::make_proxy<SceneFacade, LevelPlaying>(
 							Level::loadFromMetadata(
@@ -147,7 +146,7 @@ void LevelSelectionMenu::render(
 	_header.render(target, font, "Levels", scale);
 
 	// Render level buttons and links
-	auto &save_data = SaveData::instance();
+	int completed_levels = SaveKV::instance().getInt("completed_levels");
 	int btn_cnt = _level_button.size();
 	int ideal_duck_btn_index = (btn_cnt - 1) / 2;
 	int duck_btn_index = ideal_duck_btn_index;
@@ -167,7 +166,7 @@ void LevelSelectionMenu::render(
 			break;
 		}
 
-		bool level_locked = level_index > save_data.completed_levels;
+		bool level_locked = level_index > completed_levels;
 
 		auto [btn_x, btn_y] = _level_button[i];
 		const auto &btn_texture = level_locked
@@ -248,8 +247,7 @@ void LevelSelectionMenu::render(
 	// Render the last link if applicable
 	if (first_btn_level + btn_cnt < _level_seq.levels.size()) {
 		auto [link_x, link_y] = _level_links[btn_cnt];
-		bool level_locked = first_btn_level + btn_cnt
-			> save_data.completed_levels;
+		bool level_locked = first_btn_level + btn_cnt > completed_levels;
 		auto link_texture = level_locked
 			? _level_link_texture_locked
 			: _level_link_texture_activated;
@@ -263,7 +261,7 @@ void LevelSelectionMenu::render(
 	// Render level title
 	_level_title.render(target, font, selected_metadata->name, scale);
 
-	if (_selected_index <= save_data.completed_levels) {
+	if (_selected_index <= completed_levels) {
 		// Render level description
 		_level_desc.render(target, font, selected_metadata->description, scale);
 

@@ -1,6 +1,6 @@
 #include "wforge/assets.h"
 #include "wforge/router.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include "wforge/version.h"
 #include <SFML/Audio.hpp>
@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
 
 	CPPTRACE_TRY {
 		wf::AssetsManager::loadAllAssets();
-		wf::SaveData::instance(); // load / initialize save data
+		wf::SaveKV::instance().load();
 	}
 	CPPTRACE_CATCH(const std::exception &e) {
 		std::cerr << "Failed to load assets: " << e.what() << "\n";
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	auto &save = wf::SaveData::instance();
+	int saved_scale = wf::SaveKV::instance().getInt("settings.scale");
 
 	argparse::ArgumentParser program(
 		"waveforge", WAVEFORGE_VERSION, argparse::default_arguments::help
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
 
 	program.add_argument("--scale")
 		.help("Set rendering scale (0 for automatic)")
-		.default_value(save.user_settings.scale)
+		.default_value(saved_scale)
 		.scan<'i', int>();
 
 	program.add_argument("--debug-js-scene")
@@ -72,10 +72,14 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	bool is_first_launch = !wf::SaveKV::instance()
+								.get("completed_levels")
+								.has_value();
+
 	CPPTRACE_TRY {
 		entry(
 			program.get<std::string>("level"), program.get<int>("--scale"),
-			save.isFirstLaunch(), program.get<std::string>("--debug-js-scene")
+			is_first_launch, program.get<std::string>("--debug-js-scene")
 		);
 	}
 	CPPTRACE_CATCH(const std::exception &e) {

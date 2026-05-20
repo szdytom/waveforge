@@ -68,7 +68,7 @@ add_executable(waveforge
     src/level.cpp
     src/loader.cpp
     src/main.cpp
-    src/save.cpp
+    src/save_io.cpp
     src/xoroshiro.cpp
 )
 

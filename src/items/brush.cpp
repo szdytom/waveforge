@@ -1,5 +1,5 @@
 #include "wforge/level.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include <algorithm>
 
 namespace wf::item {
@@ -39,9 +39,10 @@ void BrushSizeChangableItem::render(
 	rect.setFillColor(sf::Color::Transparent);
 	rect.setOutlineColor(outline_color);
 
-	const auto &save = SaveData::instance();
 	rect.setOutlineThickness(
-		save.user_settings.strict_pixel_perfection ? scale : 1.f
+		SaveKV::instance().getBool("settings.strict_pixel_perfection")
+			? scale
+			: 1.f
 	);
 	target.draw(rect);
 }

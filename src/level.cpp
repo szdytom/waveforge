@@ -1,7 +1,7 @@
 #include "wforge/level.h"
 #include "wforge/colorpalette.h"
 #include "wforge/fallsand.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <cmath>
@@ -240,7 +240,7 @@ void LevelRenderer::render(
 	_renderFallsand(target);
 
 	// Render heat overlay if debug mode is enabled
-	if (SaveData::instance().user_settings.debug_heat_render) {
+	if (SaveKV::instance().getBool("settings.debug_heat_render")) {
 		_renderHeat(target);
 	}
 
