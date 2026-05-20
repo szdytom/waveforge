@@ -1,4 +1,5 @@
 #include "wforge/assets.h"
+#include "wforge/router.h"
 #include "wforge/save.h"
 #include "wforge/scene.h"
 #include "wforge/version.h"
@@ -90,28 +91,44 @@ void entry(
 	const std::string &level_id, int scale_config, bool is_first_launch,
 	const std::string &debug_js_scene
 ) {
-	auto initialScene = [&](const std::string &level_id, bool is_first_launch) {
+	// Register all scene routes
+	auto &router = wf::SceneRouter::instance();
+	router.registerRoute("main-menu", [](std::string_view) {
+		return pro::make_proxy<wf::SceneFacade, wf::scene::MainMenu>();
+	});
+	router.registerRoute("settings", [](std::string_view) {
+		return pro::make_proxy<wf::SceneFacade, wf::scene::SettingsMenu>();
+	});
+	router.registerRoute("help", [](std::string_view) {
+		return pro::make_proxy<wf::SceneFacade, wf::scene::Help>();
+	});
+	router.registerRoute("credits", [](std::string_view) {
+		return pro::make_proxy<wf::SceneFacade, wf::scene::Credits>();
+	});
+	router.registerRoute("level-menu", [](std::string_view) {
+		return pro::make_proxy<
+			wf::SceneFacade, wf::scene::LevelSelectionMenu>();
+	});
+	router.registerRoute("play-level", [](std::string_view data) {
+		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelPlaying>(
+			std::string(data)
+		);
+	});
+
+	wf::Scene initial_scene = [&]() {
 		if (!debug_js_scene.empty()) {
-			return pro::make_proxy<wf::SceneFacade, wf::ScriptedScene>(
-				debug_js_scene
-			);
+			// Auto-discovered via "scripts/" prefix
+			return router.create(debug_js_scene);
 		}
 		if (level_id == "-") {
-			if (is_first_launch) {
-				return pro::make_proxy<wf::SceneFacade, wf::scene::Help>();
-			} else {
-				return pro::make_proxy<wf::SceneFacade, wf::scene::MainMenu>();
-			}
+			return is_first_launch ? router.create("help")
+								   : router.create("main-menu");
 		} else {
-			return pro::make_proxy<wf::SceneFacade, wf::scene::LevelPlaying>(
-				level_id
-			);
+			return router.create("play-level", level_id);
 		}
-	};
+	}();
 
-	wf::SceneManager scene_mgr(
-		initialScene(level_id, is_first_launch), scale_config
-	);
+	wf::SceneManager scene_mgr(std::move(initial_scene), scale_config);
 
 	if (wf::BGMManager::instance().isEmpty()) {
 		wf::BGMManager::instance().setCollection("background/main-menu-music");

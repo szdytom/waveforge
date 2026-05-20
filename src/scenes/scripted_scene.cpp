@@ -1,4 +1,6 @@
+#include "hacks.h"
 #include "wforge/layout.h"
+#include "wforge/router.h"
 #include "wforge/runtime.h"
 #include "wforge/scene.h"
 #include <SFML/Graphics/RenderTarget.hpp>
@@ -63,7 +65,12 @@ struct ScriptedScene::Impl {
 	js::Value layout_root_val;
 	js::LayoutNode *layout_root = nullptr;
 
-	explicit Impl(const std::string &script_id);
+	std::string route_data;
+
+	// For lifetime management only, no direct access to the array later
+	std::unique_ptr<const JSCFunctionListEntry[]> waveforge_props;
+
+	Impl(const std::string &script_id, std::string_view route_data = "");
 };
 
 namespace {
@@ -99,7 +106,7 @@ ScriptedScene::Impl *getImpl(JSContext *ctx) noexcept {
 
 // ── waveforge functions ──
 
-JSValue f_set_window_title(
+JSValue f_setWindowTitle(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
 	auto *impl = getImpl(ctx);
@@ -199,6 +206,62 @@ JSValue f_commitDraw(
 	return JS_UNDEFINED;
 }
 
+std::string toString(JSContext *ctx, JSValueConst val) noexcept {
+	size_t len;
+	const char *str = JS_ToCStringLen(ctx, &len, val);
+	if (!str) {
+		return {};
+	}
+	std::string result(str, len);
+	JS_FreeCString(ctx, str);
+	return result;
+}
+
+JSValue f_navigateTo(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	auto *impl = getImpl(ctx);
+	if (!impl || !impl->scene_mgr) {
+		return JS_UNDEFINED;
+	}
+
+	// Extract route ID
+	if (argc < 1 || !JS_IsString(argv[0])) {
+		return JS_ThrowTypeError(ctx, "navigateTo: route id must be a string");
+	}
+	std::string id = toString(ctx, argv[0]);
+
+	// Extract optional data string
+	std::string data;
+	if (argc > 1 && JS_IsString(argv[1])) {
+		data = toString(ctx, argv[1]);
+	}
+
+	// Look up route and create scene (may throw JS TypeError if unknown)
+	Scene scene;
+	try {
+		scene = SceneRouter::instance().create(id, data);
+	} catch (const std::exception &e) {
+		return JS_ThrowTypeError(ctx, "%s", e.what());
+	}
+
+	// NOTE: after changeScene, the current ScriptedScene (and its JS context)
+	// is destroyed. Do not touch any JS values after this call.
+	impl->scene_mgr->changeScene(std::move(scene));
+
+	return JS_UNDEFINED;
+}
+
+JSValue get_routeData(JSContext *ctx, JSValueConst this_val) noexcept {
+	auto *impl = getImpl(ctx);
+	if (!impl || impl->route_data.empty()) {
+		return JS_NULL;
+	}
+	return JS_NewStringLen(
+		ctx, impl->route_data.data(), impl->route_data.size()
+	);
+}
+
 // ── Event conversion ──
 
 std::tuple<CallbackIdx, JSValue> createJSEvent(
@@ -258,7 +321,10 @@ using SceneBindings = js::BindingList<
 
 // ── Impl constructor / destructor ──
 
-ScriptedScene::Impl::Impl(const std::string &script_id): script(nullptr) {
+ScriptedScene::Impl::Impl(
+	const std::string &script_id, std::string_view route_data
+)
+	: script(nullptr) {
 	script = AssetsManager::instance().getAssetChecked<Script>(script_id);
 	if (!script) {
 		throw std::runtime_error(
@@ -267,10 +333,13 @@ ScriptedScene::Impl::Impl(const std::string &script_id): script(nullptr) {
 	}
 	width = script->width;
 	height = script->height;
+	this->route_data = route_data;
 }
 
-ScriptedScene::ScriptedScene(const std::string &script_id)
-	: _impl(std::make_unique<Impl>(script_id)) {}
+ScriptedScene::ScriptedScene(
+	const std::string &script_id, std::string_view route_data
+)
+	: _impl(std::make_unique<Impl>(script_id, route_data)) {}
 
 ScriptedScene::~ScriptedScene() = default;
 
@@ -296,35 +365,34 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	impl.engineCtx.setOpaque<ScriptedScene::Impl>(&impl);
 	impl.engineCtx.bindTimerGlobals();
 
+	// Helper: copies a stack array to heap (stack lifetime is unsafe for
+	// QuickJS lazy-init which stores a raw pointer to each entry).
+	auto make_unique_array = []<typename T, std::size_t N>(const T(&arr)[N])
+		-> std::unique_ptr<T[]> {
+		auto ptr = std::make_unique_for_overwrite<T[]>(N);
+		std::copy_n(arr, N, ptr.get());
+		return ptr;
+	};
+
 	JSValue ns = JS_NewObject(ctx);
 	SceneBindings::bindContext(ctx, ns);
 
-	JS_DefinePropertyValueStr(
-		ctx, ns, "width", JS_NewInt32(ctx, impl.width), JS_PROP_CONFIGURABLE
-	);
-	JS_DefinePropertyValueStr(
-		ctx, ns, "height", JS_NewInt32(ctx, impl.height), JS_PROP_CONFIGURABLE
-	);
+	const JSCFunctionListEntry WAVEFORGE_PROPS[] = {
+		js::cFuncDef("setTitle", 1, f_setWindowTitle),
+		js::cFuncDef("addEventListener", 2, f_addEventListener),
+		js::cFuncDef("removeEventListener", 2, f_removeEventListener),
+		js::cFuncDef("commitDraw", 1, f_commitDraw),
+		js::cFuncDef("commitLayout", 1, f_commitLayout),
+		js::cFuncDef("navigateTo", 2, f_navigateTo),
+		js::cGetSetDef("routeData", get_routeData, nullptr),
+		js::propInt32Def("width", impl.width, JS_PROP_CONFIGURABLE),
+		js::propInt32Def("height", impl.height, JS_PROP_CONFIGURABLE),
+	};
 
-	JS_SetPropertyStr(
-		ctx, ns, "setTitle",
-		JS_NewCFunction(ctx, f_set_window_title, "setTitle", 1)
-	);
-	JS_SetPropertyStr(
-		ctx, ns, "addEventListener",
-		JS_NewCFunction(ctx, f_addEventListener, "addEventListener", 2)
-	);
-	JS_SetPropertyStr(
-		ctx, ns, "removeEventListener",
-		JS_NewCFunction(ctx, f_removeEventListener, "removeEventListener", 2)
-	);
-	JS_SetPropertyStr(
-		ctx, ns, "commitDraw",
-		JS_NewCFunction(ctx, f_commitDraw, "commitDraw", 1)
-	);
-	JS_SetPropertyStr(
-		ctx, ns, "commitLayout",
-		JS_NewCFunction(ctx, f_commitLayout, "commitLayout", 1)
+	impl.waveforge_props = make_unique_array(WAVEFORGE_PROPS);
+
+	JS_SetPropertyFunctionList(
+		ctx, ns, impl.waveforge_props.get(), std::size(WAVEFORGE_PROPS)
 	);
 
 	js::Value global(ctx, JS_GetGlobalObject(ctx));
