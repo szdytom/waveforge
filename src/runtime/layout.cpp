@@ -1979,9 +1979,9 @@ JSValue LayoutNode::ctor(
 	if (JS_IsException(obj)) {
 		return obj;
 	}
-	JS_SetOpaque(obj, self.get());
+
 	self->self_val = obj;
-	self.release();
+	JS_SetOpaque(obj, self.release());
 	return obj;
 }
 
