@@ -107,6 +107,7 @@ public:
 
 	void processTimers();
 	void drainPromises();
+	void processRAF();
 	void bindTimerGlobals();
 
 	// Type-safe opaque (setOpaque/opaqueFrom must use the same T)

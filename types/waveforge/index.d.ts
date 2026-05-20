@@ -332,3 +332,7 @@ interface Performance {
 	now(): number;
 }
 declare var performance: Performance;
+
+// ── rAF (global, same as browser API) ──
+declare function requestAnimationFrame(callback: (timestamp: number) => void): number;
+declare function cancelAnimationFrame(id: number): void;

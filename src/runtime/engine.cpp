@@ -89,6 +89,15 @@ struct EngineContext::Impl {
 	uint32_t nextTimerId = 1;
 	std::chrono::steady_clock::time_point epoch;
 
+	// rAF
+	struct RAFEntry {
+		uint32_t id;
+		JSValue callback; // owned via JS_DupValue/JS_FreeValue, JS_UNDEFINED
+		                  // after cancel
+	};
+	std::vector<RAFEntry> rafCallbacks;
+	uint32_t nextRAFId = 1;
+
 	explicit Impl(JSRuntime *rt)
 		: ctx(JS_NewContext(rt)), epoch(std::chrono::steady_clock::now()) {
 		if (!ctx) {
@@ -100,16 +109,21 @@ struct EngineContext::Impl {
 	~Impl() {
 		auto *c = ctx.get();
 		for (auto &t : timers) {
-			if (!JS_IsUndefined(t.callback)) {
-				JS_FreeValue(c, t.callback);
-			}
+			JS_FreeValue(c, t.callback);
 			for (auto &arg : t.args) {
 				JS_FreeValue(c, arg);
 			}
 		}
+		for (auto &r : rafCallbacks) {
+			JS_FreeValue(c, r.callback);
+		}
 	}
 
+	// Context Opaque holds pointer to Impl, so Impl cannot be copied nor moved.
+	Impl(const Impl &) = delete;
 	Impl &operator=(const Impl &) = delete;
+	Impl(Impl &&) = delete;
+	Impl &operator=(Impl &&) = delete;
 
 	// Timer API (called directly by native timer functions)
 	uint32_t setTimeout(
@@ -223,6 +237,26 @@ struct EngineContext::Impl {
 		}
 	}
 
+	void processRAF() {
+		auto *c = ctx.get();
+		auto timestamp = static_cast<double>(nowMs());
+		auto pending = std::move(rafCallbacks);
+		rafCallbacks.clear();
+		for (auto &entry : pending) {
+			if (JS_IsUndefined(entry.callback)) {
+				continue;
+			}
+			JSValue ts = JS_NewFloat64(c, timestamp);
+			JSValue ret = JS_Call(c, entry.callback, JS_UNDEFINED, 1, &ts);
+			JS_FreeValue(c, ts);
+			if (JS_IsException(ret)) {
+				dumpJSError(c);
+			}
+			JS_FreeValue(c, ret);
+			JS_FreeValue(c, entry.callback);
+		}
+	}
+
 	[[nodiscard]] uint64_t nowMs() const noexcept {
 		auto elapsed = std::chrono::steady_clock::now() - epoch;
 		return static_cast<uint64_t>(
@@ -265,6 +299,10 @@ void EngineContext::processTimers() {
 
 void EngineContext::drainPromises() {
 	_impl->drainPromises();
+}
+
+void EngineContext::processRAF() {
+	_impl->processRAF();
 }
 
 void EngineContext::_setOpaque(void *ptr, std::size_t typeHash) noexcept {
@@ -379,6 +417,46 @@ JSValue f_consoleLog(
 	return JS_UNDEFINED;
 }
 
+JSValue global_requestAnimationFrame(
+	JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
+) noexcept {
+	if (argc < 1 || !JS_IsFunction(ctx, argv[0])) {
+		return JS_ThrowTypeError(
+			ctx, "requestAnimationFrame: callback must be a function"
+		);
+	}
+	auto *impl = static_cast<EngineContext::Impl *>(JS_GetContextOpaque(ctx));
+	if (!impl) {
+		return JS_ThrowTypeError(ctx, "Internal error: no EngineContext");
+	}
+	uint32_t id = impl->nextRAFId++;
+	impl->rafCallbacks.push_back({id, JS_DupValue(ctx, argv[0])});
+	return JS_NewUint32(ctx, id);
+}
+
+JSValue global_cancelAnimationFrame(
+	JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
+) noexcept {
+	uint32_t id;
+	if (JS_ToUint32(ctx, &id, argv[0]) < 0) {
+		return JS_ThrowTypeError(ctx, "Invalid id for cancelAnimationFrame");
+	}
+	auto *impl = static_cast<EngineContext::Impl *>(JS_GetContextOpaque(ctx));
+	if (impl) {
+		auto it = std::find_if(
+			impl->rafCallbacks.begin(), impl->rafCallbacks.end(),
+			[id](const auto &entry) {
+			return entry.id == id;
+		}
+		);
+		if (it != impl->rafCallbacks.end()) {
+			JS_FreeValue(ctx, it->callback);
+			it->callback = JS_UNDEFINED;
+		}
+	}
+	return JS_UNDEFINED;
+}
+
 } // namespace
 
 void EngineContext::bindTimerGlobals() {
@@ -392,6 +470,8 @@ void EngineContext::bindTimerGlobals() {
 		cFuncDef("clearTimeout", 1, global_clearTimeout),
 		cFuncDef("setInterval", 1, global_setInterval),
 		cFuncDef("clearInterval", 1, global_clearInterval),
+		cFuncDef("requestAnimationFrame", 1, global_requestAnimationFrame),
+		cFuncDef("cancelAnimationFrame", 1, global_cancelAnimationFrame),
 	};
 	JS_SetPropertyFunctionList(
 		ctx, global, TIMER_FUNCS, std::size(TIMER_FUNCS)
