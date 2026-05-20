@@ -442,6 +442,7 @@ void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
 }
 
 void ScriptedScene::step(SceneManager &mgr) {
+	_impl->engineCtx.processRAF();
 	_impl->engineCtx.processTimers();
 	invokeCallbacks(
 		_impl->engineCtx.ctx(),
