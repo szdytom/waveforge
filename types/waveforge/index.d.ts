@@ -163,6 +163,11 @@ declare namespace waveforge {
 		valueOf(): number;
 	}
 
+	class Sound {
+		constructor(id: string);
+		play(): void;
+	}
+
 	class TextContent {
 		text: string;
 		size: number;

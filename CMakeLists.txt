@@ -35,6 +35,7 @@ add_executable(waveforge
 	src/runtime/event.cpp
 	src/runtime/module_registry.cpp
 	src/runtime/layout.cpp
+	src/runtime/sound.cpp
 	src/runtime/texture.cpp
     src/scenes/duckdeath.cpp
     src/scenes/help.cpp

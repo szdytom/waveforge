@@ -1,4 +1,5 @@
 #include "hacks.h"
+#include "wforge/audio.h"
 #include "wforge/layout.h"
 #include "wforge/router.h"
 #include "wforge/runtime.h"
@@ -317,7 +318,8 @@ void invokeCallbacks(
 using SceneBindings = js::BindingList<
 	js::Texture, js::Color, js::TextContent, js::SpriteContent, js::DrawTextCmd,
 	js::DrawSpriteCmd, js::DrawRectCmd, js::DrawCmdList, js::DrawCmdListIter,
-	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent>;
+	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent,
+	js::Sound>;
 
 // ── Impl constructor / destructor ──
 
@@ -442,6 +444,7 @@ void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
 }
 
 void ScriptedScene::step(SceneManager &mgr) {
+	ActiveSoundManager::instance().cleanup();
 	_impl->engineCtx.processRAF();
 	_impl->engineCtx.processTimers();
 	invokeCallbacks(
