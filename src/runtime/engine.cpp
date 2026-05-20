@@ -385,21 +385,16 @@ void EngineContext::bindTimerGlobals() {
 	auto *ctx = _impl->ctx.get();
 	JSValue global = JS_GetGlobalObject(ctx);
 
-	JS_SetPropertyStr(
-		ctx, global, "setTimeout",
-		JS_NewCFunction(ctx, global_setTimeout, "setTimeout", 1)
-	);
-	JS_SetPropertyStr(
-		ctx, global, "clearTimeout",
-		JS_NewCFunction(ctx, global_clearTimeout, "clearTimeout", 1)
-	);
-	JS_SetPropertyStr(
-		ctx, global, "setInterval",
-		JS_NewCFunction(ctx, global_setInterval, "setInterval", 1)
-	);
-	JS_SetPropertyStr(
-		ctx, global, "clearInterval",
-		JS_NewCFunction(ctx, global_clearInterval, "clearInterval", 1)
+	// Lifetime is program-wide — all function pointers are compile-time
+	// constants, no runtime values.
+	static const JSCFunctionListEntry TIMER_FUNCS[] = {
+		cFuncDef("setTimeout", 1, global_setTimeout),
+		cFuncDef("clearTimeout", 1, global_clearTimeout),
+		cFuncDef("setInterval", 1, global_setInterval),
+		cFuncDef("clearInterval", 1, global_clearInterval),
+	};
+	JS_SetPropertyFunctionList(
+		ctx, global, TIMER_FUNCS, std::size(TIMER_FUNCS)
 	);
 
 	// Set process.env.NODE_ENV for React / bundler conventions.
@@ -440,11 +435,12 @@ void EngineContext::bindTimerGlobals() {
 			ctx, global, "console", JS_DupValue(ctx, console_obj)
 		);
 	}
-	JS_SetPropertyStr(
-		ctx, console_obj, "log", JS_NewCFunction(ctx, f_consoleLog, "log", 1)
-	);
-	JS_SetPropertyStr(
-		ctx, console_obj, "warn", JS_NewCFunction(ctx, f_consoleLog, "warn", 1)
+	static const JSCFunctionListEntry CONSOLE_FUNCS[] = {
+		cFuncDef("log", 1, f_consoleLog),
+		cFuncDef("warn", 1, f_consoleLog),
+	};
+	JS_SetPropertyFunctionList(
+		ctx, console_obj, CONSOLE_FUNCS, std::size(CONSOLE_FUNCS)
 	);
 	JS_FreeValue(ctx, console_obj);
 
