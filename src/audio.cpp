@@ -23,6 +23,29 @@ FadeIOConfig &FadeIOConfig::load() {
 	return config;
 }
 
+ActiveSoundManager &ActiveSoundManager::instance() noexcept {
+	static ActiveSoundManager instance;
+	return instance;
+}
+
+void ActiveSoundManager::play(sf::SoundBuffer &buffer) {
+	sf::Sound sound(buffer);
+	sound.play();
+	_active_sounds.push_back(std::move(sound));
+}
+
+void ActiveSoundManager::cleanup() {
+	_active_sounds.erase(
+		std::remove_if(
+			_active_sounds.begin(), _active_sounds.end(),
+			[](sf::Sound &s) {
+		return s.getStatus() == sf::Sound::Status::Stopped;
+	}
+		),
+		_active_sounds.end()
+	);
+}
+
 BGMManager &BGMManager::instance() noexcept {
 	static BGMManager instance;
 	return instance;

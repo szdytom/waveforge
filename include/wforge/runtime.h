@@ -23,6 +23,7 @@
 namespace sf {
 class Texture;
 class RenderTarget;
+class SoundBuffer;
 } // namespace sf
 
 class PixelFont;
@@ -570,6 +571,20 @@ struct MouseMoveEvent final : BindingBase<MouseMoveEvent> {
 	[[nodiscard]] static JSValue from(
 		JSContext *ctx, const sf::Event::MouseMoved &evt, int scale = 1
 	) noexcept;
+};
+
+struct Sound final : BindingBase<Sound> {
+	static constexpr const char *CLASS_NAME = "Sound";
+	static constexpr int CTOR_LENGTH = 1;
+	static const CFunctionList PROTO_FIELDS;
+
+	[[nodiscard]] static JSValue ctor(
+		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+	) noexcept;
+
+	sf::SoundBuffer *_buffer; // not owned, managed by AssetsManager
+
+	Sound(sf::SoundBuffer *buffer) noexcept;
 };
 
 template<typename... Ts>
