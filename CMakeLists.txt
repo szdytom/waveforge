@@ -46,6 +46,7 @@ add_executable(waveforge
     src/scenes/settings.cpp
     src/scenes/credits.cpp
     src/scenes/scripted_scene.cpp
+    src/router.cpp
     src/structures/electric.cpp
     src/structures/gate.cpp
     src/structures/heater.cpp
@@ -74,6 +75,7 @@ target_compile_features(waveforge PRIVATE cxx_std_23)
 
 target_include_directories(waveforge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/runtime
     ${CMAKE_CURRENT_BINARY_DIR}/include
 )
 

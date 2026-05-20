@@ -351,7 +351,9 @@ private:
 
 class ScriptedScene {
 public:
-	ScriptedScene(const std::string &script_id);
+	ScriptedScene(
+		const std::string &script_id, std::string_view route_data = ""
+	);
 	~ScriptedScene();
 
 	std::array<int, 2> size() const;

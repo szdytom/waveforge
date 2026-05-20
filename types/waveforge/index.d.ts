@@ -21,6 +21,18 @@ declare namespace waveforge {
 
 	function commitLayout(root: LayoutNode): void;
 
+	/**
+	 * Navigate to a scene by route ID, optionally passing data.
+	 * Data is available on the target scene via `waveforge.getRouteData()`.
+	 */
+	function navigateTo(id: string, data?: string): void;
+
+	/**
+	 * The route data string that was passed to `navigateTo`
+	 * when this scene was opened, or null if no data was passed.
+	 */
+	const routeData: string | null;
+
 	class Texture {
 		readonly width: number;
 		readonly height: number;
