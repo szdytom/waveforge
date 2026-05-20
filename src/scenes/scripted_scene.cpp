@@ -50,7 +50,8 @@ js::Engine &scriptEngine() {
 } // namespace
 
 struct ScriptedScene::Impl {
-	const Script *script = nullptr; // not owned, managed by AssetsManager
+	const SceneModule
+		*sceneModule = nullptr; // not owned, managed by AssetsManager
 
 	int width = 0;
 	int height = 0;
@@ -66,6 +67,7 @@ struct ScriptedScene::Impl {
 	js::Value layout_root_val;
 	js::LayoutNode *layout_root = nullptr;
 
+	std::string script_id;
 	std::string route_data;
 
 	// For lifetime management only, no direct access to the array later
@@ -323,18 +325,18 @@ using SceneBindings = js::BindingList<
 
 // ── Impl constructor / destructor ──
 
-ScriptedScene::Impl::Impl(
-	const std::string &script_id, std::string_view route_data
-)
-	: script(nullptr) {
-	script = AssetsManager::instance().getAssetChecked<Script>(script_id);
-	if (!script) {
+ScriptedScene::Impl::Impl(const std::string &id, std::string_view route_data)
+	: sceneModule(nullptr), script_id(id) {
+	sceneModule = AssetsManager::instance().getAssetChecked<SceneModule>(
+		script_id
+	);
+	if (!sceneModule) {
 		throw std::runtime_error(
 			std::format("ScriptedScene: script '{}' not found", script_id)
 		);
 	}
-	width = script->width;
-	height = script->height;
+	width = sceneModule->width;
+	height = sceneModule->height;
 	this->route_data = route_data;
 }
 
@@ -400,20 +402,15 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	js::Value global(ctx, JS_GetGlobalObject(ctx));
 	JS_SetPropertyStr(ctx, *global, "waveforge", ns);
 
-	// Look up source: ModuleRegistry first (ES module), then Script (global
-	// fallback)
 	auto &registry = js::ModuleRegistry::instance();
-	const std::string *module_source = registry.find(impl.script->filename);
-	const std::string *source = module_source
-		? module_source
-		: &impl.script->source;
-	int eval_flags = module_source ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
+	auto module_name = js::ModuleRegistry::entryModuleFor(impl.script_id);
+	const std::string *source = registry.find(module_name);
 
 	js::Value eval_guard(
 		ctx,
 		JS_Eval(
-			ctx, source->c_str(), source->size(), impl.script->filename.c_str(),
-			eval_flags
+			ctx, source->c_str(), source->size(), module_name.c_str(),
+			JS_EVAL_TYPE_MODULE
 		)
 	);
 	JSValue result = *eval_guard;
@@ -421,9 +418,7 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	if (JS_IsException(result)) {
 		js::dumpJSError(ctx);
 		throw std::runtime_error(
-			std::format(
-				"ScriptedScene: failed to evaluate '{}'", impl.script->filename
-			)
+			std::format("ScriptedScene: failed to evaluate '{}'", module_name)
 		);
 	}
 }

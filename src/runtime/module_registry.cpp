@@ -1,5 +1,6 @@
 #include "wforge/runtime.h"
 #include <algorithm>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -70,13 +71,11 @@ const std::string *ModuleRegistry::find(const std::string &module_name) const {
 	return nullptr;
 }
 
-std::string ModuleRegistry::entryModuleFor(const std::string &scene_id) {
+std::string ModuleRegistry::entryModuleFor(std::string_view scene_id) {
 	// "scripts/react_hello" → "bundled-js/react_hello.js"
-	auto slash = scene_id.find('/');
-	std::string name = (slash != std::string::npos)
-		? scene_id.substr(slash + 1)
-		: scene_id;
-	return "bundled-js/" + name + ".js";
+	constexpr int prefix_len = std::size("scripts/") - 1;
+	scene_id.remove_prefix(prefix_len);
+	return std::format("bundled-js/{}.js", scene_id);
 }
 
 } // namespace wf::js

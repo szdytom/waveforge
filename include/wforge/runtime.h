@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <string_view>
 
 namespace sf {
 class Texture;
@@ -187,7 +188,7 @@ public:
 
 	// Derive entry module name from scene ID
 	// "scripts/react_hello" → "bundled-js/react_hello.js"
-	static std::string entryModuleFor(const std::string &scene_id);
+	static std::string entryModuleFor(std::string_view scene_id);
 
 private:
 	std::unordered_map<std::string, std::string> _sources;
