@@ -83,7 +83,7 @@ JSValue MyClass::ctor(
 ) noexcept {
     // Validate arguments, return JS_ThrowTypeError on failure
     if (argc < CTOR_LENGTH) {
-        return JS_ThrowTypeError(ctx, "MyClass expects at least %d args", CTOR_LENGTH);
+		return JS_ThrowTypeError(ctx, "MyClass expects at least %d args", CTOR_LENGTH);
     }
 
     // Create C++ object and attach to JS object
@@ -98,8 +98,7 @@ JSValue MyClass::ctor(
 	if 	(JS_IsException(obj)) {
 		return obj;
 	}
-	JS_SetOpaque(obj, self.get());
-    self.release();
+	JS_SetOpaque(obj, self.release());
     return JS_UNDEFINED;
 }
 

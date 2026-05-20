@@ -165,8 +165,7 @@ JSValue Color::toValue(JSContext *ctx, sf::Color color) {
 	if (JS_IsException(obj)) {
 		return obj;
 	}
-	JS_SetOpaque(obj, self.get());
-	self.release();
+	JS_SetOpaque(obj, self.release());
 	return obj;
 }
 
