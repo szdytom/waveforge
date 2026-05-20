@@ -1,5 +1,5 @@
 #include "wforge/audio.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include <SFML/Audio/SoundBuffer.hpp>
 #include <nlohmann/json.hpp>
 
@@ -115,16 +115,16 @@ void BGMManager::fadeInCurrent(int duration_ticks, float starting_volume) {
 		_cur_volume = starting_volume;
 		_volume_delta = (1.f - starting_volume) / duration_ticks;
 		if (_cur_bgm) {
-			_cur_bgm->setVolume(
-				starting_volume
-				* SaveData::instance().user_settings.global_volume
+			int global_volume = SaveKV::instance().getInt(
+				"settings.global_volume", 80
 			);
+			_cur_bgm->setVolume(starting_volume * global_volume);
 		}
 	}
 }
 
 void BGMManager::step() {
-	int global_volume = SaveData::instance().user_settings.global_volume;
+	int global_volume = SaveKV::instance().getInt("settings.global_volume", 80);
 	if (_cur_bgm && _cur_bgm->getStatus() == sf::Music::Status::Playing) {
 		_cur_volume += _volume_delta;
 		if (_cur_volume <= 0.f) {

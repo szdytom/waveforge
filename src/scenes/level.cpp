@@ -1,7 +1,7 @@
 #include "wforge/level.h"
 #include "wforge/assets.h"
 #include "wforge/colorpalette.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/Keyboard.hpp>
@@ -386,10 +386,11 @@ void LevelPlaying::step(SceneManager &mgr) {
 	}
 
 	if (_level.isCompleted()) {
-		auto &save = SaveData::instance();
-		if (save.completed_levels < _level.metadata.index + 1) {
-			save.completed_levels = _level.metadata.index + 1;
-			save.save();
+		int completed = SaveKV::instance().getInt("completed_levels");
+		if (completed < _level.metadata.index + 1) {
+			SaveKV::instance().setInt(
+				"completed_levels", _level.metadata.index + 1
+			);
 		}
 
 		mgr.changeScene(

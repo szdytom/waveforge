@@ -1,7 +1,7 @@
 #include "wforge/assets.h"
 #include "wforge/audio.h"
 #include "wforge/colorpalette.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include "wforge/version.h"
 #include <cstdlib>
@@ -158,9 +158,9 @@ void MainMenu::render(
 		);
 	};
 
-	auto &save = SaveData::instance();
+	bool first_launch = SaveKV::instance().getInt("completed_levels") == 0;
 	renderButton(
-		save.isFirstLaunch() ? "New Game" : "Play", _play_button,
+		first_launch ? "New Game" : "Play", _play_button,
 		_current_button_index == MainMenuButton::PLAY
 	);
 

@@ -1,6 +1,6 @@
 #include "wforge/assets.h"
 #include "wforge/level.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <SFML/Audio/SoundBuffer.hpp>
 #include <limits>
@@ -76,7 +76,7 @@ std::array<int, 2> DuckDeath::size() const {
 
 void DuckDeath::setup(SceneManager &mgr) {
 	BGMManager::instance().unsetCollection();
-	if (SaveData::instance().user_settings.skip_animations) {
+	if (SaveKV::instance().getBool("settings.skip_animations")) {
 		_tick = _total_duration;
 	}
 }
