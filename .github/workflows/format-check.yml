@@ -24,3 +24,14 @@ jobs:
 
     - name: Check for unformatted code
       run: git diff --exit-code
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: TypeScript lint
+      run: |
+        corepack enable
+        pnpm install
+        pnpm lint:ts

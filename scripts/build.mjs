@@ -61,9 +61,19 @@ async function build() {
 		await ctx.dispose();
 
 		// Write metafile for C++ module loader
+		// Only keep outputs keys — C++ only iterates file paths from outputs
 		const metaPath = join(OUT_DIR, '.metafile.json');
-		writeFileSync(metaPath, JSON.stringify(result.metafile, null, 2));
+		const simpleMeta = { outputs: {} };
+		for (const key of Object.keys(result.metafile.outputs)) {
+			simpleMeta.outputs[key] = {};
+		}
+		writeFileSync(metaPath, JSON.stringify(simpleMeta, null, 2));
 		console.log(`Wrote metafile → ${metaPath}`);
+
+		// Keep full metafile for debugging
+		const fullMetaPath = join(OUT_DIR, '.metafile.full.json');
+		writeFileSync(fullMetaPath, JSON.stringify(result.metafile, null, 2));
+		console.log(`Wrote full metafile → ${fullMetaPath}`);
 
 		console.log(`Built ${entries.length} scene(s) → ${OUT_DIR}`);
 	}

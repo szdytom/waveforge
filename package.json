@@ -1,23 +1,18 @@
 {
-  "name": "waveforge-monorepo",
-  "private": true,
-  "scripts": {
-    "build": "node scripts/build.mjs",
-    "build:watch": "node scripts/build.mjs --watch",
-    "typecheck": "tsc --noEmit",
-    "format": "./scripts/format-c.sh",
-    "format:ts": "pnpm biome check --write packages/ scenes/ types/",
-    "lint:ts": "pnpm biome check packages/ scenes/ types/",
-    "clean": "rm -rf assets/bundled-js/*"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.8.0"
-  }
+	"name": "waveforge-monorepo",
+	"private": true,
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"build:watch": "node scripts/build.mjs --watch",
+		"typecheck": "tsc --noEmit",
+		"format": "./scripts/format-c.sh",
+		"format:ts": "pnpm biome check --write packages/ scenes/ types/",
+		"lint:ts": "pnpm biome check packages/ scenes/ types/",
+		"clean": "rm -rf assets/bundled-js/*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.15",
+		"esbuild": "^0.25.0",
+		"typescript": "^5.8.0"
+	}
 }
