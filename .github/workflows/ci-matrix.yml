@@ -23,11 +23,11 @@ jobs:
             platform: windows
             executable: waveforge.exe
             package_name: waveforge-windows-x64.zip
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Install dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -55,28 +55,39 @@ jobs:
         # Set GCC-14 as default
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
-    
+
     - name: Setup MSVC environment (Windows)
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
-        
+
     - name: Configure CMake
       run: |
         cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release .
-    
+
     - name: Build
       run: |
         cmake --build build --config Release
-    
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install JS dependencies & build bundles
+      run: |
+        corepack enable
+        pnpm install
+        pnpm build
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.x'
-    
+
     - name: Package application
       run: |
         python pack.py build/${{ matrix.executable }} assets ${{ matrix.package_name }} ${{ matrix.platform }}
-    
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:

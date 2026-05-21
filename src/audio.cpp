@@ -1,5 +1,5 @@
 #include "wforge/audio.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include <SFML/Audio/SoundBuffer.hpp>
 #include <nlohmann/json.hpp>
 
@@ -21,6 +21,29 @@ FadeIOConfig &FadeIOConfig::load() {
 	}
 
 	return config;
+}
+
+ActiveSoundManager &ActiveSoundManager::instance() noexcept {
+	static ActiveSoundManager instance;
+	return instance;
+}
+
+void ActiveSoundManager::play(sf::SoundBuffer &buffer) {
+	sf::Sound sound(buffer);
+	sound.play();
+	_active_sounds.push_back(std::move(sound));
+}
+
+void ActiveSoundManager::cleanup() {
+	_active_sounds.erase(
+		std::remove_if(
+			_active_sounds.begin(), _active_sounds.end(),
+			[](sf::Sound &s) {
+		return s.getStatus() == sf::Sound::Status::Stopped;
+	}
+		),
+		_active_sounds.end()
+	);
 }
 
 BGMManager &BGMManager::instance() noexcept {
@@ -92,16 +115,16 @@ void BGMManager::fadeInCurrent(int duration_ticks, float starting_volume) {
 		_cur_volume = starting_volume;
 		_volume_delta = (1.f - starting_volume) / duration_ticks;
 		if (_cur_bgm) {
-			_cur_bgm->setVolume(
-				starting_volume
-				* SaveData::instance().user_settings.global_volume
+			int global_volume = SaveKV::instance().getInt(
+				"settings.global_volume", 80
 			);
+			_cur_bgm->setVolume(starting_volume * global_volume);
 		}
 	}
 }
 
 void BGMManager::step() {
-	int global_volume = SaveData::instance().user_settings.global_volume;
+	int global_volume = SaveKV::instance().getInt("settings.global_volume", 80);
 	if (_cur_bgm && _cur_bgm->getStatus() == sf::Music::Status::Playing) {
 		_cur_volume += _volume_delta;
 		if (_cur_volume <= 0.f) {

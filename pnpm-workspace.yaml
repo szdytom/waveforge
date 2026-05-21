@@ -1,0 +1,11 @@
+packages:
+  - 'packages/*'
+  - 'scenes'
+
+# For pnpm before v10.26
+onlyBuiltDependencies:
+  - esbuild
+
+# For pnpm v10.26+
+allowBuilds:
+  esbuild: true

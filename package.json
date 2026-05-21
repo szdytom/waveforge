@@ -1,0 +1,18 @@
+{
+	"name": "waveforge-monorepo",
+	"private": true,
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"build:watch": "node scripts/build.mjs --watch",
+		"typecheck": "tsc --noEmit",
+		"format": "./scripts/format-c.sh",
+		"format:ts": "pnpm biome check --write packages/ scenes/ types/ scripts/",
+		"lint:ts": "pnpm biome check packages/ scenes/ types/ scripts/",
+		"clean": "rm -rf assets/bundled-js/*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.15",
+		"esbuild": "^0.28.0",
+		"typescript": "^6.0.3"
+	}
+}

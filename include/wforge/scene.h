@@ -349,6 +349,27 @@ private:
 
 } // namespace scene
 
+class ScriptedScene {
+public:
+	ScriptedScene(
+		const std::string &script_id, std::string_view route_data = ""
+	);
+	~ScriptedScene();
+
+	std::array<int, 2> size() const;
+	void setup(SceneManager &mgr);
+	void handleEvent(SceneManager &mgr, const sf::Event &evt);
+	void step(SceneManager &mgr);
+	void render(
+		const SceneManager &mgr, sf::RenderTarget &target, int scale
+	) const;
+
+	struct Impl;
+
+private:
+	std::unique_ptr<Impl> _impl;
+};
+
 } // namespace wf
 
 #endif // WFORGE_SCENE_H

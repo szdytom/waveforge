@@ -1,6 +1,6 @@
 #include "wforge/audio.h"
 #include "wforge/colorpalette.h"
-#include "wforge/save.h"
+#include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <format>
 #include <nlohmann/json.hpp>
@@ -33,60 +33,56 @@ struct ScaleOption : SettingsMenu::Option {
 	}
 
 	std::string valueText() const override {
-		int scale = SaveData::instance().user_settings.scale;
+		int scale = SaveKV::instance().getInt("settings.scale");
 		if (scale == 0) {
 			return "Auto";
-		} else {
-			return std::format("{}x", scale);
 		}
+		return std::format("{}x", scale);
 	}
 
 	void handleLeft() override {
-		auto &settings = SaveData::instance().user_settings;
-		if (settings.scale > 0) {
-			settings.scale -= 1;
-			SaveData::instance().save();
+		int scale = SaveKV::instance().getInt("settings.scale");
+		if (scale > 0) {
+			SaveKV::instance().setInt("settings.scale", scale - 1);
 		}
 	}
 
 	void handleRight() override {
 		constexpr int max_scale = 12;
-
-		auto &settings = SaveData::instance().user_settings;
-		if (settings.scale < max_scale) {
-			settings.scale += 1;
-			SaveData::instance().save();
+		int scale = SaveKV::instance().getInt("settings.scale");
+		if (scale < max_scale) {
+			SaveKV::instance().setInt("settings.scale", scale + 1);
 		}
-		SaveData::instance().save();
 	}
 };
 
 struct VolumnOption : SettingsMenu::Option {
 	std::string displayText() const override {
-		return "Volumn";
+		return "Volume";
 	}
 
 	std::string valueText() const override {
-		int volumn = SaveData::instance().user_settings.global_volume;
-		if (volumn == 0) {
+		int volume = SaveKV::instance().getInt("settings.global_volume", 80);
+		if (volume == 0) {
 			return "Mute";
-		} else {
-			return std::to_string(volumn);
 		}
+		return std::to_string(volume);
 	}
 
 	static constexpr int step = 5;
 
 	void handleLeft() override {
-		auto &settings = SaveData::instance().user_settings;
-		settings.global_volume = std::max(0, settings.global_volume - step);
-		SaveData::instance().save();
+		int volume = SaveKV::instance().getInt("settings.global_volume", 80);
+		SaveKV::instance().setInt(
+			"settings.global_volume", std::max(0, volume - step)
+		);
 	}
 
 	void handleRight() override {
-		auto &settings = SaveData::instance().user_settings;
-		settings.global_volume = std::min(100, settings.global_volume + step);
-		SaveData::instance().save();
+		int volume = SaveKV::instance().getInt("settings.global_volume", 80);
+		SaveKV::instance().setInt(
+			"settings.global_volume", std::min(100, volume + step)
+		);
 	}
 };
 
@@ -96,20 +92,17 @@ struct StrictPixelPerfectionOption : SettingsMenu::Option {
 	}
 
 	std::string valueText() const override {
-		bool spp = SaveData::instance().user_settings.strict_pixel_perfection;
-		return spp ? "On" : "Off";
+		return SaveKV::instance().getBool("settings.strict_pixel_perfection")
+			? "On"
+			: "Off";
 	}
 
 	void handleLeft() override {
-		auto &save = SaveData::instance();
-		save.user_settings.strict_pixel_perfection = false;
-		save.save();
+		SaveKV::instance().setBool("settings.strict_pixel_perfection", false);
 	}
 
 	void handleRight() override {
-		auto &save = SaveData::instance();
-		save.user_settings.strict_pixel_perfection = true;
-		save.save();
+		SaveKV::instance().setBool("settings.strict_pixel_perfection", true);
 	}
 };
 
@@ -119,20 +112,17 @@ struct SkipAnimationsOption : SettingsMenu::Option {
 	}
 
 	std::string valueText() const override {
-		bool skip = SaveData::instance().user_settings.skip_animations;
-		return skip ? "On" : "Off";
+		return SaveKV::instance().getBool("settings.skip_animations")
+			? "On"
+			: "Off";
 	}
 
 	void handleLeft() override {
-		auto &save = SaveData::instance();
-		save.user_settings.skip_animations = false;
-		save.save();
+		SaveKV::instance().setBool("settings.skip_animations", false);
 	}
 
 	void handleRight() override {
-		auto &save = SaveData::instance();
-		save.user_settings.skip_animations = true;
-		save.save();
+		SaveKV::instance().setBool("settings.skip_animations", true);
 	}
 };
 
@@ -142,20 +132,17 @@ struct DebugHeatRenderOption : SettingsMenu::Option {
 	}
 
 	std::string valueText() const override {
-		bool enabled = SaveData::instance().user_settings.debug_heat_render;
-		return enabled ? "On" : "Off";
+		return SaveKV::instance().getBool("settings.debug_heat_render")
+			? "On"
+			: "Off";
 	}
 
 	void handleLeft() override {
-		auto &save = SaveData::instance();
-		save.user_settings.debug_heat_render = false;
-		save.save();
+		SaveKV::instance().setBool("settings.debug_heat_render", false);
 	}
 
 	void handleRight() override {
-		auto &save = SaveData::instance();
-		save.user_settings.debug_heat_render = true;
-		save.save();
+		SaveKV::instance().setBool("settings.debug_heat_render", true);
 	}
 };
 
@@ -165,7 +152,12 @@ struct ResetSettingsOption : SettingsMenu::Option {
 	}
 
 	bool handleEnter() override {
-		SaveData::instance().resetSettings();
+		auto &kv = SaveKV::instance();
+		kv.remove("settings.scale");
+		kv.remove("settings.global_volume");
+		kv.remove("settings.strict_pixel_perfection");
+		kv.remove("settings.skip_animations");
+		kv.remove("settings.debug_heat_render");
 		return false;
 	}
 };
@@ -183,7 +175,13 @@ struct ResetAllOption : SettingsMenu::Option {
 
 	bool handleEnter() override {
 		if (comfirmed) {
-			SaveData::instance().resetAll();
+			auto &kv = SaveKV::instance();
+			kv.remove("completed_levels");
+			kv.remove("settings.scale");
+			kv.remove("settings.global_volume");
+			kv.remove("settings.strict_pixel_perfection");
+			kv.remove("settings.skip_animations");
+			kv.remove("settings.debug_heat_render");
 			return true;
 		} else {
 			comfirmed = true;
@@ -352,9 +350,9 @@ void SettingsMenu::step(SceneManager &mgr) {
 		// Cheat code entered, unlock all levels
 		const auto &level_seqs = AssetsManager::instance()
 									 .getAsset<LevelSequence>("level-sequence");
-		auto &save = SaveData::instance();
-		save.completed_levels = level_seqs.levels.size();
-		save.save();
+		SaveKV::instance().setInt(
+			"completed_levels", static_cast<int>(level_seqs.levels.size())
+		);
 	}
 
 	_cheat_code_hint_opacity -= hint_fade_speed;

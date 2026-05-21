@@ -957,6 +957,34 @@
 				"level/auto"
 			],
 			"description": "Creating level sequence"
+		},
+		{
+			"id": "scripts/test_scene",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading scripts/test_scene"
+		},
+		{
+			"id": "scripts/test_layout",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading scripts/test_layout"
+		},
+		{
+			"id": "scripts/test_typeset",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading scripts/test_typeset"
+		},
+		{
+			"id": "scripts/react_hello",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading scripts/react_hello"
 		}
 	]
 }

@@ -1,9 +1,13 @@
 build
+assets/bundled-js
 .vscode
 *.swp
 .cache
 perf*
 report.svg
+asan*
 *.webm
 *.dat
 *.mp4
+node_modules
+dist

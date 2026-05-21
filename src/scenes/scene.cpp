@@ -1,5 +1,6 @@
 #include "wforge/scene.h"
 #include "wforge/assets.h"
+#include "wforge/save_io.h"
 #include "wforge/version.h"
 #include <SFML/Graphics/RenderTexture.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -143,6 +144,8 @@ void SceneManager::tick() {
 #endif
 
 	window.display();
+
+	SaveKV::instance().flush();
 }
 
 sf::Vector2i SceneManager::mousePosition() const {

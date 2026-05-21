@@ -158,6 +158,24 @@ Load a music file from disk.
 }
 ```
 
+### `ui-scene`
+Register a scripted scene with its logical dimensions. The scene's JS source code is loaded separately from the esbuild bundle (`bundled-js/`); the manifest entry only declares the scene's existence and size.
+
+**Additional fields:**
+- **`width`** (int, required): Scene window width in logical pixels.
+- **`height`** (int, required): Scene window height in logical pixels.
+
+**Example:**
+```json
+{
+  "id": "scripts/react_hello",
+  "type": "ui-scene",
+  "width": 256,
+  "height": 192,
+  "description": "Loading scripts/react_hello"
+}
+```
+
 ### `level-metadata`
 
 Load level metadata from a JSON file.

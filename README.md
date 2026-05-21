@@ -14,13 +14,19 @@ The game is finished to a playable state with 18 levels, published as version 0.
 
 ## Build instructions
 
+The project consists of a C++ core logic with all the game mechanics and a scripting system for defining game UI written in TypeScript. This makes the build process two-fold and may require some setup.
+
+### C++ Part
+
 You need to have CMake and a C++23 compatible compiler installed (e.g. GCC 14, Clang 20, MSVC 19.44.35219.0). Then run the following commands in the project root directory:
 
 ```bash
 # Make sure to enter MSVC environment when on Windows
-cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo .
-cmake --build build --config RelWithDebInfo
+cmake -B build -DCMAKE_BUILD_TYPE=Release .
+cmake --build build --config Release
 ```
+
+Changing `Release` to `Debug` will build the debug version for development.
 
 The direct dependencies will be automatically downloaded and built. Find the executable in `build` directory. The built program can be found at `build/waveforge` (or `build/waveforge.exe` on Windows).
 
@@ -35,6 +41,19 @@ sudo pacman -S sfml
 ```
 
 You can also install those dependencies manually if you prefer not to install SFML system-wide. Please refer to SFML's official documentation for more details.
+
+### TypeScript Part
+
+Scripted scenes are written in TypeScript and compiled to JavaScript bundles that are loaded by the QuickJS runtime at runtime.
+
+Prerequisites: [pnpm](https://pnpm.io/) and Node.js.
+
+```bash
+pnpm install
+pnpm build
+```
+
+Bundles are output to `assets/bundled-js/`.
 
 ## Team Members
 

@@ -1,0 +1,15 @@
+{
+  "name": "@waveforge/scenes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@waveforge/renderer": "workspace:*",
+    "@waveforge/components": "workspace:*",
+    "@waveforge/styles": "workspace:*",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0"
+  }
+}

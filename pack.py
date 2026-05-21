@@ -29,6 +29,9 @@ def copy_assets(assets_dir: Path, output_assets_dir: Path):
             # Exclude all files in 'prototype' directories
             if 'prototype' in relative_path.parts:
                 continue
+            # Exclude bundled-js — handled separately by copy_bundled_js
+            if relative_path.parts[0] == 'bundled-js':
+                continue
             output_path = output_assets_dir / relative_path
             # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,6 +53,61 @@ def copy_assets(assets_dir: Path, output_assets_dir: Path):
                 print(f"Copied: {relative_path}")
 
 
+def copy_bundled_js(assets_dir: Path, output_assets_dir: Path):
+    """
+    Copy bundled JS output (from esbuild) into the package
+    Uses .metafile.json to determine which files belong to the build,
+    ignoring stale chunks left over from previous builds.
+    """
+    bundled_dir = assets_dir / "bundled-js"
+    metafile_path = bundled_dir / ".metafile.json"
+    if not metafile_path.is_file():
+        print("No .metafile.json found, skipping JS bundle")
+        return
+
+    with metafile_path.open('r', encoding='utf-8') as f:
+        meta = json.load(f)
+
+    out_bundled = output_assets_dir / "bundled-js"
+    out_bundled.mkdir(parents=True, exist_ok=True)
+
+    # Strip possible cwd prefix from esbuild output keys
+    # Keys are relative to CWD, e.g. "assets/bundled-js/react_hello.js"
+    base_key = str(Path("assets") / "bundled-js").replace("\\", "/")
+
+    for output_key in meta.get("outputs", {}):
+        key = output_key.replace("\\", "/")
+        # Strip the base prefix to get the path within bundled-js
+        if key.startswith(base_key + "/"):
+            rel = key[len(base_key) + 1:]
+        elif key.startswith("./" + base_key + "/"):
+            rel = key[len("./" + base_key) + 1:]
+        else:
+            # Try interpreting key as an absolute / directly relative path
+            try:
+                rel = str(Path(key).relative_to(bundled_dir.resolve()))
+            except ValueError:
+                print(f"Warning: skipping unrecognized output key: {output_key}")
+                continue
+
+        src = bundled_dir / rel
+        if not src.is_file():
+            print(f"Warning: output listed in metafile but not found on disk: {rel}")
+            continue
+
+        dst = out_bundled / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
+        if src.suffix == '.json':
+            # Minify JSON (e.g. .metafile.json)
+            data = json.loads(src.read_text(encoding='utf-8'))
+            dst.write_text(json.dumps(data, separators=(',', ':'), ensure_ascii=False), encoding='utf-8')
+            print(f"Added minified bundled-js: {rel}")
+        else:
+            shutil.copy2(src, dst)
+            print(f"Copied bundled-js: {rel}")
+
+
 def create_package(executable_path: Path, assets_dir: Path, output_zip: Path, platform_name: str):
     """
     Create a zip package containing the executable and assets
@@ -69,6 +127,7 @@ def create_package(executable_path: Path, assets_dir: Path, output_zip: Path, pl
         # Copy assets
         output_assets_dir = temp_dir / "assets"
         copy_assets(assets_dir, output_assets_dir)
+        copy_bundled_js(assets_dir, output_assets_dir)
         
         # Create zip file
         print(f"\nCreating {output_zip}...")

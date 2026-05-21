@@ -1,6 +1,7 @@
 #include "wforge/assets.h"
 #include "wforge/colorpalette.h"
 #include "wforge/level.h"
+#include "wforge/runtime.h"
 #include "wforge/xoroshiro.h"
 #include <SFML/Audio.hpp>
 #include <SFML/Audio/SoundBuffer.hpp>
@@ -643,6 +644,20 @@ void fAnimationFrames(
 	mgr.cacheAsset(id, animation_frames);
 }
 
+void fUIScene(
+	const nlohmann::json &entry, const fs::path &assets_root, AssetsManager &mgr
+) {
+	const std::string &id = entry.at("id");
+	int width = entry.at("width");
+	int height = entry.at("height");
+
+	auto mod = new SceneModule{
+		.width = width,
+		.height = height,
+	};
+	mgr.cacheAsset(id, mod);
+}
+
 void fLevelSequence(
 	const nlohmann::json &entry, const fs::path &assets_root, AssetsManager &mgr
 ) {
@@ -690,6 +705,7 @@ void AssetsManager::loadAllAssets() {
 		{"create-pixel-shape-of-all-facings", fPixelShapeAllRotated},
 		{"create-checkpoint-sprite", fCheckpointSprite},
 		{"level-metadata", fLevelMetadata},
+		{"ui-scene", fUIScene},
 		{"font", fFont},
 		{"animation", fAnimationFrames},
 		{"level-sequence", fLevelSequence},
@@ -734,6 +750,17 @@ void AssetsManager::loadAllAssets() {
 		total_entries,
 		std::chrono::duration_cast<std::chrono::milliseconds>(dur).count()
 	);
+
+	// Load ES module registry from esbuild metafile
+	auto metafile_path = assets_root / "bundled-js" / ".metafile.json";
+	if (fs::exists(metafile_path)) {
+		wf::js::ModuleRegistry::instance().loadFromMetafile(
+			metafile_path, assets_root
+		);
+	} else {
+		std::cerr << "ModuleRegistry: no metafile found at " << metafile_path
+				  << "\n";
+	}
 }
 
 } // namespace wf
