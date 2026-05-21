@@ -6,6 +6,8 @@ import {
 	createNode,
 	createTextNode,
 	dispatchClick,
+	dispatchHoverChange,
+	dispatchHoverLeave,
 	type HostType,
 	updateTextNode,
 } from './host-config.js';
@@ -207,6 +209,18 @@ function setupEngine(): void {
 			return;
 		}
 		dispatchClick(_currentRoot, event.x, event.y);
+	});
+
+	waveforge.addEventListener('mousemove', (event) => {
+		if (_currentRoot) {
+			dispatchHoverChange(_currentRoot, event.x, event.y);
+		}
+	});
+
+	waveforge.addEventListener('mouseleave', () => {
+		if (_currentRoot) {
+			dispatchHoverLeave();
+		}
 	});
 }
 
