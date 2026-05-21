@@ -91,7 +91,7 @@ declare namespace waveforge {
 		flexWrap: 'noWrap' | 'wrap' | 'wrapReverse';
 		overflow: 'visible' | 'hidden' | 'scroll';
 		display: 'flex' | 'none' | 'contents';
-		positionType: 'static' | 'relative' | 'absolute';
+		position: 'static' | 'relative' | 'absolute';
 
 		flex: number;
 		flexGrow: number;

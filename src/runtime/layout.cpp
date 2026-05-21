@@ -804,7 +804,7 @@ enum class LayoutProp {
 	FlexWrap,
 	Overflow,
 	Display,
-	PositionType,
+	Position,
 	Flex,
 	FlexGrow,
 	FlexShrink,
@@ -1048,7 +1048,7 @@ JSValue LayoutNode_getEnumProp(
 		return JS_NewString(
 			ctx, displayToString(YGNodeStyleGetDisplay(&self->yoga_node))
 		);
-	case LayoutProp::PositionType:
+	case LayoutProp::Position:
 		return JS_NewString(
 			ctx,
 			positionTypeToString(YGNodeStyleGetPositionType(&self->yoga_node))
@@ -1121,7 +1121,7 @@ JSValue LayoutNode_setEnumPropStr(
 		YGNodeStyleSetDisplay(&self->yoga_node, stringToDisplay(sv));
 		break;
 
-	case LayoutProp::PositionType:
+	case LayoutProp::Position:
 		YGNodeStyleSetPositionType(&self->yoga_node, stringToPositionType(sv));
 		break;
 
@@ -1821,8 +1821,8 @@ static const JSCFunctionListEntry LAYOUT_NODE_PROTO[] = {
 		static_cast<int16_t>(LayoutProp::Display)
 	),
 	cGetSetMagicDef(
-		"positionType", LayoutNode_getEnumProp, LayoutNode_setEnumPropStr,
-		static_cast<int16_t>(LayoutProp::PositionType)
+		"position", LayoutNode_getEnumProp, LayoutNode_setEnumPropStr,
+		static_cast<int16_t>(LayoutProp::Position)
 	),
 	cGetSetMagicDef(
 		"flex", LayoutNode_getEnumProp, LayoutNode_setEnumPropFloat,
