@@ -90,8 +90,8 @@ No `export {}` needed — JSX files are automatically treated as modules.
 
 Calling `render(<App />)` on the first scene internally calls `waveforge.addEventListener('step', ...)` and `waveforge.addEventListener('mousebutton', ...)`. This means:
 
-- You **cannot** mix imperative `waveforge.addEventListener('step', ...)` with React scenes; the reconciler already owns the step event.
-- You **should not** call `waveforge.commitLayout` manually — the reconciler does it automatically.
+- The reconciler already owns the internal step handler that drives layout; you **should not** call `waveforge.commitLayout` manually — it does this automatically.
+- You **may** register additional `step` listeners (e.g. via `useEffect`) for animation or polling — multiple step listeners are supported.
 - The `mousebutton` listener is managed by the reconciler and dispatches `onClick` events to hit-tested nodes with event bubbling.
 
 ### Reactive State
