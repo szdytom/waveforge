@@ -48,10 +48,17 @@ CallbackIdx callbackIdx(std::string_view type) noexcept {
 	return CallbackIdx::COUNT;
 }
 
+using SceneBindings = js::BindingList<
+	js::Texture, js::Color, js::TextContent, js::SpriteContent, js::DrawTextCmd,
+	js::DrawSpriteCmd, js::DrawRectCmd, js::DrawCmdList, js::DrawCmdListIter,
+	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent,
+	js::Sound>;
+
 js::Engine &scriptEngine() {
 	static std::unique_ptr<js::Engine> engine;
 	if (!engine) {
 		engine = std::make_unique<js::Engine>();
+		SceneBindings::registerClass(*engine);
 	}
 	return *engine;
 }
@@ -102,9 +109,7 @@ std::expected<CallbackIdx, JSValue> parseEventType(
 	JS_FreeCString(ctx, type_cstr);
 
 	if (type == CallbackIdx::COUNT) {
-		return std::unexpected(JS_ThrowTypeError(
-			ctx, "Unknown event type"
-		));
+		return std::unexpected(JS_ThrowTypeError(ctx, "Unknown event type"));
 	}
 
 	return type;
@@ -334,12 +339,6 @@ void invokeCallbacks(
 
 } // namespace
 
-using SceneBindings = js::BindingList<
-	js::Texture, js::Color, js::TextContent, js::SpriteContent, js::DrawTextCmd,
-	js::DrawSpriteCmd, js::DrawRectCmd, js::DrawCmdList, js::DrawCmdListIter,
-	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent,
-	js::Sound>;
-
 // ── Impl constructor / destructor ──
 
 ScriptedScene::Impl::Impl(const std::string &id, std::string_view route_data)
@@ -375,11 +374,6 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	impl.scene_mgr = &mgr;
 
 	auto &engine = scriptEngine();
-	static bool classes_registered = false;
-	if (!classes_registered) {
-		SceneBindings::registerClass(engine);
-		classes_registered = true;
-	}
 
 	impl.engineCtx = engine.createContext();
 	auto *ctx = impl.engineCtx.ctx();
@@ -423,10 +417,13 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	auto module_name = js::ModuleRegistry::entryModuleFor(impl.script_id);
 	const std::string *source = registry.find(module_name);
 	if (!source) {
-		throw std::runtime_error(std::format(
-			"ScriptedScene: module source not found for '{}' "
-			"(missing JS bundle or stale manifest)", module_name
-		));
+		throw std::runtime_error(
+			std::format(
+				"ScriptedScene: module source not found for '{}' "
+				"(missing JS bundle or stale manifest)",
+				module_name
+			)
+		);
 	}
 
 	js::Value eval_guard(
