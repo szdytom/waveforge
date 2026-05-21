@@ -14,7 +14,7 @@ const LAYOUT_PROP_MAP: Record<string, string> = {
 	flexWrap: 'flexWrap',
 	overflow: 'overflow',
 	display: 'display',
-	positionType: 'positionType',
+	position: 'position',
 	flex: 'flex',
 	flexGrow: 'flexGrow',
 	flexShrink: 'flexShrink',
