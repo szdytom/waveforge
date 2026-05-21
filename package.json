@@ -6,8 +6,8 @@
 		"build:watch": "node scripts/build.mjs --watch",
 		"typecheck": "tsc --noEmit",
 		"format": "./scripts/format-c.sh",
-		"format:ts": "pnpm biome check --write packages/ scenes/ types/",
-		"lint:ts": "pnpm biome check packages/ scenes/ types/",
+		"format:ts": "pnpm biome check --write packages/ scenes/ types/ scripts/",
+		"lint:ts": "pnpm biome check packages/ scenes/ types/ scripts/",
 		"clean": "rm -rf assets/bundled-js/*"
 	},
 	"devDependencies": {
