@@ -8,6 +8,7 @@
 #include <SFML/Window/Event.hpp>
 #include <format>
 #include <iostream>
+#include <quickjs.h>
 #include <tuple>
 #include <utility>
 
@@ -20,6 +21,8 @@ enum class CallbackIdx : size_t {
 	KEY,
 	MOUSEBUTTON,
 	MOUSEMOVE,
+	MOUSEENTER,
+	MOUSELEAVE,
 	COUNT
 };
 
@@ -35,6 +38,12 @@ CallbackIdx callbackIdx(std::string_view type) noexcept {
 	}
 	if (type == "mousemove") {
 		return CallbackIdx::MOUSEMOVE;
+	}
+	if (type == "mouseenter") {
+		return CallbackIdx::MOUSEENTER;
+	}
+	if (type == "mouseleave") {
+		return CallbackIdx::MOUSELEAVE;
 	}
 	return CallbackIdx::COUNT;
 }
@@ -291,18 +300,26 @@ std::tuple<CallbackIdx, JSValue> createJSEvent(
 			CallbackIdx::MOUSEMOVE, js::MouseMoveEvent::from(ctx, *e, scale)
 		};
 	}
+	if (evt.is<sf::Event::MouseEntered>()) {
+		return {CallbackIdx::MOUSEENTER, JS_UNDEFINED};
+	}
+	if (evt.is<sf::Event::MouseLeft>()) {
+		return {CallbackIdx::MOUSELEAVE, JS_UNDEFINED};
+	}
 	return {CallbackIdx::COUNT, JS_NULL};
 }
 
 void invokeCallbacks(
-	JSContext *ctx, const std::vector<js::Value> &callbacks, int argc,
+	JSContext *ctx, std::span<const js::Value> callbacks, int argc,
 	JSValueConst *argv
 ) noexcept {
+	// Prevent mutation issues
 	std::vector<js::Value> snapshot;
 	snapshot.reserve(callbacks.size());
 	for (auto &cb : callbacks) {
 		snapshot.push_back(cb.dup());
 	}
+
 	for (auto &cb : snapshot) {
 		if (JS_IsFunction(ctx, *cb)) {
 			js::Value result_guard(
@@ -426,15 +443,18 @@ void ScriptedScene::setup(SceneManager &mgr) {
 void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
 	auto *ctx = _impl->engineCtx.ctx();
 
-	auto [evtType, raw_val] = createJSEvent(ctx, evt, mgr.scale());
-	js::Value evt_guard(ctx, raw_val);
-	if (evtType == CallbackIdx::COUNT) {
+	auto [evt_type, evt_val] = createJSEvent(ctx, evt, mgr.scale());
+	js::Value evt_guard(ctx, evt_val);
+	if (evt_type == CallbackIdx::COUNT) {
 		return;
 	}
 
-	auto &callbacks = _impl->callbacks[std::to_underlying(evtType)];
-	JSValue event_val = *evt_guard;
-	invokeCallbacks(ctx, callbacks, 1, &event_val);
+	const auto &callbacks = _impl->callbacks[std::to_underlying(evt_type)];
+	if (JS_IsUndefined(evt_val)) {
+		invokeCallbacks(ctx, callbacks, 0, nullptr);
+	} else {
+		invokeCallbacks(ctx, callbacks, 1, &evt_val);
+	}
 	_impl->engineCtx.drainPromises();
 }
 

@@ -1,5 +1,3 @@
-// Must be first: timer globals needed by scenes that use setTimeout etc.
-
 const WIDTH = 256;
 const HEIGHT = 192;
 let frameCount = 0;
@@ -54,6 +52,16 @@ waveforge.addEventListener('key', (event) => {
 
 waveforge.addEventListener('mousebutton', (event) => {
 	console.log(`Mouse ${event.type} at (${event.x}, ${event.y})`);
+});
+
+waveforge.addEventListener('mouseenter', () => {
+	console.log('Mouse entered window');
+	bgRect.color = '#ffcccc';
+});
+
+waveforge.addEventListener('mouseleave', () => {
+	console.log('Mouse left window');
+	bgRect.color = '#dcf0ff';
 });
 
 export {};

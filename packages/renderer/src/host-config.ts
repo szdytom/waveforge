@@ -56,14 +56,13 @@ const LAYOUT_PROP_MAP: Record<string, string> = {
 };
 
 const SKIP_PROPS = new Set(['style', 'children', 'key', 'ref']);
-const EVENT_PROPS = new Set(['onClick']);
+const EVENT_PROPS = new Set(['onClick', 'onPointerEnter', 'onPointerLeave', 'onPointerMove']);
 
 export type HostType = 'view' | 'text' | 'sprite';
 
 const DEFAULT_TEXT_COLOR = '#f0e6ff';
 
 function storeEventHandlers(node: waveforge.LayoutNode, props: Record<string, any> | null): void {
-	// biome-ignore lint/complexity/noBannedTypes: event handler storage
 	const hd: Record<string, Function> = {};
 	if (props) {
 		for (const key of EVENT_PROPS) {
@@ -158,7 +157,6 @@ export function dispatchClick(root: waveforge.LayoutNode, x: number, y: number):
 
 	let node: any = target;
 	while (node) {
-		// biome-ignore lint/complexity/noBannedTypes: event handler storage
 		const handlers = node._wfEv as Record<string, Function> | undefined;
 		if (handlers?.onClick) {
 			handlers.onClick();
@@ -167,4 +165,80 @@ export function dispatchClick(root: waveforge.LayoutNode, x: number, y: number):
 		node = node.parent;
 	}
 	return false;
+}
+
+// ── Hover state tracking ──
+
+let _hoveredNode: waveforge.LayoutNode | null = null;
+
+function walkChain(node: any, eventName: string): void {
+	while (node) {
+		const handlers = node._wfEv as Record<string, Function> | undefined;
+		if (handlers?.[eventName]) {
+			handlers[eventName]();
+		}
+		node = node.parent;
+	}
+}
+
+function buildPath(node: any): any[] {
+	const path: any[] = [];
+	while (node) {
+		path.push(node);
+		node = node.parent;
+	}
+	path.reverse();
+	return path;
+}
+
+function leaveHoveredChain(): void {
+	if (_hoveredNode) {
+		walkChain(_hoveredNode, 'onPointerLeave');
+		_hoveredNode = null;
+	}
+}
+
+export function dispatchHoverChange(root: waveforge.LayoutNode, x: number, y: number): void {
+	const target = root.hitTest(x, y);
+	if (!target) {
+		leaveHoveredChain();
+		return;
+	}
+
+	if (target === _hoveredNode) {
+		walkChain(target, 'onPointerMove');
+		return;
+	}
+
+	if (_hoveredNode) {
+		const oldPath = buildPath(_hoveredNode);
+		const newPath = buildPath(target);
+
+		let lca = 0;
+		while (lca < oldPath.length && lca < newPath.length && oldPath[lca] === newPath[lca]) {
+			lca++;
+		}
+
+		for (let i = oldPath.length - 1; i >= lca; i--) {
+			const handlers = oldPath[i]._wfEv as Record<string, Function> | undefined;
+			if (handlers?.onPointerLeave) {
+				handlers.onPointerLeave();
+			}
+		}
+
+		for (let i = lca; i < newPath.length; i++) {
+			const handlers = newPath[i]._wfEv as Record<string, Function> | undefined;
+			if (handlers?.onPointerEnter) {
+				handlers.onPointerEnter();
+			}
+		}
+	} else {
+		walkChain(target, 'onPointerEnter');
+	}
+
+	_hoveredNode = target;
+}
+
+export function dispatchHoverLeave(): void {
+	leaveHoveredChain();
 }
