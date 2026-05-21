@@ -158,23 +158,21 @@ Load a music file from disk.
 }
 ```
 
-### `js`
-Load a JavaScript source file from disk. The file contents are stored as a string that can be evaluated by the QuickJS runtime.
+### `ui-scene`
+Register a scripted scene with its logical dimensions. The scene's JS source code is loaded separately from the esbuild bundle (`bundled-js/`); the manifest entry only declares the scene's existence and size.
 
 **Additional fields:**
-- **`file`** (string, required): Path to the JavaScript file, relative to the assets directory.
 - **`width`** (int, required): Scene window width in logical pixels.
 - **`height`** (int, required): Scene window height in logical pixels.
 
 **Example:**
 ```json
 {
-  "id": "scripts/enemy",
-  "type": "js",
-  "file": "scripts/enemy.js",
+  "id": "scripts/react_hello",
+  "type": "ui-scene",
   "width": 256,
   "height": 192,
-  "description": "Loading enemy script"
+  "description": "Loading scripts/react_hello"
 }
 ```
 

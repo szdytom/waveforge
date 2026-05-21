@@ -171,3 +171,56 @@ void MyClass::finalize(JSRuntime *rt, JSValue val) noexcept {
 ```
 
 Sometimes you may want to store both a C++ object and its JS wrapper in the same class, this is OK. But be careful, the C++ object must be kept as a "borrowed" reference (e.g. raw pointer, `pro::proxy_view`), not owned reference (e.g. `std::unique_ptr`, `pro::proxy`). The lifecycle of the C++ object is automatically managed by the JS Engine, and you should do nothing to it.
+
+## Wiring bindings into JS contexts
+
+Each binding class exposes a `bindContext(ctx, ns)` method (via `BindingBase`) that registers the class's prototype and constructor on a JS namespace object.
+
+The `BindingList<Ts...>` convenience template (defined in `runtime.h`) folds both `registerClass` and `bindContext` over a type list:
+
+```cpp
+// scripted_scene.cpp
+using SceneBindings = js::BindingList<
+    js::Texture, js::Color //, ... other bindings classes 
+>;
+```
+
+Usage in a scene context (`scripted_scene.cpp`):
+
+```cpp
+// One-time class registration on the engine
+// Multiple calls to registerClass with the same class are safe
+SceneBindings::registerClass(engine);
+
+// Per-context binding: each JS context gets its own namespace object
+// ns = JS_UNDEFINED for binding to global scope
+JSValue ns = JS_NewObject(ctx);
+SceneBindings::bindContext(ctx, ns);
+```
+
+This two-phase approach separates class ID allocation (done once on the `JSRuntime`) from the per-context wiring that attaches constructors and prototypes to a namespace object.
+
+For non class bindings (e.g. plain functions, constants), you can create a JSCFunctionListEntry list and call `JS_SetPropertyFunctionList` directly in your context binding code. You can also mix class bindings and non-class bindings in the same namespace.
+
+Note: the `JS_SetPropertyFunctionList` is lazy evaluated, which means the list must out-live the context. Consider using a `static const` variable to hold constant function lists. Or use the following pattern to create a context-local function list:
+
+```cpp
+const JSCFunctionListEntry FUNC_LIST[] = {
+	cFuncDef("foo", 0, foo),
+	cFuncDef("bar", 0, bar),
+};
+
+auto make_unique_array = []<typename T, std::size_t N>(const T(&arr)[N])
+	-> std::unique_ptr<T[]> {
+	auto ptr = std::make_unique_for_overwrite<T[]>(N);
+	std::copy_n(arr, N, ptr.get());
+	return ptr;
+};
+
+impl.binded_props = make_unique_array(FUNC_LIST);
+JS_SetPropertyFunctionList(ctx, ns, impl.binded_props.get(), std::size(FUNC_LIST));
+```
+
+In the code snippet, `impl` is a per-context struct that holds context-local data. The struct should live at least as long as the context. The list won't be accessed in the destruction phase, so we don't need to worry about the order of destruction.
+
+This pattern might seem not very performant (allocate on stack, then copy to heap), but it is tested that modern C++ compilers can optimize it as if we directly created the array on the heap. So there should be no runtime overhead compared to a manually written `std::unique_ptr<T[]>` initialization. And it is much more convenient since size is not explicitly specified.
