@@ -143,10 +143,6 @@ void SaveKV::flush() {
 	if (!_dirty) {
 		return;
 	}
-	if (_flush_cooldown > 0) {
-		return;
-	}
-
 	auto path = saveFilePath();
 	nlohmann::json json_data;
 
@@ -164,7 +160,6 @@ void SaveKV::flush() {
 	try {
 		file << json_data.dump();
 		_dirty = false;
-		_flush_cooldown = 24;
 	} catch (std::exception &e) {
 		std::cerr << "Failed to write save file: " << e.what() << "\n";
 	}
