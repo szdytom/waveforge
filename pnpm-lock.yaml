@@ -52,8 +52,6 @@ importers:
 
   packages/styles: {}
 
-  packages/timer: {}
-
   scenes:
     dependencies:
       '@waveforge/components':
