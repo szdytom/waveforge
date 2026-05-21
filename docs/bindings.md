@@ -144,7 +144,7 @@ Use `"[Symbol.toPrimitive]"`, `"[Symbol.iterator]"`, etc. as `name` for well-kno
 
 ## Exception Handling
 
-Throwing an C++ exception from any of the binding methods (constructor, getters/setters, regular methods) is considered a fatal error and will crash the engine. Always throw a JS exception using `JS_ThrowTypeError`. For C++ helper functions that are not directly called by JS, use `std::expected` to propagate errors, instead of throwing C++ exceptions and catching them later (more on this topic, see [Error Handling](error_handling.md)).
+Throwing an C++ exception from any of the binding methods (constructor, getters/setters, regular methods) is considered a fatal error and will crash the engine. Always throw a JS exception using `JS_ThrowTypeError`. For C++ helper functions that are not directly called by JS, use `std::expected` to propagate errors, instead of throwing C++ exceptions and catching them later.
 
 ## Not constructible from JS
 
