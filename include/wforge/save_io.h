@@ -37,7 +37,6 @@ private:
 
 	std::unordered_map<std::string, std::string> _data;
 	bool _dirty = false;
-	int _flush_cooldown = 0;
 };
 
 } // namespace wf
