@@ -121,6 +121,14 @@ export function applyProps(node: waveforge.LayoutNode, type: HostType, props: Re
 
 	storeEventHandlers(node, props);
 
+	if (type === 'sprite') {
+		const texture = props.texture;
+		const scale = props.scale ?? 1;
+		if (texture) {
+			node.content = new waveforge.SpriteContent(texture, scale);
+		}
+	}
+
 	if (type === 'text' && typeof props.children === 'string') {
 		const color = resolveTextColor(props) || DEFAULT_TEXT_COLOR;
 		setTextContent(node, props.children, color);
