@@ -103,7 +103,7 @@ std::expected<CallbackIdx, JSValue> parseEventType(
 
 	if (type == CallbackIdx::COUNT) {
 		return std::unexpected(JS_ThrowTypeError(
-			ctx, "Unknown event type (expected step/key/mousebutton/mousemove)"
+			ctx, "Unknown event type"
 		));
 	}
 
@@ -422,6 +422,12 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	auto &registry = js::ModuleRegistry::instance();
 	auto module_name = js::ModuleRegistry::entryModuleFor(impl.script_id);
 	const std::string *source = registry.find(module_name);
+	if (!source) {
+		throw std::runtime_error(std::format(
+			"ScriptedScene: module source not found for '{}' "
+			"(missing JS bundle or stale manifest)", module_name
+		));
+	}
 
 	js::Value eval_guard(
 		ctx,
