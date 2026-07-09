@@ -11,7 +11,6 @@
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <cstdint>
-#include <generator>
 #include <map>
 #include <string>
 #include <string_view>
@@ -47,7 +46,7 @@ public:
 		int y, int scale, int size = 1
 	) const;
 
-	std::generator<std::array<int, 2>> textBitmap(
+	Generator<std::array<int, 2>> textBitmap(
 		std::string_view text
 	) const noexcept;
 
