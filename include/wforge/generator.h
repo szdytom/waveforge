@@ -44,15 +44,16 @@ public:
 		}
 	};
 
-	Generator(handle_type h) noexcept : _handle(h) {}
+	Generator(handle_type h) noexcept: _handle(h) {}
 
 	Generator(Generator &&other) noexcept
 		: _handle(std::exchange(other._handle, nullptr)) {}
 
 	Generator &operator=(Generator &&other) noexcept {
 		if (this != &other) {
-			if (_handle)
+			if (_handle) {
 				_handle.destroy();
+			}
 			_handle = std::exchange(other._handle, nullptr);
 		}
 		return *this;
@@ -62,8 +63,9 @@ public:
 	Generator &operator=(const Generator &) = delete;
 
 	~Generator() {
-		if (_handle)
+		if (_handle) {
 			_handle.destroy();
+		}
 	}
 
 	struct iterator {

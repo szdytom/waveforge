@@ -1,10 +1,9 @@
 #ifndef WFORGE_2D_H
 #define WFORGE_2D_H
 
+#include "wforge/generator.h"
 #include <array>
 #include <utility>
-
-#include "wforge/generator.h"
 
 namespace wf {
 
