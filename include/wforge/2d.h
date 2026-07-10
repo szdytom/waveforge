@@ -3,6 +3,7 @@
 
 #include "wforge/generator.h"
 #include <array>
+#include <cstdint>
 #include <utility>
 
 namespace wf {
