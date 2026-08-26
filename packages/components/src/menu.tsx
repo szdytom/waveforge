@@ -1,5 +1,5 @@
 import { Text, View } from '@waveforge/renderer';
-import { contentAlignV, padding, style } from '@waveforge/styles';
+import { contentAlignV, padding, row, style } from '@waveforge/styles';
 import { UI_COLORS } from './theme.js';
 
 export interface MenuItemProps {
@@ -10,6 +10,7 @@ export interface MenuItemProps {
 	onActivate?(): void;
 	style?: Record<string, any>;
 	value?: string;
+	textSize?: number;
 }
 
 export function MenuItem({
@@ -20,6 +21,7 @@ export function MenuItem({
 	onActivate,
 	style: extraStyle,
 	value,
+	textSize = 1,
 }: MenuItemProps) {
 	const color = disabled ? UI_COLORS.mutedText : selected ? UI_COLORS.active : UI_COLORS.text;
 	return (
@@ -27,11 +29,13 @@ export function MenuItem({
 			tabIndex={disabled ? undefined : -1}
 			onPointerEnter={disabled ? undefined : onSelect}
 			onClick={disabled ? undefined : onActivate}
-			style={style(padding(2, 4), contentAlignV('horizon'), extraStyle)}
+			style={style(row(), padding(2, 4), contentAlignV('horizon'), extraStyle)}
 		>
-			<Text color={color}>{label}</Text>
+			<Text color={color} size={textSize}>
+				{label}
+			</Text>
 			{value ? (
-				<Text color={color} style={{ marginLeft: 'auto' }}>
+				<Text color={color} size={textSize} style={{ marginLeft: 'auto' }}>
 					{selected ? `<${value}>` : value}
 				</Text>
 			) : null}

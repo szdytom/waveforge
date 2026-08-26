@@ -999,6 +999,13 @@
 			"width": 256,
 			"height": 192,
 			"description": "Loading credits scene"
+		},
+		{
+			"id": "scripts/main_menu",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading main menu scene"
 		}
 	]
 }

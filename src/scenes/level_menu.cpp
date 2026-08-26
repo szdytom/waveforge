@@ -1,6 +1,7 @@
 #include "wforge/assets.h"
 #include "wforge/audio.h"
 #include "wforge/level.h"
+#include "wforge/router.h"
 #include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <SFML/Graphics/Texture.hpp>
@@ -126,7 +127,7 @@ void LevelSelectionMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 			break;
 
 		case sf::Keyboard::Key::Escape:
-			mgr.changeScene(pro::make_proxy<SceneFacade, MainMenu>());
+			mgr.changeScene(SceneRouter::instance().create("main-menu"));
 			return;
 
 		default:

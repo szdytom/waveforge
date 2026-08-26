@@ -1,5 +1,6 @@
 #include "wforge/audio.h"
 #include "wforge/colorpalette.h"
+#include "wforge/router.h"
 #include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <format>
@@ -257,7 +258,7 @@ void SettingsMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 	if (auto kb = evt.getIf<sf::Event::KeyPressed>()) {
 		switch (kb->code) {
 		case sf::Keyboard::Key::Escape:
-			mgr.changeScene(pro::make_proxy<SceneFacade, MainMenu>());
+			mgr.changeScene(SceneRouter::instance().create("main-menu"));
 			return;
 
 		case sf::Keyboard::Key::Tab:
@@ -309,7 +310,7 @@ void SettingsMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 		case sf::Keyboard::Key::Space:
 			if (_options[_current_option_index]->handleEnter()) {
 				// go back to main menu
-				mgr.changeScene(pro::make_proxy<SceneFacade, MainMenu>());
+				mgr.changeScene(SceneRouter::instance().create("main-menu"));
 				return;
 			}
 			break;

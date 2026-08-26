@@ -245,31 +245,6 @@ private:
 	sf::Texture *_level_link_texture_locked;
 };
 
-struct MainMenu {
-	MainMenu();
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-private:
-	int _width;
-	int _height;
-	const PixelFont &font;
-	sf::Texture *_background_texture;
-
-	int _current_button_index;
-	ButtonDescriptor _play_button;
-	ButtonDescriptor _settings_button;
-	ButtonDescriptor _help_button;
-	ButtonDescriptor _exit_button;
-	UITextDescriptor _version_text;
-};
-
 class SettingsMenu {
 public:
 	SettingsMenu();
