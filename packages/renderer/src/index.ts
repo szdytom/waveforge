@@ -301,3 +301,4 @@ export function blur(): void {
 export const View = 'view' as unknown as React.ComponentType<any>;
 export const Text = 'text' as unknown as React.ComponentType<any>;
 export const Sprite = 'sprite' as unknown as React.ComponentType<any>;
+export const Level = 'level' as unknown as React.ComponentType<any>;

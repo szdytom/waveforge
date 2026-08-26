@@ -3,6 +3,7 @@
 #include "wforge/layout.h"
 #include "wforge/router.h"
 #include "wforge/runtime.h"
+#include "wforge/runtime_level.h"
 #include "wforge/runtime_platform.h"
 #include "wforge/scene.h"
 #include "wforge/version.h"
@@ -58,7 +59,7 @@ using SceneBindings = js::BindingList<
 	js::Texture, js::Color, js::TextContent, js::SpriteContent, js::DrawTextCmd,
 	js::DrawSpriteCmd, js::DrawRectCmd, js::DrawCmdList, js::DrawCmdListIter,
 	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent,
-	js::Sound>;
+	js::Sound, js::LevelSurface>;
 
 js::Engine &scriptEngine() {
 	static std::unique_ptr<js::Engine> engine;

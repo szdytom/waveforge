@@ -1,6 +1,7 @@
 #include "wforge/layout.h"
 #include "hacks.h"
 #include "helper.h"
+#include "wforge/runtime_level.h"
 #include <charconv>
 #include <cmath>
 #include <string_view>
@@ -1199,6 +1200,8 @@ JSValue LayoutNode_setContent(
 		self->content = tc;
 	} else if (auto *sc = SpriteContent::unwrap(ctx, val)) {
 		self->content = sc;
+	} else if (auto *level_surface = LevelSurface::unwrap(ctx, val)) {
+		self->content = level_surface;
 	} else {
 		self->content.reset();
 		canMeasure = false;

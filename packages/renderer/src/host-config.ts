@@ -59,7 +59,7 @@ const EVENT_PROPS = new Set([
 	'onBlur',
 ]);
 
-export type HostType = 'view' | 'text' | 'sprite';
+export type HostType = 'view' | 'text' | 'sprite' | 'level';
 
 export interface SyntheticEvent<NativeEvent = unknown> {
 	readonly type: string;
@@ -190,6 +190,10 @@ export function applyProps(
 		} else {
 			node.content = null;
 		}
+	}
+
+	if (type === 'level') {
+		node.content = nextProps?.surface || null;
 	}
 
 	if (type === 'text') {

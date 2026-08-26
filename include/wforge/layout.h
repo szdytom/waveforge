@@ -109,6 +109,8 @@ struct SpriteContent final : BindingBase<SpriteContent> {
 	void render(sf::RenderTarget &, JSContext *, LayoutParameters) const;
 };
 
+struct LevelSurface;
+
 struct LayoutNode final : BindingBase<LayoutNode> {
 	static constexpr const char *CLASS_NAME = "LayoutNode";
 	static constexpr int CTOR_LENGTH = 0;

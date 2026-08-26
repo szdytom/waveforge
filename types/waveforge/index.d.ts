@@ -131,7 +131,7 @@ declare namespace waveforge {
 		flexGrow: number;
 		flexShrink: number;
 
-		content: TextContent | SpriteContent | null;
+		content: TextContent | SpriteContent | LevelSurface | null;
 		contentAlignH: 'left' | 'center' | 'right';
 		contentAlignV: 'top' | 'horizon' | 'bottom';
 		marginLeft: number | string | undefined;
@@ -220,6 +220,27 @@ declare namespace waveforge {
 		size: number;
 
 		constructor(texture: Texture, size?: number);
+	}
+
+	class LevelSurface {
+		readonly width: number;
+		readonly height: number;
+		readonly duckX: number;
+		readonly duckY: number;
+		readonly failed: boolean;
+		readonly completed: boolean;
+		readonly levelId: string;
+		readonly levelIndex: number;
+		readonly levelName: string;
+
+		constructor(levelId: string);
+		step(): void;
+		useItem(x: number, y: number): void;
+		changeBrushSize(delta: number): void;
+		selectItem(index: number): void;
+		prevItem(): void;
+		nextItem(): void;
+		setPointer(x: number, y: number): void;
 	}
 
 	class DrawTextCmd {
