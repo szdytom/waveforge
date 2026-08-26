@@ -506,7 +506,6 @@ void ScriptedScene::handleEvent(SceneManager &mgr, const sf::Event &evt) {
 }
 
 void ScriptedScene::step(SceneManager &mgr) {
-	ActiveSoundManager::instance().cleanup();
 	_impl->engineCtx.processRAF();
 	_impl->engineCtx.processTimers();
 	invokeCallbacks(

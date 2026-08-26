@@ -2,6 +2,7 @@
 #define WFORGE_RUNTIME_H
 
 #include "ctti.h"
+#include <SFML/Audio/Sound.hpp>
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Window/Event.hpp>
 #include <concepts>
@@ -596,7 +597,7 @@ struct Sound final : BindingBase<Sound> {
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
-	sf::SoundBuffer *_buffer; // not owned, managed by AssetsManager
+	sf::Sound sound;
 
 	Sound(sf::SoundBuffer *buffer) noexcept;
 };

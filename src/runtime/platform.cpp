@@ -245,6 +245,20 @@ void bindPlatformApi(JSContext *ctx, JSValueConst waveforge) {
 	JS_SetPropertyFunctionList(ctx, music, MUSIC_API, std::size(MUSIC_API));
 	JS_SetPropertyStr(ctx, waveforge, "music", music);
 
+	const auto &fade = FadeIOConfig::load();
+	JSValue transitions = JS_NewObject(ctx);
+	JS_SetPropertyStr(
+		ctx, transitions, "fadeInTicks", JS_NewInt32(ctx, fade.fade_in_ticks)
+	);
+	JS_SetPropertyStr(
+		ctx, transitions, "fadeOutTicks", JS_NewInt32(ctx, fade.fade_out_ticks)
+	);
+	JS_SetPropertyStr(
+		ctx, transitions, "fadeInStartingVolume",
+		JS_NewFloat64(ctx, fade.fade_in_starting_volume)
+	);
+	JS_SetPropertyStr(ctx, waveforge, "transitions", transitions);
+
 	JS_SetPropertyStr(ctx, waveforge, "levels", createLevelCatalog(ctx));
 }
 

@@ -32,6 +32,12 @@ declare namespace waveforge {
 		setVolume(volume: number): void;
 	};
 
+	const transitions: {
+		readonly fadeInTicks: number;
+		readonly fadeOutTicks: number;
+		readonly fadeInStartingVolume: number;
+	};
+
 	interface LevelInfo {
 		readonly index: number;
 		readonly id: string;
@@ -206,6 +212,7 @@ declare namespace waveforge {
 	class Sound {
 		constructor(id: string);
 		play(): void;
+		stop(): void;
 	}
 
 	class TextContent {
@@ -220,6 +227,10 @@ declare namespace waveforge {
 	class SpriteContent {
 		texture: Texture;
 		size: number;
+		sourceX: number;
+		sourceY: number;
+		sourceWidth: number;
+		sourceHeight: number;
 
 		constructor(texture: Texture, size?: number);
 	}

@@ -260,8 +260,10 @@ YGSize SpriteContent::measure(
 	YGMeasureMode width_mode, float width, YGMeasureMode height_mode,
 	float height
 ) const noexcept {
-	float tex_w = texture->getSize().x * size;
-	float tex_h = texture->getSize().y * size;
+	float tex_w = (source_width > 0 ? source_width : texture->getSize().x)
+		* size;
+	float tex_h = (source_height > 0 ? source_height : texture->getSize().y)
+		* size;
 	return {
 		resolveDim(tex_w, width, width_mode),
 		resolveDim(tex_h, height, height_mode),
@@ -271,12 +273,19 @@ YGSize SpriteContent::measure(
 void SpriteContent::render(
 	sf::RenderTarget &target, JSContext * /*ctx*/, LayoutParameters lp
 ) const {
-	int sprite_w = static_cast<int>(texture->getSize().x) * size;
-	int sprite_h = static_cast<int>(texture->getSize().y) * size;
+	int sprite_w = (source_width > 0 ? source_width : texture->getSize().x)
+		* size;
+	int sprite_h = (source_height > 0 ? source_height : texture->getSize().y)
+		* size;
 
 	auto [dx, dy] = computeContentOffset(sprite_w, sprite_h, lp);
 
 	sf::Sprite sprite(*texture);
+	if (source_width > 0 && source_height > 0) {
+		sprite.setTextureRect(
+			sf::IntRect({source_x, source_y}, {source_width, source_height})
+		);
+	}
 	sprite.setPosition(
 		sf::Vector2f((lp.x + dx) * lp.scale, (lp.y + dy) * lp.scale)
 	);
@@ -734,9 +743,28 @@ WF_JS_DEF_SETTER(SpriteContent, setSize, {
 	self->size = std::max(1, v);
 })
 
+WF_JS_DEF_GETTER_I32(SpriteContent, getSourceX, self->source_x)
+WF_JS_DEF_SETTER_I32(SpriteContent, setSourceX, source_x)
+WF_JS_DEF_GETTER_I32(SpriteContent, getSourceY, self->source_y)
+WF_JS_DEF_SETTER_I32(SpriteContent, setSourceY, source_y)
+WF_JS_DEF_GETTER_I32(SpriteContent, getSourceWidth, self->source_width)
+WF_JS_DEF_SETTER_I32(SpriteContent, setSourceWidth, source_width)
+WF_JS_DEF_GETTER_I32(SpriteContent, getSourceHeight, self->source_height)
+WF_JS_DEF_SETTER_I32(SpriteContent, setSourceHeight, source_height)
+
 static const JSCFunctionListEntry SPRITE_CONTENT_PROTO[] = {
 	cGetSetDef("texture", SpriteContent_getTexture, SpriteContent_setTexture),
 	cGetSetDef("size", SpriteContent_getSize, SpriteContent_setSize),
+	cGetSetDef("sourceX", SpriteContent_getSourceX, SpriteContent_setSourceX),
+	cGetSetDef("sourceY", SpriteContent_getSourceY, SpriteContent_setSourceY),
+	cGetSetDef(
+		"sourceWidth", SpriteContent_getSourceWidth,
+		SpriteContent_setSourceWidth
+	),
+	cGetSetDef(
+		"sourceHeight", SpriteContent_getSourceHeight,
+		SpriteContent_setSourceHeight
+	),
 	propStringDef(
 		"[Symbol.toStringTag]", "SpriteContent", JS_PROP_CONFIGURABLE
 	),

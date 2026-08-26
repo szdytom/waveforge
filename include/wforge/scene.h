@@ -2,11 +2,6 @@
 #define WFORGE_SCENE_H
 
 #include "wforge/assets.h"
-#include "wforge/audio.h"
-#include "wforge/fallsand.h"
-#include "wforge/level.h"
-#include <SFML/Audio/Music.hpp>
-#include <SFML/Audio/Sound.hpp>
 #include <SFML/Graphics.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -17,14 +12,16 @@
 #include <proxy/v4/proxy.h>
 #include <proxy/v4/proxy_macros.h>
 #include <string_view>
-#include <vector>
 
 namespace wf {
 
 namespace _dispatch {
 
-PRO_DEF_MEM_DISPATCH(MemSize, size);
-PRO_DEF_MEM_DISPATCH(MemHandleEvent, handleEvent);
+PRO_DEF_MEM_DISPATCH(MemSceneSize, size);
+PRO_DEF_MEM_DISPATCH(MemSceneSetup, setup);
+PRO_DEF_MEM_DISPATCH(MemSceneHandleEvent, handleEvent);
+PRO_DEF_MEM_DISPATCH(MemSceneStep, step);
+PRO_DEF_MEM_DISPATCH(MemSceneRender, render);
 
 }; // namespace _dispatch
 
@@ -32,11 +29,11 @@ class SceneManager;
 
 /* clang-format off */
 struct SceneFacade : pro::facade_builder
-	::add_convention<_dispatch::MemSize, std::array<int, 2>() const>
-	::add_convention<_dispatch::MemSetup, void(SceneManager &)>
-	::add_convention<_dispatch::MemHandleEvent, void(SceneManager &, sf::Event &)>
-	::add_convention<_dispatch::MemStep, void(SceneManager &)>
-	::add_convention<_dispatch::MemRender, void(const SceneManager &, sf::RenderTarget &, int) const>
+	::add_convention<_dispatch::MemSceneSize, std::array<int, 2>() const>
+	::add_convention<_dispatch::MemSceneSetup, void(SceneManager &)>
+	::add_convention<_dispatch::MemSceneHandleEvent, void(SceneManager &, sf::Event &)>
+	::add_convention<_dispatch::MemSceneStep, void(SceneManager &)>
+	::add_convention<_dispatch::MemSceneRender, void(const SceneManager &, sf::RenderTarget &, int) const>
 	::build {};
 /* clang-format on */
 
@@ -85,98 +82,6 @@ private:
 	int _config_scale;
 	int _scale;
 };
-
-struct ButtonDescriptor {
-	int x;
-	int y;
-	int size;
-};
-
-namespace scene {
-
-struct DuckDeath {
-	DuckDeath(
-		int level_width, int level_height, int duck_x, int duck_y,
-		LevelMetadata level_metadata
-	);
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-private:
-	int _level_width;
-	int _level_height;
-
-	int _duck_x;
-	int _duck_y;
-	int _duck_anchor_bx;
-	int _duck_anchor_by;
-
-	int _tick;
-	int _animation_frame;
-
-	int _total_duration;
-	int _animation_start;
-	int _animation_frame_duration;
-	int _sperate_sfx_start;
-	int _reborn_sfx_start;
-
-	LevelMetadata _level_metadata;
-	PixelAnimationFrames &_animation;
-	sf::Sound _reborn_sound;
-	sf::Sound _duck_death_separate_sound;
-};
-
-struct LevelComplete {
-	LevelComplete(int level_width, int level_height, int duck_x, int duck_y);
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-private:
-	int _level_width;
-	int _level_height;
-	int _pending_timer;
-	int _current_step;
-	bool _display_text;
-	const PixelFont &font;
-	sf::Texture &_duck_texture;
-	sf::Sound _level_complete_sound;
-	std::vector<std::array<int, 2>> _step_positions;
-	int _top_left_x;
-};
-
-struct LevelLoading {
-	LevelLoading(int width, int height, LevelMetadata level_metadata);
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-private:
-	int _width;
-	int _height;
-	int _tick;
-	int _total_duration;
-	const PixelFont &font;
-	LevelMetadata _level_metadata;
-};
-
-} // namespace scene
 
 class ScriptedScene {
 public:

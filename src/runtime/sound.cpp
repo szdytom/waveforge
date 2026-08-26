@@ -7,12 +7,17 @@
 
 namespace wf::js {
 
-Sound::Sound(sf::SoundBuffer *buffer) noexcept: _buffer(buffer) {}
+Sound::Sound(sf::SoundBuffer *buffer) noexcept: sound(*buffer) {}
 
 namespace {
 
 WF_JS_METHOD(Sound, play, {
-	ActiveSoundManager::instance().play(*self->_buffer);
+	self->sound.play();
+	return JS_UNDEFINED;
+})
+
+WF_JS_METHOD(Sound, stop, {
+	self->sound.stop();
 	return JS_UNDEFINED;
 })
 
@@ -20,6 +25,7 @@ WF_JS_METHOD(Sound, play, {
 
 static const JSCFunctionListEntry PROTO_FIELDS_DATA[] = {
 	cFuncDef("play", 0, Sound_play),
+	cFuncDef("stop", 0, Sound_stop),
 	propStringDef("[Symbol.toStringTag]", "Sound", JS_PROP_CONFIGURABLE),
 };
 

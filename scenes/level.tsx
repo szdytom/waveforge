@@ -68,7 +68,7 @@ function LevelScene() {
 	React.useEffect(() => {
 		waveforge.setTitle(`Level ${surface.levelIndex + 1} - ${surface.levelName}`);
 		waveforge.music.setCollection('background/level-music');
-		waveforge.music.fadeIn(48, 0.2);
+		waveforge.music.fadeIn(waveforge.transitions.fadeInTicks, waveforge.transitions.fadeInStartingVolume);
 		return () => waveforge.music.setVolume(1);
 	}, [surface]);
 

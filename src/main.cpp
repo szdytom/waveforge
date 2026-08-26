@@ -1,4 +1,5 @@
 #include "wforge/assets.h"
+#include "wforge/audio.h"
 #include "wforge/router.h"
 #include "wforge/save_io.h"
 #include "wforge/scene.h"
@@ -13,7 +14,6 @@
 #include <cpptrace/from_current.hpp>
 #include <cpptrace/from_current_macros.hpp>
 #include <iostream>
-#include <nlohmann/json.hpp>
 #include <proxy/proxy.h>
 
 void entry(
@@ -103,44 +103,10 @@ void entry(
 	router.registerScriptedRoute("help", "scripts/help");
 	router.registerScriptedRoute("credits", "scripts/credits");
 	router.registerScriptedRoute("level-menu", "scripts/level_menu");
-	router.registerRoute("load-level", [](std::string_view data) {
-		auto metadata = wf::AssetsManager::instance()
-							.getAsset<wf::LevelMetadata>(data);
-		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelLoading>(
-			256, 192, std::move(metadata)
-		);
-	});
+	router.registerScriptedRoute("load-level", "scripts/loading");
 	router.registerScriptedRoute("play-level", "scripts/level");
-	router.registerRoute("level-death", [](std::string_view data) {
-		auto state = nlohmann::json::parse(data);
-		int duck_x = state.at("duckX");
-		int duck_y = state.at("duckY");
-		if (state.at("failed").get<bool>()) {
-			const auto &duck_texture = wf::AssetsManager::instance()
-										   .getAsset<sf::Texture>(
-											   "duck/texture"
-										   );
-			duck_x = (state.at("width").get<int>() - duck_texture.getSize().x)
-				/ 2;
-			duck_y = (state.at("height").get<int>() - duck_texture.getSize().y)
-				/ 2;
-		}
-		auto metadata = wf::AssetsManager::instance()
-							.getAsset<wf::LevelMetadata>(
-								state.at("levelId").get<std::string>()
-							);
-		return pro::make_proxy<wf::SceneFacade, wf::scene::DuckDeath>(
-			state.at("width").get<int>(), state.at("height").get<int>(), duck_x,
-			duck_y, std::move(metadata)
-		);
-	});
-	router.registerRoute("level-complete", [](std::string_view data) {
-		auto state = nlohmann::json::parse(data);
-		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelComplete>(
-			state.at("width").get<int>(), state.at("height").get<int>(),
-			state.at("duckX").get<int>(), state.at("duckY").get<int>()
-		);
-	});
+	router.registerScriptedRoute("level-death", "scripts/duck_death");
+	router.registerScriptedRoute("level-complete", "scripts/level_complete");
 
 	wf::Scene initial_scene = [&]() {
 		if (!debug_js_scene.empty()) {

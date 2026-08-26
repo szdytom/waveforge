@@ -1027,6 +1027,27 @@
 			"width": 256,
 			"height": 192,
 			"description": "Loading gameplay scene"
+		},
+		{
+			"id": "scripts/loading",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading level transition scene"
+		},
+		{
+			"id": "scripts/duck_death",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading duck death transition scene"
+		},
+		{
+			"id": "scripts/level_complete",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading level completion transition scene"
 		}
 	]
 }

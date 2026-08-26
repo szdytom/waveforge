@@ -186,7 +186,12 @@ export function applyProps(
 	if (type === 'sprite') {
 		const texture = nextProps?.texture;
 		if (texture) {
-			node.content = new waveforge.SpriteContent(texture, nextProps?.scale ?? 1);
+			const content = new waveforge.SpriteContent(texture, nextProps?.scale ?? 1);
+			content.sourceX = nextProps?.sourceX ?? 0;
+			content.sourceY = nextProps?.sourceY ?? 0;
+			content.sourceWidth = nextProps?.sourceWidth ?? 0;
+			content.sourceHeight = nextProps?.sourceHeight ?? 0;
+			node.content = content;
 		} else {
 			node.content = null;
 		}

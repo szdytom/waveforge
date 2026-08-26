@@ -103,6 +103,10 @@ struct SpriteContent final : BindingBase<SpriteContent> {
 	JSValue texture_val = JS_NULL;
 	sf::Texture *texture = nullptr; // not owned, managed by AssetsManager
 	int size = 1;                   // scale multiplier
+	int source_x = 0;
+	int source_y = 0;
+	int source_width = 0;
+	int source_height = 0;
 
 	// ContentFacade implementation
 	YGSize measure(YGMeasureMode, float, YGMeasureMode, float) const noexcept;

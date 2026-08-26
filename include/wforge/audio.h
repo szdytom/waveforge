@@ -14,31 +14,6 @@ struct FadeIOConfig {
 	static FadeIOConfig &load();
 };
 
-struct UISounds {
-	sf::Sound forward;
-	sf::Sound backward;
-
-	static UISounds &instance() noexcept;
-};
-
-class ActiveSoundManager {
-public:
-	ActiveSoundManager(const ActiveSoundManager &) = delete;
-	ActiveSoundManager &operator=(const ActiveSoundManager &) = delete;
-	ActiveSoundManager(ActiveSoundManager &&) = delete;
-	ActiveSoundManager &operator=(ActiveSoundManager &&) = delete;
-
-	static ActiveSoundManager &instance() noexcept;
-
-	void play(sf::SoundBuffer &buffer);
-	void cleanup();
-
-private:
-	ActiveSoundManager() = default;
-
-	std::vector<sf::Sound> _active_sounds;
-};
-
 class BGMManager {
 public:
 	BGMManager(const BGMManager &) = delete;
