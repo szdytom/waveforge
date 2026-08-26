@@ -33,13 +33,19 @@ export function MenuItem({
 			tabIndex={disabled ? undefined : -1}
 			onPointerEnter={disabled ? undefined : onSelect}
 			onClick={disabled ? undefined : onActivate}
-			style={style(row(), padding(2, 4), contentAlignV('horizon'), extraStyle)}
+			style={style(
+				row(),
+				padding(2, 4),
+				contentAlignV('horizon'),
+				value ? { justifyContent: 'spaceBetween' } : null,
+				extraStyle,
+			)}
 		>
 			<Text color={textColor} size={textSize}>
 				{label}
 			</Text>
 			{value ? (
-				<Text color={textColor} size={textSize} style={{ marginLeft: 'auto' }}>
+				<Text color={textColor} size={textSize}>
 					{selected ? `<${value}>` : value}
 				</Text>
 			) : null}
