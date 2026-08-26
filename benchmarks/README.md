@@ -23,13 +23,15 @@ cmake --build build --target webgpu_physics_benchmark
 ./build/webgpu_physics_benchmark
 ```
 
-It warms up the backend, runs a 1024x576 burning oil/water tank for 96 ticks,
-validates asynchronous RGBA and compact-query output, and fails when the
-timestamped GPU pass average exceeds 8 ms. It also reports end-to-end queue
-submission and readback completion separately. GPU device access may be
-restricted inside containers and sandboxes.
+It creates an SFML context before WebGPU to cover the production integration,
+then validates material conservation, electricity timing, asynchronous RGBA,
+and compact-query output. The 1024x576 burning oil/water tank runs for 96 ticks
+and must remain within CPU-reference tolerances for water, steam, smoke, and
+total heat. The benchmark also fails when timestamped GPU work exceeds 8 ms
+per tick and reports end-to-end queue submission and readback separately. GPU
+device access may be restricted inside containers and sandboxes.
 
-On 2026-08-26, the full backend averaged about 6.1 ms of GPU work per tick on
+On 2026-08-26, the full backend averaged about 6.9 ms of GPU work per tick on
 the Intel Arc iGPU through Vulkan. This is a local development gate, not a
 promise for every GPU.
 

@@ -7,6 +7,7 @@
 #include <SFML/System/Vector2.hpp>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <proxy/proxy.h>
 #include <proxy/v4/proxy_macros.h>
 #include <tuple>
@@ -166,12 +167,20 @@ struct Level {
 	void step();
 
 private:
+	struct PendingItemUse {
+		int item_index;
+		int x;
+		int y;
+		std::uint32_t query_id;
+	};
+
 	int _prevItemId() const noexcept;
 	int _nextItemId() const noexcept;
 	void _normalizeActiveItemIndex() noexcept;
 
 	int _active_item_index; // -1 means no active item
 	int _item_use_cooldown; // ticks until next item use allowed
+	std::optional<PendingItemUse> _pending_item_use;
 };
 
 struct LevelRenderer {

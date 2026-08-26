@@ -139,6 +139,12 @@ int LaserEmitter::priority() const noexcept {
 	return 50;
 }
 
+std::array<int, 4> LaserEmitter::queryBounds(
+	const PixelWorld &world
+) const noexcept {
+	return {0, 0, world.width(), world.height()};
+}
+
 LaserReceiver::LaserReceiver(int x, int y, FacingDirection dir)
 	: OutputElectricalStructure(x, y, laserReceiverShape(dir)) {
 	if (poi.size() != 1) {

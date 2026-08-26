@@ -118,6 +118,9 @@ BenchmarkWorld makeBurningTank(int width, int height) {
 
 struct TankResult {
 	std::array<double, 3> stage_ms{};
+	std::uint64_t total_heat = 0;
+	int oil_pixels = 0;
+	int water_pixels = 0;
 	int steam_pixels = 0;
 	int smoke_pixels = 0;
 };
@@ -133,6 +136,9 @@ TankResult runBurningTank(int width, int height, int ticks) {
 	}
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {
+			result.total_heat += world.tagOf(x, y).heat;
+			result.oil_pixels += world.typeOfIs(x, y, wf::PixelType::Oil);
+			result.water_pixels += world.typeOfIs(x, y, wf::PixelType::Water);
 			result.steam_pixels += world.typeOfIs(x, y, wf::PixelType::Steam);
 			result.smoke_pixels += world.typeOfIs(x, y, wf::PixelType::Smoke);
 		}
@@ -233,8 +239,9 @@ int main(int argc, char **argv) {
 			  << " evolving ticks\n";
 	std::cout << std::left << std::setw(12) << "dimensions" << std::right
 			  << std::setw(12) << "fluid ms" << std::setw(12) << "thermal ms"
-			  << std::setw(13) << "elements ms" << std::setw(10) << "steam"
-			  << std::setw(10) << "smoke" << '\n';
+			  << std::setw(13) << "elements ms" << std::setw(10) << "oil"
+			  << std::setw(10) << "water" << std::setw(10) << "steam"
+			  << std::setw(10) << "smoke" << std::setw(14) << "heat" << '\n';
 	for (auto [width, height] : dimensions) {
 		auto result = runBurningTank(width, height, tank_ticks);
 		std::cout << std::left << std::setw(5) << width << "x" << std::setw(6)
@@ -242,7 +249,9 @@ int main(int argc, char **argv) {
 				  << std::setw(12) << result.stage_ms[0] / tank_ticks
 				  << std::setw(12) << result.stage_ms[1] / tank_ticks
 				  << std::setw(13) << result.stage_ms[2] / tank_ticks
-				  << std::setw(10) << result.steam_pixels << std::setw(10)
-				  << result.smoke_pixels << '\n';
+				  << std::setw(10) << result.oil_pixels << std::setw(10)
+				  << result.water_pixels << std::setw(10) << result.steam_pixels
+				  << std::setw(10) << result.smoke_pixels << std::setw(14)
+				  << result.total_heat << '\n';
 	}
 }

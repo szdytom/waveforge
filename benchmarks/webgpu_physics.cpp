@@ -2,6 +2,7 @@
 #include "wforge/physics_gpu.h"
 #include <SFML/Window/Context.hpp>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <format>
@@ -9,6 +10,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -17,6 +19,9 @@ constexpr int WIDTH = 1024;
 constexpr int HEIGHT = 576;
 constexpr int WARMUP_TICKS = 16;
 constexpr int BENCHMARK_TICKS = 96;
+constexpr int CONSERVATION_WIDTH = 128;
+constexpr int CONSERVATION_HEIGHT = 96;
+constexpr int CONSERVATION_TICKS = 48;
 
 wf::PackedCellState makeCell(
 	wf::PixelType type, wf::PixelClass pixel_class, std::uint8_t color,
@@ -47,8 +52,7 @@ std::vector<wf::PackedCellState> makeBurningTank() {
 		wf::PixelType::Stone, wf::PixelClass::Solid, wf::colorIndexOf("Stone1")
 	);
 	const auto water = makeCell(
-		wf::PixelType::Water, wf::PixelClass::Fluid, wf::colorIndexOf("Water"),
-		20
+		wf::PixelType::Water, wf::PixelClass::Fluid, wf::colorIndexOf("Water")
 	);
 	const auto oil = makeCell(
 		wf::PixelType::Oil, wf::PixelClass::Fluid, wf::colorIndexOf("Oil"),
@@ -75,11 +79,122 @@ void waitForTick(wf::GpuPhysicsBackend &backend, std::uint64_t tick) {
 	}
 }
 
+using MaterialCounts = std::array<
+	std::size_t, std::to_underlying(wf::PixelType::_count)>;
+
+MaterialCounts materialCounts(std::span<const wf::PackedCellState> state) {
+	MaterialCounts counts{};
+	for (const auto cell : state) {
+		++counts[std::to_underlying(cell.type())];
+	}
+	return counts;
+}
+
+void validateMaterialConservation() {
+	const auto air = makeCell(
+		wf::PixelType::Air, wf::PixelClass::Gas, wf::colorIndexOf("Air")
+	);
+	const auto stone = makeCell(
+		wf::PixelType::Stone, wf::PixelClass::Solid, wf::colorIndexOf("Stone1")
+	);
+	const auto sand = makeCell(
+		wf::PixelType::Sand, wf::PixelClass::Solid, wf::colorIndexOf("Sand1")
+	);
+	const auto water = makeCell(
+		wf::PixelType::Water, wf::PixelClass::Fluid, wf::colorIndexOf("Water")
+	);
+	const auto oil = makeCell(
+		wf::PixelType::Oil, wf::PixelClass::Fluid, wf::colorIndexOf("Oil")
+	);
+	std::vector state(
+		static_cast<std::size_t>(CONSERVATION_WIDTH) * CONSERVATION_HEIGHT, air
+	);
+	for (int y = 0; y < CONSERVATION_HEIGHT; ++y) {
+		for (int x = 0; x < CONSERVATION_WIDTH; ++x) {
+			const int index = y * CONSERVATION_WIDTH + x;
+			if (x == 0 || x == CONSERVATION_WIDTH - 1 || y == 0
+			    || y == CONSERVATION_HEIGHT - 1) {
+				state[index] = stone;
+			} else if (y == CONSERVATION_HEIGHT / 4) {
+				state[index] = sand;
+			} else if (
+				y > CONSERVATION_HEIGHT / 4 && y < CONSERVATION_HEIGHT / 2
+			) {
+				state[index] = water;
+			} else if (y >= CONSERVATION_HEIGHT / 2) {
+				state[index] = oil;
+			}
+		}
+	}
+	const auto expected = materialCounts(state);
+	wf::GpuPhysicsBackend backend(CONSERVATION_WIDTH, CONSERVATION_HEIGHT);
+	backend.uploadLevel(state);
+	for (int tick = 0; tick < CONSERVATION_TICKS; ++tick) {
+		backend.submit({}, {});
+		backend.step();
+		waitForTick(backend, tick);
+	}
+	const auto actual = materialCounts(backend.serialize());
+	if (actual != expected) {
+		throw std::runtime_error("GPU movement does not conserve materials");
+	}
+
+	std::vector circuit_state(
+		static_cast<std::size_t>(CONSERVATION_WIDTH) * CONSERVATION_HEIGHT, air
+	);
+	const auto copper = makeCell(
+		wf::PixelType::Copper, wf::PixelClass::Solid,
+		wf::colorIndexOf("Copper1")
+	);
+	const int center_x = CONSERVATION_WIDTH / 2;
+	const int center_y = CONSERVATION_HEIGHT / 2;
+	for (int dy = -1; dy <= 1; ++dy) {
+		for (int dx = -1; dx <= 1; ++dx) {
+			circuit_state[(center_y + dy) * CONSERVATION_WIDTH + center_x + dx]
+				= copper;
+		}
+	}
+	backend.uploadLevel(circuit_state);
+	wf::WorldEditBatch charge;
+	charge.chargeRegion(center_x, center_y, 1, 1, 15);
+	backend.submit(std::move(charge), {});
+	backend.step();
+	waitForTick(backend, CONSERVATION_TICKS);
+	auto circuit = backend.serialize();
+	if (circuit[center_y * CONSERVATION_WIDTH + center_x]
+	        .pixelTag()
+	        .electric_power
+	    != 14) {
+		throw std::runtime_error(
+			"GPU charge did not decay to propagation state"
+		);
+	}
+	backend.submit({}, {});
+	backend.step();
+	waitForTick(backend, CONSERVATION_TICKS + 1);
+	circuit = backend.serialize();
+	for (int dy = -1; dy <= 1; ++dy) {
+		for (int dx = -1; dx <= 1; ++dx) {
+			const auto power
+				= circuit[(center_y + dy) * CONSERVATION_WIDTH + center_x + dx]
+					  .pixelTag()
+					  .electric_power;
+			const auto expected_power = dx == 0 && dy == 0 ? 13 : 15;
+			if (power != expected_power) {
+				throw std::runtime_error(
+					"GPU electricity propagation differs from CPU rules"
+				);
+			}
+		}
+	}
+}
+
 } // namespace
 
 int main() {
 	try {
 		sf::Context sfml_context;
+		validateMaterialConservation();
 		wf::GpuPhysicsBackend backend(WIDTH, HEIGHT);
 		const auto diagnostics = backend.diagnostics();
 		std::cout << std::format(
@@ -142,9 +257,32 @@ int main() {
 			return cell.type() == wf::PixelType::Steam;
 		}
 		);
+		const auto water_count = std::ranges::count_if(
+			serialized, [](wf::PackedCellState cell) {
+			return cell.type() == wf::PixelType::Water;
+		}
+		);
+		const auto oil_count = std::ranges::count_if(
+			serialized, [](wf::PackedCellState cell) {
+			return cell.type() == wf::PixelType::Oil;
+		}
+		);
+		const auto total_heat = std::ranges::fold_left(
+			serialized, std::uint64_t{0}, [](std::uint64_t total, auto cell) {
+			return total + cell.heat();
+		}
+		);
 		if (smoke_count == 0 || steam_count == 0) {
 			throw std::runtime_error(
 				"Burning tank did not produce smoke and steam"
+			);
+		}
+		if (steam_count < 20'000 || steam_count > 31'000 || smoke_count < 24'000
+		    || smoke_count > 38'000 || water_count < 180'000
+		    || water_count > 220'000 || oil_count > 5'000
+		    || total_heat < 14'300'000 || total_heat > 17'600'000) {
+			throw std::runtime_error(
+				"Burning-tank behavior exceeds CPU parity tolerances"
 			);
 		}
 		std::cout << std::format(
@@ -157,10 +295,11 @@ int main() {
 		);
 		std::cout << std::format(
 			"active chunks: {}, processed cells: {}, conflicts: {}, "
-			"transitions: {}, smoke: {}, steam: {}\n",
+			"transitions: {}, oil: {}, water: {}, smoke: {}, steam: {}, "
+			"heat: {}\n",
 			frame.timings.active_chunks, frame.timings.processed_cells,
 			frame.timings.movement_conflicts, frame.timings.transitions,
-			smoke_count, steam_count
+			oil_count, water_count, smoke_count, steam_count, total_heat
 		);
 		std::cout << std::format(
 			"GPU passes: apply {:.3f}, chunks {:.3f}, thermal {:.3f}, "

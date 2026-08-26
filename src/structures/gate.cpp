@@ -1,6 +1,7 @@
 #include "wforge/elements.h"
 #include "wforge/fallsand.h"
 #include "wforge/structures.h"
+#include <algorithm>
 #include <cstdlib>
 
 namespace wf::structure {
@@ -275,6 +276,27 @@ void Gate::customRender(
 
 int Gate::priority() const noexcept {
 	return 5; // gates must be earlier than lasers
+}
+
+std::array<int, 4> Gate::queryBounds(const PixelWorld &world) const noexcept {
+	(void)world;
+	const int dx = xDeltaOf(_dir);
+	const int dy = yDeltaOf(_dir);
+	const int end_x = _base_place_x - _max_open_length * dx;
+	const int end_y = _base_place_y - _max_open_length * dy;
+	const int left = std::min({x, _base_place_x, end_x});
+	const int top = std::min({y, _base_place_y, end_y});
+	const int right = std::max({
+		x + width(),
+		_base_place_x + _gate_wall_shape.width(),
+		end_x + _gate_wall_shape.width(),
+	});
+	const int bottom = std::max({
+		y + height(),
+		_base_place_y + _gate_wall_shape.height(),
+		end_y + _gate_wall_shape.height(),
+	});
+	return {left, top, right - left, bottom - top};
 }
 
 } // namespace wf::structure

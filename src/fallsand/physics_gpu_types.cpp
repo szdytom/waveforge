@@ -73,6 +73,11 @@ PackedCellState PackedCellState::fromTags(
 	       << 26U)
 		| (static_cast<std::uint32_t>(static_tag.is_reflective_surface) << 27U);
 	state.dynamics = tag.heat;
+	if (tag.type == PixelType::Oil) {
+		state.setBurnLifetime(48);
+	} else if (tag.type == PixelType::Wood) {
+		state.setBurnLifetime(96);
+	}
 	return state;
 }
 

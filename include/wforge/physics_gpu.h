@@ -16,7 +16,7 @@ namespace wf {
 
 constexpr std::uint32_t PHYSICS_CHUNK_SIZE = 32;
 constexpr std::uint32_t PHYSICS_READBACK_RING_SIZE = 3;
-constexpr std::uint32_t PHYSICS_MAX_QUERY_CELLS = 16 * 1024;
+constexpr std::uint32_t PHYSICS_MAX_QUERY_CELLS = 640 * 1024;
 
 enum class PhysicsInteractionFlag : std::uint32_t {
 	None = 0,
@@ -121,6 +121,7 @@ private:
 enum class WorldQueryKind : std::uint32_t {
 	DuckRegion,
 	StructureSensors,
+	ItemRegion,
 	DebugRegion,
 };
 

@@ -121,7 +121,10 @@ bool PixelShapedStructure::step(PixelWorld &world) const noexcept {
 	return true;
 }
 
-std::array<int, 4> PixelShapedStructure::queryBounds() const noexcept {
+std::array<int, 4> PixelShapedStructure::queryBounds(
+	const PixelWorld &world
+) const noexcept {
+	(void)world;
 	return {x, y, width(), height()};
 }
 

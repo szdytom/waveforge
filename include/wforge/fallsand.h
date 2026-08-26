@@ -9,6 +9,7 @@
 #include <proxy/v4/proxy.h>
 #include <proxy/v4/proxy_macros.h>
 #include <span>
+#include <unordered_set>
 #include <vector>
 
 namespace wf {
@@ -45,7 +46,7 @@ struct StructureEntityFacade : pro::facade_builder
 	::add_convention<_dispatch::MemCustomRender, void(std::span<std::uint8_t> buf, const PixelWorld &world) const noexcept>
 	::add_convention<_dispatch::MemStep, bool(PixelWorld &world) noexcept>
 	::add_convention<_dispatch::MemPriority, int() const noexcept> // lower value means higher priority
-	::add_convention<_dispatch::MemQueryBounds, std::array<int, 4>() const noexcept>
+	::add_convention<_dispatch::MemQueryBounds, std::array<int, 4>(const PixelWorld &world) const noexcept>
 	::build {};
 /* clang-format on */
 
@@ -165,9 +166,11 @@ public:
 
 	void step();
 
-	void requestQueryRegion(
+	std::uint32_t requestQueryRegion(
 		WorldQueryKind kind, int x, int y, int width, int height
 	);
+	bool consumeQueryResult(std::uint32_t query_id) noexcept;
+	void pollCompletedFrame();
 
 	void renderToBuffer(std::span<std::uint8_t> buf) const noexcept;
 	[[nodiscard]] bool renderHeatToBuffer(
@@ -204,6 +207,8 @@ private:
 	std::unique_ptr<PixelTag[]> _submitted_tags;
 	std::unique_ptr<StaticPixelTag[]> _submitted_static_tags;
 	std::vector<std::array<int, 6>> _gpu_query_regions;
+	std::unordered_set<std::uint32_t> _tracked_gpu_queries;
+	std::unordered_set<std::uint32_t> _completed_gpu_queries;
 	std::uint64_t _last_gpu_frame = std::numeric_limits<std::uint64_t>::max();
 	std::uint32_t _next_gpu_query_id = 1;
 	bool _gpu_level_uploaded = false;

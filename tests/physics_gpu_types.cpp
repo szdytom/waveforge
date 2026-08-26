@@ -26,6 +26,7 @@ void testPacking() {
 		.is_reflective_surface = true,
 	};
 	auto packed = wf::PackedCellState::fromTags(tag, static_tag);
+	assert(packed.burnLifetime() == 48);
 	packed.setBurnLifetime(47);
 	packed.setVelocity(-12, 23);
 	const auto unpacked = packed.pixelTag();

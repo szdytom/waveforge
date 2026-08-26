@@ -269,7 +269,7 @@ void PixelWorld::step() {
 		_static_tags[index].laser_stroke = false;
 	}
 	for (const auto &structure : _structures) {
-		auto [x, y, width, height] = structure->queryBounds();
+		auto [x, y, width, height] = structure->queryBounds(*this);
 		requestQueryRegion(
 			WorldQueryKind::StructureSensors, x, y, width, height
 		);
@@ -321,11 +321,37 @@ void PixelWorld::step() {
 #endif
 }
 
-void PixelWorld::requestQueryRegion(
+std::uint32_t PixelWorld::requestQueryRegion(
 	WorldQueryKind kind, int x, int y, int width, int height
 ) {
 #ifdef WAVEFORGE_ENABLE_WEBGPU
 	if (width > 0 && height > 0) {
+		const int right = x + width;
+		const int bottom = y + height;
+		for (auto &region : _gpu_query_regions) {
+			if (region[0] != static_cast<int>(std::to_underlying(kind))) {
+				continue;
+			}
+			const int region_right = region[2] + region[4];
+			const int region_bottom = region[3] + region[5];
+			if (region[2] <= x && region[3] <= y && region_right >= right
+			    && region_bottom >= bottom) {
+				const auto query_id = static_cast<std::uint32_t>(region[1]);
+				if (kind == WorldQueryKind::ItemRegion) {
+					_tracked_gpu_queries.insert(query_id);
+				}
+				return query_id;
+			}
+		}
+		std::erase_if(_gpu_query_regions, [&](const auto &region) {
+			if (region[0] != static_cast<int>(std::to_underlying(kind))) {
+				return false;
+			}
+			const int region_right = region[2] + region[4];
+			const int region_bottom = region[3] + region[5];
+			return x <= region[2] && y <= region[3] && right >= region_right
+				&& bottom >= region_bottom;
+		});
 		_gpu_query_regions.push_back({
 			static_cast<int>(std::to_underlying(kind)),
 			static_cast<int>(_next_gpu_query_id++),
@@ -334,6 +360,11 @@ void PixelWorld::requestQueryRegion(
 			width,
 			height,
 		});
+		const auto query_id = _next_gpu_query_id - 1;
+		if (kind == WorldQueryKind::ItemRegion) {
+			_tracked_gpu_queries.insert(query_id);
+		}
+		return query_id;
 	}
 #else
 	(void)kind;
@@ -341,6 +372,28 @@ void PixelWorld::requestQueryRegion(
 	(void)y;
 	(void)width;
 	(void)height;
+#endif
+	return 0;
+}
+
+bool PixelWorld::consumeQueryResult(std::uint32_t query_id) noexcept {
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	if (_completed_gpu_queries.erase(query_id) == 0) {
+		return false;
+	}
+	_tracked_gpu_queries.erase(query_id);
+	return true;
+#else
+	(void)query_id;
+	return true;
+#endif
+}
+
+void PixelWorld::pollCompletedFrame() {
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	if (_gpu_level_uploaded) {
+		_applyCompletedGpuFrame();
+	}
 #endif
 }
 
@@ -355,6 +408,9 @@ void PixelWorld::_applyCompletedGpuFrame() {
 		return;
 	}
 	for (const auto &result : frame.queries->results()) {
+		if (_tracked_gpu_queries.contains(result.id)) {
+			_completed_gpu_queries.insert(result.id);
+		}
 		const auto cells = frame.queries->cells(result.id);
 		for (std::uint32_t local_y = 0; local_y < result.height; ++local_y) {
 			for (std::uint32_t local_x = 0; local_x < result.width; ++local_x) {

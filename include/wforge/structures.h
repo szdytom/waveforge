@@ -30,7 +30,9 @@ struct PixelShapedStructure : PositionedStructure {
 	) const noexcept;
 
 	bool step(PixelWorld &world) const noexcept;
-	[[nodiscard]] std::array<int, 4> queryBounds() const noexcept;
+	[[nodiscard]] std::array<int, 4> queryBounds(
+		const PixelWorld &world
+	) const noexcept;
 
 protected:
 	int width() const noexcept {
@@ -74,6 +76,9 @@ struct OutputElectricalStructure : PixelShapedStructure {
 struct LaserEmitter : InputElectricalStructure {
 	bool step(PixelWorld &world) noexcept;
 	int priority() const noexcept;
+	[[nodiscard]] std::array<int, 4> queryBounds(
+		const PixelWorld &world
+	) const noexcept;
 
 	LaserEmitter(int x, int y, FacingDirection dir);
 
@@ -131,6 +136,9 @@ struct Gate : InputElectricalStructure {
 		std::span<std::uint8_t> buf, const PixelWorld &world
 	) const noexcept;
 	int priority() const noexcept;
+	[[nodiscard]] std::array<int, 4> queryBounds(
+		const PixelWorld &world
+	) const noexcept;
 
 	Gate(int x, int y, FacingDirection dir);
 

@@ -2,6 +2,7 @@
 #include "wforge/colorpalette.h"
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cstring>
 #include <format>
@@ -123,7 +124,8 @@ const IGNITED_MASK = 0x10000u;
 const FALLING_MASK = 0x20000u;
 const FLUID_DIRECTION_MASK = 0xc0000u;
 const ELECTRICITY_MASK = 0xf00000u;
-const TRANSIENT_MASK = 0xf000000u;
+const TRANSIENT_MASK = 0x7000000u;
+const LOCATION_MASK = 0xf000000u;
 const HEAT_MASK = 0x7fu;
 const BURN_MASK = 0x7f80u;
 const AIR = 2u;
@@ -164,6 +166,22 @@ fn with_type(cell: Cell, kind: u32) -> Cell {
 		cell.dynamics
 	);
 }
+fn initial_burn_lifetime(kind: u32, index: u32) -> u32 {
+	if (kind == OIL) {
+		return 36u + countOneBits(hash(index, 9u, 0u) & 0xffffffu);
+	}
+	if (kind == WOOD) {
+		return 72u + countOneBits(hash(index, 9u, 0u) & 0xffffffu)
+			+ countOneBits(hash(index, 9u, 1u) & 0xffffffu);
+	}
+	return 0u;
+}
+fn at_location(cell: Cell, location: Cell) -> Cell {
+	return Cell(
+		(cell.metadata & ~LOCATION_MASK) | (location.metadata & LOCATION_MASK),
+		cell.dynamics
+	);
+}
 fn hash(cell: u32, pass_id: u32, direction: u32) -> u32 {
 	var value = params.tick ^ cell * 0x9e3779b9u ^ pass_id * 0x85ebca6bu ^ direction * 0xc2b2ae35u;
 	value = (value ^ (value >> 16u)) * 0x7feb352du;
@@ -194,6 +212,12 @@ fn chunk_active(index: u32) -> bool {
 fn entity_blocks(index: u32) -> bool {
 	return (state_in[index].metadata & (1u << 26u)) != 0u;
 }
+fn gas_can_swap(target_index: u32, source: Cell) -> bool {
+	let target_cell = state_in[target_index];
+	return cell_class(target_cell) == FLUID_CLASS
+		|| (cell_class(target_cell) == GAS_CLASS
+			&& density(target_cell) > density(source));
+}
 fn in_command(command: EditCommand, x: i32, y: i32) -> bool {
 	return x >= command.x && y >= command.y
 		&& x < command.x + i32(command.width)
@@ -216,8 +240,10 @@ fn apply_commands(@builtin(global_invocation_id) id: vec3<u32>) {
 			if ((command.secondary_value & 0xffu) != 255u) {
 				cell.metadata = (cell.metadata & ~COLOR_MASK) | ((command.secondary_value & 0xffu) << 8u);
 			}
-			if (command.value == OIL) { cell.dynamics = (cell.dynamics & ~BURN_MASK) | (48u << 7u); }
-			if (command.value == WOOD) { cell.dynamics = (cell.dynamics & ~BURN_MASK) | (96u << 7u); }
+			if (command.value == OIL || command.value == WOOD) {
+				cell.dynamics = (cell.dynamics & ~BURN_MASK)
+					| (initial_burn_lifetime(command.value, index) << 7u);
+			}
 		} else if (command.kind == 1u) {
 			cell = Cell(params.air_metadata, 0u);
 		} else if (command.kind == 2u) {
@@ -313,7 +339,10 @@ fn transitions(@builtin(global_invocation_id) id: vec3<u32>) {
 	var cell = state_in[index];
 	var kind = cell_type(cell);
 	let heat = cell_heat(cell);
-	if (kind == WATER && heat >= 30u) {
+	if ((kind == SMOKE || kind == STEAM) && index < params.width) {
+		cell = with_type(cell, AIR);
+		atomicAdd(&counters[3], 1u);
+	} else if (kind == WATER && heat >= 30u) {
 		cell = with_type(cell, STEAM);
 		atomicAdd(&counters[3], 1u);
 	} else if (kind == STEAM && heat <= 10u) {
@@ -339,8 +368,9 @@ fn transitions(@builtin(global_invocation_id) id: vec3<u32>) {
 				}
 			}
 			if (valid_neighbor(index, 2u)) {
-				let smoke_chance = select(3u, 2u, kind == WOOD);
-				if (hash(index, 4u, 2u) % 100u < smoke_chance) {
+				// Normalize oil smoke for simultaneous GPU updates; wood remains 2%.
+				let smoke_chance = select(1u, 6u, kind == WOOD);
+				if (hash(index, 4u, 2u) % 300u < smoke_chance) {
 					let smoke_bits = 0x80000000u | select(0x40000000u, 0u, kind == WOOD);
 					atomicOr(&scratch[neighbor(index, 2u)].electricity, smoke_bits);
 				}
@@ -379,6 +409,15 @@ fn movement_target(index: u32, pressure_only: bool) -> u32 {
 	let preferred = select(0u, 1u, ((params.tick + params.pressure_direction) & 1u) != 0u);
 	if (pressure_only) {
 		if (pixel_class != FLUID_CLASS) { return INVALID_CELL; }
+		if (valid_neighbor(index, 2u) && valid_neighbor(index, 3u)) {
+			let above_index = neighbor(index, 2u);
+			let below_index = neighbor(index, 3u);
+			if (!entity_blocks(above_index)
+				&& cell_class(state_in[above_index]) == GAS_CLASS
+				&& cell_type(state_in[below_index]) == kind) {
+				return above_index;
+			}
+		}
 		for (var attempt = 0u; attempt < 2u; attempt++) {
 			let direction = select(preferred, 1u - preferred, attempt != 0u);
 			if (valid_neighbor(index, direction)) {
@@ -405,12 +444,40 @@ fn movement_target(index: u32, pressure_only: bool) -> u32 {
 			if (pixel_class == FLUID_CLASS && !entity_blocks(side_index) && cell_class(state_in[side_index]) == GAS_CLASS) { return side_index; }
 		}
 	} else if (pixel_class == GAS_CLASS && kind != AIR) {
-		if (valid_neighbor(index, 2u)) {
-			let target_index = neighbor(index, 2u);
-			let other = state_in[target_index];
-			if (!entity_blocks(target_index) && (cell_class(other) == FLUID_CLASS || (cell_class(other) == GAS_CLASS && density(other) > density(cell)))) { return target_index; }
+		let gas_direction = select(0u, 1u, (hash(index, 5u, 1u) & 1u) != 0u);
+		if (valid_neighbor(index, gas_direction) && valid_neighbor(index, 2u)
+			&& hash(index, 5u, 2u) % 100u < 50u) {
+			let diagonal = neighbor(neighbor(index, gas_direction), 2u);
+			if (!entity_blocks(diagonal) && gas_can_swap(diagonal, cell)) {
+				return diagonal;
+			}
 		}
-		if (valid_neighbor(index, preferred) && !entity_blocks(neighbor(index, preferred)) && cell_class(state_in[neighbor(index, preferred)]) == GAS_CLASS) { return neighbor(index, preferred); }
+		if (valid_neighbor(index, 2u)) {
+			let above_index = neighbor(index, 2u);
+			if (!entity_blocks(above_index) && gas_can_swap(above_index, cell)) {
+				return above_index;
+			}
+		}
+		let direction_delta = select(-1, 1, gas_direction == 1u);
+		let source_x = i32(index % params.width);
+		let source_y = i32(index / params.width);
+		var candidate = INVALID_CELL;
+		for (var distance = 1; distance <= 4; distance++) {
+			let target_x = source_x + direction_delta * distance;
+			if (target_x < 0 || target_x >= i32(params.width)) { break; }
+			let side_index = u32(source_y) * params.width + u32(target_x);
+			if (cell_class(state_in[side_index]) == SOLID_CLASS) { break; }
+			if (source_y > 0) {
+				let diagonal = side_index - params.width;
+				if (!entity_blocks(diagonal) && gas_can_swap(diagonal, cell)) {
+					return diagonal;
+				}
+			}
+			if (!entity_blocks(side_index) && gas_can_swap(side_index, cell)) {
+				candidate = side_index;
+			}
+		}
+		return candidate;
 	}
 	return INVALID_CELL;
 }
@@ -441,6 +508,47 @@ fn movement_propose(@builtin(global_invocation_id) id: vec3<u32>) { propose_move
 @compute @workgroup_size(256)
 fn pressure_propose(@builtin(global_invocation_id) id: vec3<u32>) { propose_movement(id.x, true); }
 
+fn lift_pressurized_fluid(index: u32, phase: u32) {
+	if (index >= cell_count()) { return; }
+	let cell = state_in[index];
+	if (!chunk_active(index)) { state_out[index] = cell; return; }
+	let y = index / params.width;
+	let lower_half = ((y + phase) & 1u) == 0u;
+	let direction = select(2u, 3u, lower_half);
+	if (!valid_neighbor(index, direction)) { state_out[index] = cell; return; }
+	let paired_index = neighbor(index, direction);
+	let upper_index = min(index, paired_index);
+	let lower_index = max(index, paired_index);
+	let upper = state_in[upper_index];
+	let lower = state_in[lower_index];
+	if (cell_class(upper) == GAS_CLASS && cell_class(lower) == FLUID_CLASS
+		&& !entity_blocks(upper_index) && valid_neighbor(lower_index, 3u)
+		&& cell_type(state_in[neighbor(lower_index, 3u)]) == cell_type(lower)) {
+		if (index == lower_index) {
+			state_out[index] = at_location(upper, lower);
+		} else {
+			state_out[index] = at_location(lower, upper);
+		}
+		return;
+	}
+	state_out[index] = cell;
+}
+
+@compute @workgroup_size(256)
+fn pressure_lift_0(@builtin(global_invocation_id) id: vec3<u32>) { lift_pressurized_fluid(id.x, 0u); }
+@compute @workgroup_size(256)
+fn pressure_lift_1(@builtin(global_invocation_id) id: vec3<u32>) { lift_pressurized_fluid(id.x, 1u); }
+
+fn accepted_target(source: u32) -> u32 {
+	let target_index = scratch[source].proposal_dest;
+	if (target_index == INVALID_CELL) { return INVALID_CELL; }
+	let target_winner = atomicLoad(&scratch[target_index].winner);
+	if ((target_winner & 0xfffffu) != ((source + 1u) & 0xfffffu)) {
+		return INVALID_CELL;
+	}
+	return target_index;
+}
+
 @compute @workgroup_size(256)
 fn movement_apply(@builtin(global_invocation_id) id: vec3<u32>) {
 	let index = id.x;
@@ -449,17 +557,25 @@ fn movement_apply(@builtin(global_invocation_id) id: vec3<u32>) {
 	let winning = atomicLoad(&scratch[index].winner);
 	if (winning != 0u) {
 		let source = (winning & 0xfffffu) - 1u;
-		state_out[index] = state_in[source];
+		state_out[index] = at_location(state_in[source], state_in[index]);
 		return;
 	}
-	let target_index = scratch[index].proposal_dest;
+	var target_index = accepted_target(index);
 	if (target_index != INVALID_CELL) {
-		let target_winner = atomicLoad(&scratch[target_index].winner);
-		if ((target_winner & 0xfffffu) == ((index + 1u) & 0xfffffu)) {
-			state_out[index] = Cell(params.air_metadata, 0u);
-			return;
+		for (var step = 0u; step < cell_count(); step++) {
+			let next_target = accepted_target(target_index);
+			if (next_target == INVALID_CELL) {
+				state_out[index] = at_location(state_in[target_index], state_in[index]);
+				return;
+			}
+			target_index = next_target;
 		}
-		if (target_winner != 0u) { atomicAdd(&counters[2], 1u); }
+	}
+	let proposed_target = scratch[index].proposal_dest;
+	if (proposed_target != INVALID_CELL
+		&& accepted_target(index) == INVALID_CELL
+		&& atomicLoad(&scratch[proposed_target].winner) != 0u) {
+		atomicAdd(&counters[2], 1u);
 	}
 	state_out[index] = state_in[index];
 }
@@ -469,11 +585,19 @@ fn electricity_propose(@builtin(global_invocation_id) id: vec3<u32>) {
 	let index = id.x;
 	if (index >= cell_count() || cell_type(state_in[index]) != COPPER) { return; }
 	let power = (state_in[index].metadata & ELECTRICITY_MASK) >> 20u;
-	if (power <= 1u) { return; }
-	for (var direction = 0u; direction < 4u; direction++) {
-		if (!valid_neighbor(index, direction)) { continue; }
-		let target_index = neighbor(index, direction);
-		if (cell_type(state_in[target_index]) == COPPER) { atomicMax(&scratch[target_index].electricity, power - 1u); }
+	if (power != 14u) { return; }
+	let offsets = array<vec2<i32>, 8>(
+		vec2<i32>(-1, -1), vec2<i32>(0, -1), vec2<i32>(1, -1),
+		vec2<i32>(-1, 0), vec2<i32>(1, 0), vec2<i32>(-1, 1),
+		vec2<i32>(0, 1), vec2<i32>(1, 1)
+	);
+	let x = i32(index % params.width);
+	let y = i32(index / params.width);
+	for (var direction = 0u; direction < 8u; direction++) {
+		let target_position = vec2<i32>(x, y) + offsets[direction];
+		if (target_position.x < 0 || target_position.y < 0 || target_position.x >= i32(params.width) || target_position.y >= i32(params.height)) { continue; }
+		let target_index = u32(target_position.y) * params.width + u32(target_position.x);
+		if (cell_type(state_in[target_index]) == COPPER) { atomicMax(&scratch[target_index].electricity, 15u); }
 	}
 }
 
@@ -484,7 +608,8 @@ fn electricity_apply(@builtin(global_invocation_id) id: vec3<u32>) {
 	var cell = state_in[index];
 	let old_power = (cell.metadata & ELECTRICITY_MASK) >> 20u;
 	let proposed = atomicLoad(&scratch[index].electricity);
-	let next_power = max(select(0u, old_power - 1u, old_power > 0u), proposed);
+	let decayed_power = select(0u, old_power - 1u, old_power > 0u);
+	let next_power = select(proposed, decayed_power, decayed_power > 0u);
 	cell.metadata = (cell.metadata & ~ELECTRICITY_MASK) | ((next_power & 15u) << 20u);
 	state_in[index] = cell;
 }
@@ -724,6 +849,7 @@ private:
 	WGPUBindGroup pressure_propose_b_group = nullptr;
 	WGPUBindGroup movement_apply_ba_group = nullptr;
 	WGPUBindGroup movement_apply_ab_group = nullptr;
+	std::array<WGPUBindGroup, 2> pressure_lift_groups{};
 	WGPUBindGroup electricity_propose_group = nullptr;
 	WGPUBindGroup electricity_apply_group = nullptr;
 	WGPUBindGroup output_pixels_group = nullptr;
@@ -826,12 +952,12 @@ void GpuPhysicsBackend::Impl::_createContext() {
 		.callback =
 			[](WGPURequestAdapterStatus status, WGPUAdapter found,
 	           WGPUStringView message, void *userdata, void *) {
-		auto &result = *static_cast<AdapterResult *>(userdata);
-		result.completed = true;
-		result.success = status == WGPURequestAdapterStatus_Success;
-		result.adapter = found;
-		result.message = stringFromView(message);
-	},
+				auto &result = *static_cast<AdapterResult *>(userdata);
+				result.completed = true;
+				result.success = status == WGPURequestAdapterStatus_Success;
+				result.adapter = found;
+				result.message = stringFromView(message);
+			},
 		.userdata1 = &adapter_result,
 	};
 	wgpuInstanceRequestAdapter(instance, &options, callback);
@@ -877,7 +1003,8 @@ void GpuPhysicsBackend::Impl::_createContext() {
 			.callback = []( const WGPUDevice  *, WGPUErrorType,
 			               WGPUStringView message, void *userdata, void *) {
 				auto &self = *static_cast<Impl *>(userdata);
-				self.error = "GPU physics validation error: " + stringFromView(message);
+				self.error = "GPU physics validation error: "
+					+ stringFromView(message);
 			},
 			.userdata1 = this,
 		},
@@ -887,12 +1014,12 @@ void GpuPhysicsBackend::Impl::_createContext() {
 		.callback =
 			[](WGPURequestDeviceStatus status, WGPUDevice found,
 	           WGPUStringView message, void *userdata, void *) {
-		auto &result = *static_cast<DeviceResult *>(userdata);
-		result.completed = true;
-		result.success = status == WGPURequestDeviceStatus_Success;
-		result.device = found;
-		result.message = stringFromView(message);
-	},
+				auto &result = *static_cast<DeviceResult *>(userdata);
+				result.completed = true;
+				result.success = status == WGPURequestDeviceStatus_Success;
+				result.device = found;
+				result.message = stringFromView(message);
+			},
 		.userdata1 = &device_result,
 	};
 	wgpuAdapterRequestDevice(adapter, &descriptor, device_callback);
@@ -1079,6 +1206,7 @@ void GpuPhysicsBackend::Impl::_createPipelines() {
 		"pressure_propose",  "movement_apply",    "electricity_propose",
 		"electricity_apply", "output_pixels",     "output_queries",
 		"count_chunks",      "transition_spawns", "clear_movement_scratch",
+		"pressure_lift_0",   "pressure_lift_1",
 	};
 	for (const char *entry_point : ENTRY_POINTS) {
 		WGPUComputePipelineDescriptor pipeline_descriptor{
@@ -1238,6 +1366,19 @@ void GpuPhysicsBackend::Impl::_createBindGroups() {
 		pipelines[7], movement_apply_ab_entries,
 		"Movement apply A to B bind group"
 	);
+	for (std::uint32_t phase = 0; phase < pressure_lift_groups.size();
+	     ++phase) {
+		const bool reads_a = phase % 2 == 0;
+		std::array lift_entries{
+			entry(0, reads_a ? state_a : state_b, state_size),
+			entry(1, reads_a ? state_b : state_a, state_size),
+			entry(6, chunks, chunk_size),
+			entry(12, params, sizeof(GpuParams)),
+		};
+		pressure_lift_groups[phase] = _makeBindGroup(
+			pipelines[15 + phase], lift_entries, "Pressure lift bind group"
+		);
+	}
 	std::array electricity_entries{
 		entry(0, state_a, state_size), entry(2, scratch, scratch_size),
 		entry(12, params, sizeof(GpuParams))
@@ -1289,8 +1430,34 @@ void GpuPhysicsBackend::Impl::uploadLevel(
 			"Level state size does not match GPU world"
 		);
 	}
-	wgpuQueueWriteBuffer(queue, state_a, 0, state.data(), state_size);
-	wgpuQueueWriteBuffer(queue, state_b, 0, state.data(), state_size);
+	std::vector prepared_state(state.begin(), state.end());
+	for (std::uint32_t index = 0; index < prepared_state.size(); ++index) {
+		auto &cell = prepared_state[index];
+		if (cell.type() == PixelType::Oil) {
+			cell.setBurnLifetime(
+				static_cast<std::uint8_t>(
+					36
+					+ std::popcount(
+						physicsRandomHash(0, index, 9, 0) & 0xffffffU
+					)
+				)
+			);
+		} else if (cell.type() == PixelType::Wood) {
+			cell.setBurnLifetime(
+				static_cast<std::uint8_t>(
+					72
+					+ std::popcount(
+						physicsRandomHash(0, index, 9, 0) & 0xffffffU
+					)
+					+ std::popcount(
+						physicsRandomHash(0, index, 9, 1) & 0xffffffU
+					)
+				)
+			);
+		}
+	}
+	wgpuQueueWriteBuffer(queue, state_a, 0, prepared_state.data(), state_size);
+	wgpuQueueWriteBuffer(queue, state_b, 0, prepared_state.data(), state_size);
 	uploaded = true;
 }
 
@@ -1344,9 +1511,17 @@ void GpuPhysicsBackend::Impl::_scheduleReadback(
 			encoder, heat_rgba, 0, slot.buffer, heat_offset, heat_size
 		);
 	}
-	wgpuCommandEncoderCopyBufferToBuffer(
-		encoder, query_cells, 0, slot.buffer, query_offset, query_size
-	);
+	std::uint64_t query_copy_size = 0;
+	for (const auto &request : pending_queries) {
+		const auto clipped = clipWorldQuery(request, width, height);
+		query_copy_size += static_cast<std::uint64_t>(clipped.width)
+			* clipped.height * sizeof(PackedCellState);
+	}
+	if (query_copy_size > 0) {
+		wgpuCommandEncoderCopyBufferToBuffer(
+			encoder, query_cells, 0, slot.buffer, query_offset, query_copy_size
+		);
+	}
 	wgpuCommandEncoderCopyBufferToBuffer(
 		encoder, counters, 0, slot.buffer, counter_offset, counter_size
 	);
@@ -1381,8 +1556,12 @@ void GpuPhysicsBackend::Impl::step() {
 	}
 	poll();
 	ReadbackSlot *slot = _freeReadbackSlot();
-	if (slot == nullptr) {
-		return;
+	while (slot == nullptr) {
+		poll();
+		if (lost) {
+			throw std::runtime_error(error);
+		}
+		slot = _freeReadbackSlot();
 	}
 
 	std::vector<GpuQueryRequest> gpu_queries;
@@ -1523,6 +1702,13 @@ void GpuPhysicsBackend::Impl::step() {
 			_encodePass(pass, pipelines[6], propose_group, cell_workgroups);
 			_encodePass(pass, pipelines[7], apply_group, cell_workgroups);
 		}
+		for (std::uint32_t phase = 0; phase < pressure_lift_groups.size();
+		     ++phase) {
+			_encodePass(
+				pass, pipelines[15 + phase], pressure_lift_groups[phase],
+				cell_workgroups
+			);
+		}
 	});
 	wgpuCommandEncoderClearBuffer(
 		encoder, scratch, 0, static_cast<std::uint64_t>(cell_count) * 32
@@ -1564,19 +1750,19 @@ void GpuPhysicsBackend::Impl::step() {
 		.callback =
 			[](WGPUMapAsyncStatus status, WGPUStringView message,
 	           void *userdata, void *) {
-		auto &readback = *static_cast<ReadbackSlot *>(userdata);
-		if (status != WGPUMapAsyncStatus_Success) {
-			readback.owner->error = "GPU physics readback failed: "
-				+ stringFromView(message);
-			readback.busy = false;
-			return;
-		}
-		const void *mapped = wgpuBufferGetConstMappedRange(
-			readback.buffer, 0, readback.owner->readback_size
-		);
-		readback.owner->_finishReadback(readback, mapped);
-		wgpuBufferUnmap(readback.buffer);
-	},
+				auto &readback = *static_cast<ReadbackSlot *>(userdata);
+				if (status != WGPUMapAsyncStatus_Success) {
+					readback.owner->error = "GPU physics readback failed: "
+						+ stringFromView(message);
+					readback.busy = false;
+					return;
+				}
+				const void *mapped = wgpuBufferGetConstMappedRange(
+					readback.buffer, 0, readback.owner->readback_size
+				);
+				readback.owner->_finishReadback(readback, mapped);
+				wgpuBufferUnmap(readback.buffer);
+			},
 		.userdata1 = slot,
 	};
 	wgpuBufferMapAsync(
@@ -1715,11 +1901,11 @@ std::vector<PackedCellState> GpuPhysicsBackend::Impl::serialize() {
 		.callback =
 			[](WGPUMapAsyncStatus status, WGPUStringView message,
 	           void *userdata, void *) {
-		auto &value = *static_cast<Result *>(userdata);
-		value.completed = true;
-		value.success = status == WGPUMapAsyncStatus_Success;
-		value.message = stringFromView(message);
-	},
+				auto &value = *static_cast<Result *>(userdata);
+				value.completed = true;
+				value.success = status == WGPUMapAsyncStatus_Success;
+				value.message = stringFromView(message);
+			},
 		.userdata1 = &result,
 	};
 	wgpuBufferMapAsync(readback, WGPUMapMode_Read, 0, state_size, callback);

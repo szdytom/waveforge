@@ -9,6 +9,12 @@
 
 namespace wf {
 
+namespace {
+
+constexpr int ITEM_USE_COOLDOWN_TICKS = 6;
+
+} // namespace
+
 LevelMetadata::Difficulty LevelMetadata::parseDifficulty(
 	std::string_view diff_str
 ) noexcept {
@@ -41,8 +47,24 @@ Level::Level(int width, int height)
 
 void Level::step() {
 	_item_use_cooldown = std::max(0, _item_use_cooldown - 1);
+	fallsand.pollCompletedFrame();
 	fallsand.resetEntityPresenceTags();
 	duck.commitEntityPresence(fallsand);
+	if (_pending_item_use.has_value()
+	    && fallsand.consumeQueryResult(_pending_item_use->query_id)) {
+		const auto pending = *_pending_item_use;
+		_pending_item_use.reset();
+		if (pending.item_index >= 0
+		    && pending.item_index < static_cast<int>(items.size())
+		    && items[pending.item_index].amount > 0
+		    && items[pending.item_index].item->use(
+				*this, pending.x, pending.y
+			)) {
+			items[pending.item_index].amount -= 1;
+			_item_use_cooldown = ITEM_USE_COOLDOWN_TICKS;
+			_normalizeActiveItemIndex();
+		}
+	}
 	const int query_x = static_cast<int>(
 		std::floor(std::min(duck.position.x, duck.position.x + duck.velocity.x))
 	);
@@ -87,18 +109,33 @@ ItemStack *Level::activeItemStack() noexcept {
 }
 
 void Level::useActiveItem(int x, int y) noexcept {
-	constexpr int item_use_cooldown_ticks = 6;
-	if (_item_use_cooldown > 0) {
+	if (_item_use_cooldown > 0 || _pending_item_use.has_value()) {
 		return;
 	}
 
 	if (auto itemstack = activeItemStack()) {
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+		(void)itemstack;
+		constexpr int MAX_ITEM_BRUSH_SIZE = 24;
+		const auto query_id = fallsand.requestQueryRegion(
+			WorldQueryKind::ItemRegion, x - MAX_ITEM_BRUSH_SIZE / 2,
+			y - MAX_ITEM_BRUSH_SIZE / 2, MAX_ITEM_BRUSH_SIZE,
+			MAX_ITEM_BRUSH_SIZE
+		);
+		_pending_item_use = {
+			.item_index = _active_item_index,
+			.x = x,
+			.y = y,
+			.query_id = query_id,
+		};
+#else
 		if (itemstack->item->use(*this, x, y)) {
 			// item used successfully, decrease quantity
 			itemstack->amount -= 1;
-			_item_use_cooldown = item_use_cooldown_ticks;
+			_item_use_cooldown = ITEM_USE_COOLDOWN_TICKS;
 			_normalizeActiveItemIndex();
 		}
+#endif
 	}
 }
 
