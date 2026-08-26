@@ -1,16 +1,15 @@
 #ifndef WFORGE_SCENE_H
 #define WFORGE_SCENE_H
 
-#include "wforge/assets.h"
 #include <SFML/Graphics.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/Window.hpp>
 #include <memory>
-#include <nlohmann/json_fwd.hpp>
 #include <proxy/v4/proxy.h>
 #include <proxy/v4/proxy_macros.h>
+#include <string>
 #include <string_view>
 
 namespace wf {
@@ -38,20 +37,6 @@ struct SceneFacade : pro::facade_builder
 /* clang-format on */
 
 using Scene = pro::proxy<SceneFacade>;
-
-struct UITextDescriptor {
-	int x;
-	int y;
-	int size;
-	sf::Color color;
-
-	void render(
-		sf::RenderTarget &target, const PixelFont &font, std::string_view text,
-		int scale
-	) const;
-
-	static UITextDescriptor fromJson(const nlohmann::json &json_data);
-};
 
 int automaticScale(int width, int height, int scale_configured = 0);
 

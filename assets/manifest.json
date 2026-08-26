@@ -55,16 +55,6 @@
 			"description": "Creating duck death animation sprite sheet texture"
 		},
 		{
-			"id": "duckdeath/animation",
-			"type": "animation",
-			"input": "duckdeath/texture",
-			"frame_size": {
-				"width": 16,
-				"height": 16
-			},
-			"description": "Creating duck death animation frames"
-		},
-		{
 			"id": "checkpoint/image_1",
 			"type": "image",
 			"file": "checkpoint1.png",
@@ -134,12 +124,6 @@
 			"type": "sound",
 			"file": "sounds/duckdeath-sep.wav",
 			"description": "Loading duck death separate sound effect"
-		},
-		{
-			"id": "duckdeath/timeline",
-			"type": "json",
-			"file": "ui/duck-death.json",
-			"description": "Loading duck death timeline configuration"
 		},
 		{
 			"id": "laser-emitter/raw",
@@ -448,18 +432,6 @@
 			"description": "Creating help background texture"
 		},
 		{
-			"id": "ui-config/help",
-			"type": "json",
-			"file": "ui/help.json",
-			"description": "Loading help UI configuration"
-		},
-		{
-			"id": "ui-config/level-menu",
-			"type": "json",
-			"file": "ui/level-menu.json",
-			"description": "Loading level menu UI configuration"
-		},
-		{
 			"id": "ui/main-menu-background/image",
 			"type": "image",
 			"file": "ui/main-menu-bg.png",
@@ -470,24 +442,6 @@
 			"type": "create-texture",
 			"input": "ui/main-menu-background/image",
 			"description": "Creating main menu background texture"
-		},
-		{
-			"id": "ui-config/main-menu",
-			"type": "json",
-			"file": "ui/main-menu.json",
-			"description": "Loading main menu UI configuration"
-		},
-		{
-			"id": "ui-config/settings-menu",
-			"type": "json",
-			"file": "ui/settings.json",
-			"description": "Loading settings menu UI configuration"
-		},
-		{
-			"id": "ui-config/credits",
-			"type": "json",
-			"file": "ui/credits.json",
-			"description": "Loading credits UI configuration"
 		},
 		{
 			"id": "level/minimap/fallback/raw",

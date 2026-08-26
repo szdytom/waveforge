@@ -1,5 +1,4 @@
 #include "wforge/scene.h"
-#include "wforge/assets.h"
 #include "wforge/audio.h"
 #include "wforge/save_io.h"
 #include "wforge/version.h"
@@ -10,28 +9,8 @@
 #include <cstdlib>
 #include <format>
 #include <iostream>
-#include <nlohmann/json.hpp>
 
 namespace wf {
-
-void UITextDescriptor::render(
-	sf::RenderTarget &target, const PixelFont &font, std::string_view text,
-	int scale
-) const {
-	font.renderText(target, text, color, x, y, scale, size);
-}
-
-UITextDescriptor UITextDescriptor::fromJson(const nlohmann::json &json_data) {
-	UITextDescriptor desc;
-	desc.x = json_data.at("x");
-	desc.y = json_data.at("y");
-	desc.size = json_data.at("size");
-	desc.color = sf::Color(
-		json_data.at("color").at(0), json_data.at("color").at(1),
-		json_data.at("color").at(2), json_data.at("color").at(3)
-	);
-	return desc;
-}
 
 namespace {
 
