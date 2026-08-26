@@ -30,6 +30,7 @@ struct PixelShapedStructure : PositionedStructure {
 	) const noexcept;
 
 	bool step(PixelWorld &world) const noexcept;
+	[[nodiscard]] std::array<int, 4> queryBounds() const noexcept;
 
 protected:
 	int width() const noexcept {

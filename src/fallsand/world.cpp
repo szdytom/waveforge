@@ -3,6 +3,9 @@
 #include "wforge/elements.h"
 #include "wforge/fallsand.h"
 #include "wforge/xoroshiro.h"
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+#include "wforge/physics_gpu.h"
+#endif
 #include <SFML/Graphics/BlendMode.hpp>
 #include <algorithm>
 #include <memory>
@@ -19,6 +22,36 @@
 
 namespace wf {
 
+namespace {
+
+std::uint8_t thermalConductivityOf(PixelType type) noexcept {
+	switch (type) {
+	case PixelType::Smoke:
+	case PixelType::Air:
+		return 5;
+	case PixelType::Steam:
+		return 2;
+	case PixelType::Oil:
+		return 28;
+	case PixelType::Water:
+		return 24;
+	case PixelType::Decoration:
+		return 25;
+	case PixelType::Stone:
+		return 10;
+	case PixelType::Wood:
+		return 20;
+	case PixelType::Copper:
+		return 60;
+	case PixelType::Sand:
+		return 16;
+	default:
+		return 0;
+	}
+}
+
+} // namespace
+
 bool isDenser(PixelType a, PixelType b) noexcept {
 	return std::to_underlying(a) > std::to_underlying(b);
 }
@@ -29,18 +62,32 @@ bool isDenserOrEqual(PixelType a, PixelType b) noexcept {
 
 PixelWorld::PixelWorld() noexcept: _width(0), _height(0) {}
 
-PixelWorld::PixelWorld(int width, int height) noexcept
+PixelWorld::PixelWorld(int width, int height)
 	: _width(width)
 	, _height(height)
 	, _tags(std::make_unique<PixelTag[]>(width * height))
+#ifndef WAVEFORGE_ENABLE_WEBGPU
 	, _elements(std::make_unique<PixelElement[]>(width * height))
-	, _static_tags(std::make_unique<StaticPixelTag[]>(width * height)) {
+#endif
+	, _static_tags(std::make_unique<StaticPixelTag[]>(width * height))
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	, _gpu_backend(std::make_unique<GpuPhysicsBackend>(width, height))
+	, _submitted_tags(std::make_unique<PixelTag[]>(width * height))
+	, _submitted_static_tags(std::make_unique<StaticPixelTag[]>(width * height))
+#endif
+{
 	PixelTag airTag = element::Air().newTag();
 	for (int i = 0; i < width * height; ++i) {
 		_tags[i] = airTag;
+#ifndef WAVEFORGE_ENABLE_WEBGPU
 		_elements[i] = element::Air::create();
+#endif
 	}
 }
+
+PixelWorld::~PixelWorld() noexcept = default;
+PixelWorld::PixelWorld(PixelWorld &&) noexcept = default;
+PixelWorld &PixelWorld::operator=(PixelWorld &&) noexcept = default;
 
 PixelTag PixelWorld::tagOf(int x, int y) const noexcept {
 #ifndef NDEBUG
@@ -134,7 +181,9 @@ bool PixelWorld::isExternalEntityPresent(int x, int y) const noexcept {
 void PixelWorld::swapPixels(int x1, int y1, int x2, int y2) noexcept {
 	using std::swap; // ADL two steps
 	swap(tagOf(x1, y1), tagOf(x2, y2));
+#ifndef WAVEFORGE_ENABLE_WEBGPU
 	swap(elementOf(x1, y1), elementOf(x2, y2));
+#endif
 }
 
 void PixelWorld::swapFluids(int x1, int y1, int x2, int y2) noexcept {
@@ -147,19 +196,27 @@ void PixelWorld::swapFluids(int x1, int y1, int x2, int y2) noexcept {
 
 	using std::swap; // ADL two steps
 	swap(tag1, tag2);
+#ifndef WAVEFORGE_ENABLE_WEBGPU
 	swap(elementOf(x1, y1), elementOf(x2, y2));
+#endif
 }
 
 void PixelWorld::replacePixel(int x, int y, PixelElement new_pixel) noexcept {
 	tagOf(x, y) = new_pixel->newTag();
+#ifndef WAVEFORGE_ENABLE_WEBGPU
 	elementOf(x, y) = std::move(new_pixel);
+#endif
 }
 
 void PixelWorld::replacePixel(
 	int x, int y, PixelElement new_pixel, PixelTag new_tag
 ) noexcept {
 	tagOf(x, y) = new_tag;
+#ifndef WAVEFORGE_ENABLE_WEBGPU
 	elementOf(x, y) = std::move(new_pixel);
+#else
+	(void)new_pixel;
+#endif
 }
 
 void PixelWorld::replacePixelWithAir(int x, int y) noexcept {
@@ -167,7 +224,13 @@ void PixelWorld::replacePixelWithAir(int x, int y) noexcept {
 }
 
 void PixelWorld::chargeElement(int x, int y) noexcept {
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	if (tagOf(x, y).type == PixelType::Copper) {
+		tagOf(x, y).electric_power = PixelTag::electric_power_max;
+	}
+#else
 	elementOf(x, y)->onCharge(*this, x, y);
+#endif
 }
 
 bool PixelWorld::typeOfIs(int x, int y, PixelType ptype) const noexcept {
@@ -184,7 +247,44 @@ void PixelWorld::resetDirtyFlags() noexcept {
 	}
 }
 
-void PixelWorld::step() noexcept {
+void PixelWorld::step() {
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	if (!_gpu_level_uploaded) {
+		std::vector<PackedCellState> state(_width * _height);
+		for (int index = 0; index < _width * _height; ++index) {
+			state[index] = PackedCellState::fromTags(
+				_tags[index], _static_tags[index]
+			);
+			_submitted_tags[index] = _tags[index];
+			_submitted_static_tags[index] = _static_tags[index];
+		}
+		_gpu_backend->uploadLevel(state);
+		_gpu_level_uploaded = true;
+	} else {
+		_applyCompletedGpuFrame();
+	}
+
+	for (int index = 0; index < _width * _height; ++index) {
+		_static_tags[index].laser_active = false;
+		_static_tags[index].laser_stroke = false;
+	}
+	for (const auto &structure : _structures) {
+		auto [x, y, width, height] = structure->queryBounds();
+		requestQueryRegion(
+			WorldQueryKind::StructureSensors, x, y, width, height
+		);
+	}
+	std::vector<StructureEntity> next_structures;
+	next_structures.reserve(_structures.size());
+	for (auto &structure : _structures) {
+		if (structure->step(*this)) {
+			next_structures.push_back(std::move(structure));
+		}
+	}
+	_structures = std::move(next_structures);
+	_submitGpuEdits();
+	return;
+#else
 	for (int i = 0; i < _width * _height; ++i) {
 		_static_tags[i].laser_active = false;
 		_static_tags[i].laser_stroke = false;
@@ -218,7 +318,109 @@ void PixelWorld::step() noexcept {
 	}
 
 	resetDirtyFlags();
+#endif
 }
+
+void PixelWorld::requestQueryRegion(
+	WorldQueryKind kind, int x, int y, int width, int height
+) {
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	if (width > 0 && height > 0) {
+		_gpu_query_regions.push_back({
+			static_cast<int>(std::to_underlying(kind)),
+			static_cast<int>(_next_gpu_query_id++),
+			x,
+			y,
+			width,
+			height,
+		});
+	}
+#else
+	(void)kind;
+	(void)x;
+	(void)y;
+	(void)width;
+	(void)height;
+#endif
+}
+
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+void PixelWorld::_applyCompletedGpuFrame() {
+	_gpu_backend->poll();
+	if (!_gpu_backend->frameReady()) {
+		return;
+	}
+	const auto frame = _gpu_backend->latestFrame();
+	if (frame.tick == _last_gpu_frame || frame.queries == nullptr) {
+		return;
+	}
+	for (const auto &result : frame.queries->results()) {
+		const auto cells = frame.queries->cells(result.id);
+		for (std::uint32_t local_y = 0; local_y < result.height; ++local_y) {
+			for (std::uint32_t local_x = 0; local_x < result.width; ++local_x) {
+				const int x = result.x + local_x;
+				const int y = result.y + local_y;
+				const int index = y * _width + x;
+				PixelTag tag = cells[local_y * result.width + local_x]
+								   .pixelTag();
+				tag.thermal_conductivity = thermalConductivityOf(tag.type);
+				_tags[index] = tag;
+				_submitted_tags[index] = tag;
+			}
+		}
+	}
+	_last_gpu_frame = frame.tick;
+}
+
+void PixelWorld::_submitGpuEdits() {
+	WorldEditBatch edits;
+	for (int index = 0; index < _width * _height; ++index) {
+		const int x = index % _width;
+		const int y = index / _width;
+		const auto current = _tags[index];
+		const auto previous = _submitted_tags[index];
+		if (current.type != previous.type
+		    || current.color_index != previous.color_index) {
+			edits.paintMaterial(x, y, 1, 1, current.type, current.color_index);
+		}
+		if (current.heat != previous.heat) {
+			edits.addHeat(
+				x, y, 1, 1,
+				static_cast<int>(current.heat) - static_cast<int>(previous.heat)
+			);
+		}
+		if (current.electric_power != previous.electric_power) {
+			edits.chargeRegion(x, y, 1, 1, current.electric_power);
+		}
+		const auto static_tag = _static_tags[index];
+		if (static_tag.external_entity_present) {
+			edits.setEntityMask(x, y, 1, 1, true);
+		}
+		if (static_tag.laser_active || static_tag.laser_stroke) {
+			edits.setLaser(
+				x, y, static_tag.laser_active, static_tag.laser_stroke
+			);
+		}
+		_submitted_tags[index] = current;
+		_submitted_static_tags[index] = static_tag;
+	}
+	std::vector<WorldQueryRequest> queries;
+	queries.reserve(_gpu_query_regions.size());
+	for (const auto &region : _gpu_query_regions) {
+		queries.push_back({
+			.kind = static_cast<WorldQueryKind>(region[0]),
+			.id = static_cast<std::uint32_t>(region[1]),
+			.x = region[2],
+			.y = region[3],
+			.width = static_cast<std::uint32_t>(region[4]),
+			.height = static_cast<std::uint32_t>(region[5]),
+		});
+	}
+	_gpu_query_regions.clear();
+	_gpu_backend->submit(std::move(edits), std::move(queries));
+	_gpu_backend->step();
+}
+#endif
 
 void PixelWorld::resetEntityPresenceTags() noexcept {
 	for (int i = 0; i < _width * _height; ++i) {
@@ -251,6 +453,20 @@ void PixelWorld::renderToBuffer(std::span<std::uint8_t> buf) const noexcept {
 		);
 		cpptrace::generate_trace().print(std::cerr);
 		std::abort();
+	}
+#endif
+
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	_gpu_backend->poll();
+	if (_gpu_backend->frameReady()) {
+		const auto frame = _gpu_backend->latestFrame();
+		if (frame.rgba.size() == buf.size()) {
+			std::ranges::copy(frame.rgba, buf.begin());
+			for (const auto &structure : _structures) {
+				structure->customRender(buf, *this);
+			}
+			return;
+		}
 	}
 #endif
 
@@ -295,6 +511,24 @@ void PixelWorld::renderToBuffer(std::span<std::uint8_t> buf) const noexcept {
 	for (auto &s : _structures) {
 		s->customRender(buf, *this);
 	}
+}
+
+bool PixelWorld::renderHeatToBuffer(
+	std::span<std::uint8_t> buf
+) const noexcept {
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	_gpu_backend->poll();
+	if (_gpu_backend->frameReady()) {
+		const auto frame = _gpu_backend->latestFrame();
+		if (frame.heat_rgba.size() == buf.size()) {
+			std::ranges::copy(frame.heat_rgba, buf.begin());
+			return true;
+		}
+	}
+#else
+	(void)buf;
+#endif
+	return false;
 }
 
 } // namespace wf

@@ -1,5 +1,9 @@
 include(FetchContent)
 
+if(WAVEFORGE_ENABLE_WEBGPU)
+    include("${CMAKE_CURRENT_LIST_DIR}/wgpu.cmake")
+endif()
+
 # For some reasons, msft_proxy4's CMakeLists.txt is not compatible with SFML's CMakeLists.txt
 # Therefore, msft_proxy4 must be made available before SFML.
 
@@ -51,8 +55,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(argparse)
 
 # QuickJS: Next Generation
-# IMPORTANTE NOTE ON FUTURE UPDATES: The "js_hacks.h" header heavily relies on the internal 
-# structure of QuickJS, so it MUST BE REVIEWED after updating the QuickJS submodule, even for 
+# IMPORTANT NOTE ON FUTURE UPDATES: The "js_hacks.h" header heavily relies on the internal
+# structure of QuickJS, so it MUST BE REVIEWED after updating the QuickJS submodule, even for
 # minor updates.
 FetchContent_Declare(
 	quickjs

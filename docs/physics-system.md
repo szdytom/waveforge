@@ -2,6 +2,25 @@
 
 Waveforge uses a custom physics system to simulate the movement and interactions of entities within the game world. Different from most physics engines (like Box2D), Waveforge's physics system is pixel-simulation-based, meaning that it operates on a per-pixel basis rather than using continuous mathematics. The system is actually a cellular automaton with many rules that govern how entities move and interact with the environment.
 
+The production pixel world is authoritative on the GPU through `wgpu-native`.
+Each tick applies batched CPU edits, updates active 32x32 chunks, runs thermal
+and material transitions, resolves deterministic movement proposals, performs
+local liquid equalization, propagates electricity, and produces rendering and
+query output in one command encoder. Stateless hashes based on the tick, cell,
+pass, and direction make parallel choices reproducible.
+
+Gameplay entities remain on the CPU. The duck requests a padded region around
+its current and predicted position, while structures request their sensor
+regions. They consume immutable results from the previous completed GPU tick
+and submit changes for the next tick. Normal simulation never reads back the
+full packed world; full state readback is reserved for explicit serialization.
+RGBA output uses a three-buffer asynchronous readback ring for SFML upload.
+
+The former CPU simulator remains available when WebGPU is disabled for
+reference benchmarks and developer tests. Production builds enable WebGPU by
+default, do not allocate the CPU `PixelElement` proxy array, and report device
+loss instead of silently switching simulation rules.
+
 Furthermore, some pixels of a particular pattern can be grouped together to form _structures_. A structure can have special behaviors that differ from the individual pixels composing it.
 
 ## Pixel Classes

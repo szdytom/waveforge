@@ -133,7 +133,7 @@ struct LevelMetadata {
 };
 
 struct Level {
-	Level(int width, int height) noexcept;
+	Level(int width, int height);
 
 	static Level loadFromAsset(const std::string &level_id);
 	static Level loadFromMetadata(LevelMetadata metadata);

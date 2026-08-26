@@ -121,5 +121,9 @@ bool PixelShapedStructure::step(PixelWorld &world) const noexcept {
 	return true;
 }
 
+std::array<int, 4> PixelShapedStructure::queryBounds() const noexcept {
+	return {x, y, width(), height()};
+}
+
 } // namespace structure
 } // namespace wf

@@ -1,7 +1,9 @@
 #ifndef WFORGE_FALLSAND_H
 #define WFORGE_FALLSAND_H
 
+#include <array>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <proxy/proxy.h>
 #include <proxy/v4/proxy.h>
@@ -21,11 +23,14 @@ PRO_DEF_MEM_DISPATCH(MemOnCharge, onCharge);
 PRO_DEF_MEM_DISPATCH(MemSetup, setup);
 PRO_DEF_MEM_DISPATCH(MemCustomRender, customRender);
 PRO_DEF_MEM_DISPATCH(MemPriority, priority);
+PRO_DEF_MEM_DISPATCH(MemQueryBounds, queryBounds);
 
 } // namespace _dispatch
 
 struct PixelTag;
 class PixelWorld;
+class GpuPhysicsBackend;
+enum class WorldQueryKind : std::uint32_t;
 
 /* clang-format off */
 // See microsoft/proxy library for the semantics of proxy and facade
@@ -40,6 +45,7 @@ struct StructureEntityFacade : pro::facade_builder
 	::add_convention<_dispatch::MemCustomRender, void(std::span<std::uint8_t> buf, const PixelWorld &world) const noexcept>
 	::add_convention<_dispatch::MemStep, bool(PixelWorld &world) noexcept>
 	::add_convention<_dispatch::MemPriority, int() const noexcept> // lower value means higher priority
+	::add_convention<_dispatch::MemQueryBounds, std::array<int, 4>() const noexcept>
 	::build {};
 /* clang-format on */
 
@@ -112,7 +118,12 @@ public:
 	constexpr static float gAcceleration = 0.5f;
 
 	PixelWorld() noexcept;
-	PixelWorld(int width, int height) noexcept;
+	PixelWorld(int width, int height);
+	~PixelWorld() noexcept;
+	PixelWorld(PixelWorld &&) noexcept;
+	PixelWorld &operator=(PixelWorld &&) noexcept;
+	PixelWorld(const PixelWorld &) = delete;
+	PixelWorld &operator=(const PixelWorld &) = delete;
 
 	int width() const noexcept {
 		return _width;
@@ -152,9 +163,16 @@ public:
 	bool typeOfIs(int x, int y, PixelType ptype) const noexcept;
 	bool classOfIs(int x, int y, PixelClass pclass) const noexcept;
 
-	void step() noexcept;
+	void step();
+
+	void requestQueryRegion(
+		WorldQueryKind kind, int x, int y, int width, int height
+	);
 
 	void renderToBuffer(std::span<std::uint8_t> buf) const noexcept;
+	[[nodiscard]] bool renderHeatToBuffer(
+		std::span<std::uint8_t> buf
+	) const noexcept;
 
 	void addStructure(StructureEntity structure);
 
@@ -177,6 +195,19 @@ private:
 	std::unique_ptr<PixelElement[]> _elements;
 	std::unique_ptr<StaticPixelTag[]> _static_tags;
 	std::vector<StructureEntity> _structures;
+
+#ifdef WAVEFORGE_ENABLE_WEBGPU
+	void _applyCompletedGpuFrame();
+	void _submitGpuEdits();
+
+	std::unique_ptr<GpuPhysicsBackend> _gpu_backend;
+	std::unique_ptr<PixelTag[]> _submitted_tags;
+	std::unique_ptr<StaticPixelTag[]> _submitted_static_tags;
+	std::vector<std::array<int, 6>> _gpu_query_regions;
+	std::uint64_t _last_gpu_frame = std::numeric_limits<std::uint64_t>::max();
+	std::uint32_t _next_gpu_query_id = 1;
+	bool _gpu_level_uploaded = false;
+#endif
 };
 } // namespace wf
 

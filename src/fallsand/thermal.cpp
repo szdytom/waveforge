@@ -2,11 +2,11 @@
 #include "wforge/xoroshiro.h"
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <condition_variable>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -15,62 +15,38 @@ namespace wf {
 
 namespace {
 
-constexpr float heat_transfer_factor = 0.15f;
-constexpr float heat_decay_factor = 0.005f;
-constexpr std::uint64_t rng_max = Xoroshiro128PP::max();
+constexpr int HEAT_TRANSFER_SCALE = 100;
+constexpr int HEAT_TRANSFER_FACTOR = 15;
+constexpr int HEAT_DECAY_DENOMINATOR = 200;
+constexpr int NUM_THERMAL_ANALYSIS_WORKERS = 4;
 
-// Why 4 instead of std::thread::hardware_concurrency()?
-// After all threads done their work, the main thread needs to merge
-// the results. If there are too many threads, the merging step becomes
-// a bottleneck. 2-6 seems to be a good compromise for most systems.
-// This value can be adjusted later based on profiling results.
-constexpr int num_thermal_analysis_workers = 4;
-
-// Work phase enumeration
 enum class WorkPhase {
 	Idle,
-	HeatTransfer,
-	HeatDecay
+	ProposeTransfers,
+	GatherAndDecay,
 };
 
-// Thermal analysis worker thread
+struct ThermalBuffers {
+	std::vector<std::array<std::uint8_t, 4>> transfers;
+	std::vector<std::uint8_t> next_heat;
+
+	void resize(std::size_t size) {
+		transfers.resize(size);
+		next_heat.resize(size);
+	}
+};
+
 class ThermalWorker {
 public:
-	ThermalWorker(int worker_id)
-		: _worker_id(worker_id)
-		, _rng(Seed::device_random())
-		, _phase(WorkPhase::Idle) {
-		_thread = std::jthread([this](std::stop_token stoken) {
-			workerLoop(stoken);
+	explicit ThermalWorker(int worker_id)
+		: _worker_id(worker_id), _rng(Seed::device_random()) {
+		_thread = std::jthread([this](std::stop_token stop_token) {
+			workerLoop(stop_token);
 		});
 	}
 
-	// Non-copyable and non-movable
 	ThermalWorker(const ThermalWorker &) = delete;
 	ThermalWorker &operator=(const ThermalWorker &) = delete;
-
-	void startWork(
-		WorkPhase phase, const PixelWorld *world, int y_start, int y_end,
-		std::vector<int> heat_maps[]
-	) {
-		{
-			std::lock_guard<std::mutex> lock(_work_mutex);
-			_phase = phase;
-			_world = world;
-			_y_start = y_start;
-			_y_end = y_end;
-			_heat_maps = heat_maps;
-			_work_ready = true;
-		}
-		_cv.notify_one();
-	}
-
-	void waitForCompletion() {
-		std::unique_lock<std::mutex> lock(_work_mutex);
-		_cv_done.wait(lock, [this] {
-			return !_work_ready;
-		});
-	}
 
 	~ThermalWorker() noexcept {
 		_thread.request_stop();
@@ -78,150 +54,156 @@ public:
 		_thread.join();
 	}
 
-private:
-	void workerLoop(std::stop_token stoken) {
-		while (!stoken.stop_requested()) {
-			try {
-				std::unique_lock<std::mutex> lock(_work_mutex);
-				_cv.wait(lock, [this, &stoken] {
-					return _work_ready || stoken.stop_requested();
-				});
+	void startWork(
+		WorkPhase phase, const PixelWorld *world, int y_start, int y_end,
+		ThermalBuffers *buffers
+	) noexcept {
+		{
+			std::lock_guard lock(_work_mutex);
+			_phase = phase;
+			_world = world;
+			_y_start = y_start;
+			_y_end = y_end;
+			_buffers = buffers;
+			_work_ready = true;
+		}
+		_cv.notify_one();
+	}
 
-				if (stoken.stop_requested()) {
+	void waitForCompletion() noexcept {
+		std::unique_lock lock(_work_mutex);
+		_cv_done.wait(lock, [this] {
+			return !_work_ready;
+		});
+	}
+
+private:
+	void workerLoop(std::stop_token stop_token) noexcept {
+		while (!stop_token.stop_requested()) {
+			try {
+				std::unique_lock lock(_work_mutex);
+				_cv.wait(lock, [this, &stop_token] {
+					return _work_ready || stop_token.stop_requested();
+				});
+				if (stop_token.stop_requested()) {
 					break;
 				}
 
-				WorkPhase current_phase = _phase;
+				const WorkPhase phase = _phase;
 				lock.unlock();
-
-				// Execute actual work
-				if (current_phase == WorkPhase::HeatTransfer) {
-					doHeatTransfer();
-				} else if (current_phase == WorkPhase::HeatDecay) {
-					doHeatDecay();
+				if (phase == WorkPhase::ProposeTransfers) {
+					proposeTransfers();
+				} else if (phase == WorkPhase::GatherAndDecay) {
+					gatherAndDecay();
 				}
-
 				lock.lock();
 				_work_ready = false;
 				lock.unlock();
 				_cv_done.notify_one();
-			} catch (const std::exception &e) {
+			} catch (const std::exception &exception) {
 				std::cerr << "Fatal error in thermal worker " << _worker_id
-						  << ": " << e.what() << std::endl;
+						  << ": " << exception.what() << '\n';
 				std::abort();
 			} catch (...) {
 				std::cerr << "Fatal unknown error in thermal worker "
-						  << _worker_id << std::endl;
+						  << _worker_id << '\n';
 				std::abort();
 			}
 		}
 	}
 
-	void doHeatTransfer() {
-		constexpr int dx[] = {-1, 1, 0, 0};
-		constexpr int dy[] = {0, 0, -1, 1};
+	void proposeTransfers() noexcept {
+		constexpr int DX[] = {-1, 1, 0, 0};
+		constexpr int DY[] = {0, 0, -1, 1};
 		const int width = _world->width();
 		const int height = _world->height();
 
-		int conductivity_weights[4];
-
 		for (int y = _y_start; y < _y_end; ++y) {
 			for (int x = 0; x < width; ++x) {
-				auto tag = _world->tagOf(x, y);
-
+				const int index = y * width + x;
+				auto &transfers = _buffers->transfers[index];
+				transfers.fill(0);
+				const auto tag = _world->tagOf(x, y);
 				if (tag.heat == 0 || tag.thermal_conductivity == 0) {
-					_heat_maps[_worker_id][y * width + x] += tag.heat;
 					continue;
 				}
 
-				float total_transfer_amount = 0;
-
-				int total_thermal_conductivity = std::round(
-					tag.heat
+				std::array<int, 4> weights{};
+				int total_weight = tag.heat
 					* (PixelTag::thermal_conductivity_max
 				       - tag.thermal_conductivity)
-					/ heat_transfer_factor
-				);
-
-				for (int i = 0; i < 4; ++i) {
-					int nx = x + dx[i];
-					int ny = y + dy[i];
-					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
-						conductivity_weights[i] = 0;
+					* HEAT_TRANSFER_SCALE / HEAT_TRANSFER_FACTOR;
+				for (int direction = 0; direction < 4; ++direction) {
+					const int nx = x + DX[direction];
+					const int ny = y + DY[direction];
+					if (!_world->inBounds(nx, ny)) {
 						continue;
 					}
-
-					auto ntag = _world->tagOf(nx, ny);
-					auto delta_heat = std::max<int>(0, tag.heat - ntag.heat);
-					auto relative_conductivity = std::min(
-						tag.thermal_conductivity, ntag.thermal_conductivity
-					);
-
-					conductivity_weights[i] = delta_heat
-						* relative_conductivity;
-					total_thermal_conductivity += conductivity_weights[i];
+					const auto neighbor = _world->tagOf(nx, ny);
+					weights[direction] = std::max<int>(
+											 0, tag.heat - neighbor.heat
+										 )
+						* std::min(tag.thermal_conductivity,
+					               neighbor.thermal_conductivity);
+					total_weight += weights[direction];
 				}
 
-				for (int i = 0; i < 4; ++i) {
-					int nx = x + dx[i];
-					int ny = y + dy[i];
-					if (conductivity_weights[i] == 0) {
-						continue;
-					}
-
-					auto ntag = _world->tagOf(nx, ny);
-					int conductivity = conductivity_weights[i];
-
-					float transfer_amount = 1.f * tag.heat * conductivity
-						/ total_thermal_conductivity;
-
-					int received_heat = std::floor(transfer_amount);
-					float frac = (transfer_amount - received_heat) / 2;
-					if (_rng()
-					    < std::round(frac * static_cast<double>(rng_max))) {
-						received_heat += 1;
-					}
-
-					total_transfer_amount += transfer_amount;
-					_heat_maps[_worker_id][ny * width + nx] += received_heat;
+				if (total_weight == 0) {
+					continue;
 				}
-				_heat_maps[_worker_id][y * width + x] += tag.heat
-					- std::round(total_transfer_amount);
+				int available_heat = tag.heat;
+				for (int direction = 0; direction < 4; ++direction) {
+					const int numerator = tag.heat * weights[direction];
+					int transfer = numerator / total_weight;
+					const int remainder = numerator % total_weight;
+					if (remainder > 0
+					    && _rng.next() % (2U * total_weight)
+					        < static_cast<std::uint64_t>(remainder)) {
+						++transfer;
+					}
+					transfer = std::min(transfer, available_heat);
+					transfers[direction] = transfer;
+					available_heat -= transfer;
+				}
 			}
 		}
 	}
 
-	void doHeatDecay() {
+	void gatherAndDecay() noexcept {
+		constexpr int DX[] = {-1, 1, 0, 0};
+		constexpr int DY[] = {0, 0, -1, 1};
+		constexpr int OPPOSITE[] = {1, 0, 3, 2};
 		const int width = _world->width();
-		const int height = _world->height();
-		const int left = _y_start * width;
-		const int right = _y_end * width;
 
-		// Merge all worker heat maps into the first worker's heat map
-		for (int worker_id = 1; worker_id < num_thermal_analysis_workers;
-		     ++worker_id) {
-			for (int i = left; i < right; ++i) {
-				_heat_maps[0][i] += _heat_maps[worker_id][i];
+		for (int y = _y_start; y < _y_end; ++y) {
+			for (int x = 0; x < width; ++x) {
+				const int index = y * width + x;
+				const auto &outgoing = _buffers->transfers[index];
+				int next_heat = _world->tagOf(x, y).heat;
+				for (std::uint8_t transfer : outgoing) {
+					next_heat -= transfer;
+				}
+				for (int direction = 0; direction < 4; ++direction) {
+					const int nx = x + DX[direction];
+					const int ny = y + DY[direction];
+					if (_world->inBounds(nx, ny)) {
+						next_heat += _buffers->transfers[ny * width + nx]
+														[OPPOSITE[direction]];
+					}
+				}
+
+				const int remainder = next_heat % HEAT_DECAY_DENOMINATOR;
+				const int decay = next_heat / HEAT_DECAY_DENOMINATOR;
+				next_heat -= decay;
+				if (next_heat > 0
+				    && _rng.next() % HEAT_DECAY_DENOMINATOR
+				        < static_cast<std::uint64_t>(remainder)) {
+					--next_heat;
+				}
+				_buffers->next_heat[index] = std::clamp<int>(
+					next_heat, 0, PixelTag::heat_max
+				);
 			}
-		}
-
-		for (int i = left; i < right; ++i) {
-			auto &next_heat = _heat_maps[0][i];
-			if (next_heat <= 0) {
-				continue;
-			}
-
-			float delta = next_heat * heat_decay_factor;
-			int nat = std::floor(delta);
-			float frac = delta - nat;
-			next_heat -= nat;
-			if (next_heat > 0
-			    && _rng() < std::round(frac * static_cast<double>(rng_max))) {
-				next_heat -= 1;
-			}
-
-			// Clamp to valid range
-			next_heat = std::clamp<int>(next_heat, 0, PixelTag::heat_max);
 		}
 	}
 
@@ -232,96 +214,52 @@ private:
 	std::condition_variable _cv;
 	std::condition_variable _cv_done;
 	bool _work_ready = false;
-
-	// Work parameters
-	WorkPhase _phase;
-	const PixelWorld *_world = nullptr;
+	WorkPhase _phase = WorkPhase::Idle;
+	const PixelWorld *_world = nullptr; // not owned, managed by the caller
 	int _y_start = 0;
 	int _y_end = 0;
-	std::vector<int> *_heat_maps = nullptr;
+	ThermalBuffers *_buffers = nullptr; // not owned, managed by the pool
 };
 
-// Thread pool manager
 class ThermalWorkerPool {
 public:
 	ThermalWorkerPool() {
-		for (int i = 0; i < num_thermal_analysis_workers; ++i) {
+		for (int i = 0; i < NUM_THERMAL_ANALYSIS_WORKERS; ++i) {
 			_workers.emplace_back(std::make_unique<ThermalWorker>(i));
 		}
 	}
 
-	void executeHeatTransfer(const PixelWorld *world) {
-		const int height = world->height();
-		const int width = world->width();
-
-		const int rows_per_worker = (height + num_thermal_analysis_workers - 1)
-			/ num_thermal_analysis_workers;
-
-		// Reset and resize heat maps
-		for (auto &heat_map : _worker_heat_maps) {
-			heat_map.assign(width * height, 0);
-		}
-
-		// Distribute tasks
-		for (int i = 0; i < num_thermal_analysis_workers; ++i) {
-			int y_start = i * rows_per_worker;
-			int y_end = std::min(y_start + rows_per_worker, height);
-			_workers[i]->startWork(
-				WorkPhase::HeatTransfer, world, y_start, y_end,
-				_worker_heat_maps.data()
-			);
-		}
-
-		// Wait for completion
-		for (auto &worker : _workers) {
-			worker->waitForCompletion();
-		}
-	}
-
-	void executeHeatDecay(const PixelWorld *world) {
-		const int height = world->height();
-		const int width = world->width();
-
-		const int rows_per_worker = (height + num_thermal_analysis_workers - 1)
-			/ num_thermal_analysis_workers;
-
-		// Distribute tasks
-		for (int i = 0; i < num_thermal_analysis_workers; ++i) {
-			int y_start = i * rows_per_worker;
-			int y_end = std::min(y_start + rows_per_worker, height);
-			_workers[i]->startWork(
-				WorkPhase::HeatDecay, world, y_start, y_end,
-				_worker_heat_maps.data()
-			);
-		}
-
-		// Wait for completion
-		for (auto &worker : _workers) {
-			worker->waitForCompletion();
-		}
-	}
-
-	const std::vector<int> &getResults() const {
-		return _worker_heat_maps[0];
+	const std::vector<std::uint8_t> &execute(const PixelWorld *world) noexcept {
+		const std::size_t size = static_cast<std::size_t>(world->width())
+			* world->height();
+		_buffers.resize(size);
+		executePhase(WorkPhase::ProposeTransfers, world);
+		executePhase(WorkPhase::GatherAndDecay, world);
+		return _buffers.next_heat;
 	}
 
 private:
-	std::vector<std::unique_ptr<ThermalWorker>> _workers;
+	void executePhase(WorkPhase phase, const PixelWorld *world) noexcept {
+		const int rows_per_worker = (world->height()
+		                             + NUM_THERMAL_ANALYSIS_WORKERS - 1)
+			/ NUM_THERMAL_ANALYSIS_WORKERS;
+		for (int i = 0; i < NUM_THERMAL_ANALYSIS_WORKERS; ++i) {
+			const int y_start = i * rows_per_worker;
+			const int y_end = std::min(
+				y_start + rows_per_worker, world->height()
+			);
+			_workers[i]->startWork(phase, world, y_start, y_end, &_buffers);
+		}
+		for (auto &worker : _workers) {
+			worker->waitForCompletion();
+		}
+	}
 
-	// It seems that there is no data-race for heat maps since each worker
-	// only writes to its own rows. Why not just allocate a single heat map
-	// instead of having one per worker?
-	// Well, having one per worker avoids false sharing and cache
-	// contention, which, although consumes more memory, can significantly
-	// improve performance. The memory usage is not that large anyway. Only
-	// ~200KB per worker for a standard world. Closing a chrome tab frees much
-	// more memory than that :)
-	std::array<std::vector<int>, num_thermal_analysis_workers>
-		_worker_heat_maps;
+	std::vector<std::unique_ptr<ThermalWorker>> _workers;
+	ThermalBuffers _buffers;
 };
 
-// Global thread pool instance
-ThermalWorkerPool &getThermalWorkerPool() {
+ThermalWorkerPool &getThermalWorkerPool() noexcept {
 	static ThermalWorkerPool pool;
 	return pool;
 }
@@ -329,16 +267,7 @@ ThermalWorkerPool &getThermalWorkerPool() {
 } // namespace
 
 void PixelWorld::thermalAnalysisStep() noexcept {
-	auto &pool = getThermalWorkerPool();
-
-	// Heat transfer - parallel computation using thread pool
-	pool.executeHeatTransfer(this);
-
-	// Heat decay - parallel computation using thread pool
-	pool.executeHeatDecay(this);
-
-	// Apply final results
-	const auto &next_heat = pool.getResults();
+	const auto &next_heat = getThermalWorkerPool().execute(this);
 	for (int i = 0; i < _width * _height; ++i) {
 		_tags[i].heat = next_heat[i];
 	}

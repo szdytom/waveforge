@@ -1,6 +1,7 @@
 #include "wforge/level.h"
 #include "wforge/colorpalette.h"
 #include "wforge/fallsand.h"
+#include "wforge/physics_gpu.h"
 #include "wforge/save.h"
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -35,13 +36,42 @@ std::string_view LevelMetadata::difficultyToString(Difficulty difficulty) {
 	}
 }
 
-Level::Level(int width, int height) noexcept
+Level::Level(int width, int height)
 	: fallsand(width, height), _item_use_cooldown(0) {}
 
 void Level::step() {
 	_item_use_cooldown = std::max(0, _item_use_cooldown - 1);
 	fallsand.resetEntityPresenceTags();
 	duck.commitEntityPresence(fallsand);
+	const int query_x = static_cast<int>(
+		std::floor(std::min(duck.position.x, duck.position.x + duck.velocity.x))
+	);
+	const int query_y = static_cast<int>(
+		std::floor(std::min(duck.position.y, duck.position.y + duck.velocity.y))
+	);
+	const int query_right = static_cast<int>(std::ceil(
+								std::max(
+									duck.position.x,
+									duck.position.x + duck.velocity.x
+								)
+							))
+		+ duck.width();
+	const int query_bottom = static_cast<int>(std::ceil(
+								 std::max(
+									 duck.position.y,
+									 duck.position.y + duck.velocity.y
+								 )
+							 ))
+		+ duck.height();
+	constexpr int QUERY_PADDING = 2;
+	fallsand.requestQueryRegion(
+		WorldQueryKind::DuckRegion, query_x - QUERY_PADDING,
+		query_y - QUERY_PADDING, query_right - query_x + QUERY_PADDING * 2,
+		query_bottom - query_y + QUERY_PADDING * 2
+	);
+	if (SaveData::instance().user_settings.debug_heat_render) {
+		fallsand.requestQueryRegion(WorldQueryKind::DebugRegion, 0, 0, 1, 1);
+	}
 	fallsand.step();
 	duck.step(*this);
 	checkpoint.step(*this);
@@ -190,6 +220,14 @@ void LevelRenderer::_renderFallsand(sf::RenderTarget &target) {
 
 void LevelRenderer::_renderHeat(sf::RenderTarget &target) {
 #ifndef NDEBUG
+	std::span<std::uint8_t> heat_buffer_view(
+		_heat_buffer.get(), _level.width() * _level.height() * 4
+	);
+	if (_level.fallsand.renderHeatToBuffer(heat_buffer_view)) {
+		_heat_texture.update(_heat_buffer.get());
+		target.draw(_heat_sprite);
+		return;
+	}
 	// Render heat overlay (semi-transparent red, brighter = hotter)
 	const int width = _level.width();
 	const int height = _level.height();
