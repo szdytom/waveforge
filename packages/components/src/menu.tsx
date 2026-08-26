@@ -46,7 +46,7 @@ export function MenuItem({
 			</Text>
 			{value ? (
 				<Text color={textColor} size={textSize}>
-					{selected ? `<${value}>` : value}
+					{selected ? `<${value}>` : `${value} `}
 				</Text>
 			) : null}
 		</View>
