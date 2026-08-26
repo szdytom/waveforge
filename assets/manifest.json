@@ -985,6 +985,20 @@
 			"width": 256,
 			"height": 192,
 			"description": "Loading scripts/react_hello"
+		},
+		{
+			"id": "scripts/help",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading help scene"
+		},
+		{
+			"id": "scripts/credits",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading credits scene"
 		}
 	]
 }

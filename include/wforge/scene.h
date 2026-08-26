@@ -306,50 +306,6 @@ private:
 	int _cheat_code_hint_opacity;
 };
 
-struct Credits {
-	Credits();
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-private:
-	int _width;
-	int _height;
-	const PixelFont &font;
-
-	UITextDescriptor _header;
-
-	std::array<int, 2> _credits_pos;
-	int _credits_size;
-	int _credits_spacing;
-	int _credits_width;
-	sf::Color _credits_color;
-
-	std::vector<std::pair<std::string, std::string>> _content;
-};
-
-struct Help {
-	Help();
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-private:
-	sf::Texture *_background_texture;
-	int _width;
-	int _height;
-};
-
 } // namespace scene
 
 class ScriptedScene {

@@ -15,6 +15,7 @@ public:
 	static SceneRouter &instance();
 
 	void registerRoute(std::string_view id, Factory factory);
+	void registerScriptedRoute(std::string_view id, std::string_view script_id);
 
 	Scene create(std::string_view id, std::string_view data = "");
 

@@ -23,6 +23,16 @@ void SceneRouter::registerRoute(std::string_view id, Factory factory) {
 	_routes[std::string(id)] = std::move(factory);
 }
 
+void SceneRouter::registerScriptedRoute(
+	std::string_view id, std::string_view script_id
+) {
+	registerRoute(
+		id, [script_id = std::string(script_id)](std::string_view data) {
+		return pro::make_proxy<SceneFacade, ScriptedScene>(script_id, data);
+	}
+	);
+}
+
 Scene SceneRouter::create(std::string_view id, std::string_view data) {
 	// Explicitly registered route takes priority
 	auto it = _routes.find(std::string(id));

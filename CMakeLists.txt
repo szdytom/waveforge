@@ -38,14 +38,12 @@ add_executable(waveforge
 	src/runtime/sound.cpp
 	src/runtime/texture.cpp
 	src/scenes/duckdeath.cpp
-	src/scenes/help.cpp
 	src/scenes/level_menu.cpp
 	src/scenes/level_switch.cpp
 	src/scenes/level.cpp
 	src/scenes/main_menu.cpp
 	src/scenes/scene.cpp
 	src/scenes/settings.cpp
-	src/scenes/credits.cpp
 	src/scenes/scripted_scene.cpp
 	src/router.cpp
 	src/structures/electric.cpp

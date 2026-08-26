@@ -1,6 +1,7 @@
 #include "wforge/assets.h"
 #include "wforge/audio.h"
 #include "wforge/colorpalette.h"
+#include "wforge/router.h"
 #include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include "wforge/version.h"
@@ -112,7 +113,7 @@ void MainMenu::handleEvent(SceneManager &mgr, sf::Event &evt) {
 				return;
 
 			case MainMenuButton::HELP:
-				mgr.changeScene(pro::make_proxy<SceneFacade, Help>());
+				mgr.changeScene(SceneRouter::instance().create("help"));
 				return;
 
 			case MainMenuButton::EXIT:

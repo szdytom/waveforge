@@ -103,12 +103,8 @@ void entry(
 	router.registerRoute("settings", [](std::string_view) {
 		return pro::make_proxy<wf::SceneFacade, wf::scene::SettingsMenu>();
 	});
-	router.registerRoute("help", [](std::string_view) {
-		return pro::make_proxy<wf::SceneFacade, wf::scene::Help>();
-	});
-	router.registerRoute("credits", [](std::string_view) {
-		return pro::make_proxy<wf::SceneFacade, wf::scene::Credits>();
-	});
+	router.registerScriptedRoute("help", "scripts/help");
+	router.registerScriptedRoute("credits", "scripts/credits");
 	router.registerRoute("level-menu", [](std::string_view) {
 		return pro::make_proxy<
 			wf::SceneFacade, wf::scene::LevelSelectionMenu>();
