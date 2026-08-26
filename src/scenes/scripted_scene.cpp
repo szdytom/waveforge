@@ -3,7 +3,9 @@
 #include "wforge/layout.h"
 #include "wforge/router.h"
 #include "wforge/runtime.h"
+#include "wforge/runtime_platform.h"
 #include "wforge/scene.h"
+#include "wforge/version.h"
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Window/Event.hpp>
 #include <format>
@@ -140,6 +142,16 @@ JSValue f_setWindowTitle(
 	}
 	impl->scene_mgr->setWindowTitle(title);
 	JS_FreeCString(ctx, title);
+	return JS_UNDEFINED;
+}
+
+JSValue f_close(
+	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
+) noexcept {
+	auto *impl = getImpl(ctx);
+	if (impl && impl->scene_mgr) {
+		impl->scene_mgr->close();
+	}
 	return JS_UNDEFINED;
 }
 
@@ -408,6 +420,7 @@ void ScriptedScene::setup(SceneManager &mgr) {
 
 	const JSCFunctionListEntry WAVEFORGE_PROPS[] = {
 		js::cFuncDef("setTitle", 1, f_setWindowTitle),
+		js::cFuncDef("close", 0, f_close),
 		js::cFuncDef("addEventListener", 2, f_addEventListener),
 		js::cFuncDef("removeEventListener", 2, f_removeEventListener),
 		js::cFuncDef("commitDraw", 1, f_commitDraw),
@@ -416,6 +429,12 @@ void ScriptedScene::setup(SceneManager &mgr) {
 		js::cGetSetDef("routeData", get_routeData, nullptr),
 		js::propInt32Def("width", impl.width, JS_PROP_CONFIGURABLE),
 		js::propInt32Def("height", impl.height, JS_PROP_CONFIGURABLE),
+		js::propStringDef("version", WAVEFORGE_VERSION, JS_PROP_CONFIGURABLE),
+#ifndef NDEBUG
+		js::propBoolDef("debug", true, JS_PROP_CONFIGURABLE),
+#else
+		js::propBoolDef("debug", false, JS_PROP_CONFIGURABLE),
+#endif
 	};
 
 	impl.waveforge_props = make_unique_array(WAVEFORGE_PROPS);
@@ -423,6 +442,7 @@ void ScriptedScene::setup(SceneManager &mgr) {
 	JS_SetPropertyFunctionList(
 		ctx, ns, impl.waveforge_props.get(), std::size(WAVEFORGE_PROPS)
 	);
+	js::bindPlatformApi(ctx, ns);
 
 	js::Value global(ctx, JS_GetGlobalObject(ctx));
 	JS_SetPropertyStr(ctx, *global, "waveforge", ns);

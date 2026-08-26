@@ -248,6 +248,12 @@ Prefer extending these primitives when multiple scenes need the same behavior.
 
 Immediate-mode scenes can register `waveforge.addEventListener('teardown', callback)` when they need explicit cleanup. Scene transitions are deferred until the current event or step callback returns, so code after `navigateTo()` can finish safely.
 
+## Platform Services
+
+Scripted scenes access persistent settings through `waveforge.storage`, background music through `waveforge.music`, and the read-only level catalog through `waveforge.levels`. `waveforge.version` and `waveforge.debug` expose build metadata, while `waveforge.close()` requests application shutdown.
+
+Keep scene code declarative by wrapping repeated service interactions in component hooks rather than reading storage during every render.
+
 ## Manifest Registration
 
 Register the scene in `assets/manifest.json`:

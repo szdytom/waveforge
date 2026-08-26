@@ -120,7 +120,9 @@ struct LevelMetadata {
 	};
 
 	int index;
+	std::string id;
 	std::string map_id;
+	std::string minimap_id;
 	std::string name;
 	std::string description;
 	std::string author;

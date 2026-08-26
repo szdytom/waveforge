@@ -124,6 +124,10 @@ void SceneManager::setWindowTitle(std::string title) {
 	window.setTitle(title);
 }
 
+void SceneManager::close() noexcept {
+	window.close();
+}
+
 void SceneManager::handleEvent(sf::Event &evt) {
 	_current_scene->handleEvent(*this, evt);
 	_applyPendingScene();

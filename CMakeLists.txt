@@ -34,6 +34,7 @@ add_executable(waveforge
 	src/runtime/engine.cpp
 	src/runtime/event.cpp
 	src/runtime/module_registry.cpp
+	src/runtime/platform.cpp
 	src/runtime/layout.cpp
 	src/runtime/sound.cpp
 	src/runtime/texture.cpp

@@ -588,18 +588,21 @@ void fLevelMetadata(
 	}
 
 	const auto &metadata_json = json_data.at("metadata");
+	const std::string minimap_id = metadata_json.value(
+		"minimap_asset_id", "level/minimap/fallback"
+	);
 
 	LevelMetadata *metadata = new LevelMetadata{
+		.id = id,
 		.map_id = json_data.at("map"),
+		.minimap_id = minimap_id,
 		.name = metadata_json.at("level_name"),
 		.description = metadata_json.value("description", ""),
 		.author = metadata_json.value("author", ""),
 		.difficulty = LevelMetadata::parseDifficulty(
 			metadata_json.value("difficulty", "unkown")
 		),
-		.minimap_texture = &mgr.getAsset<sf::Texture>(
-			metadata_json.value("minimap_asset_id", "level/minimap/fallback")
-		)
+		.minimap_texture = &mgr.getAsset<sf::Texture>(minimap_id)
 	};
 
 	for (const auto &item_entry : json_data.at("items")) {

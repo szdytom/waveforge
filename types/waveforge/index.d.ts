@@ -8,7 +8,40 @@ declare module '*.txt' {
 declare namespace waveforge {
 	const width: number;
 	const height: number;
+	const version: string;
+	const debug: boolean;
 	function setTitle(title: string): void;
+	function close(): void;
+
+	const storage: {
+		get(key: string): string | null;
+		get(key: string, defaultValue: string): string;
+		getInt(key: string, defaultValue?: number): number;
+		getBool(key: string, defaultValue?: boolean): boolean;
+		set(key: string, value: string): void;
+		setInt(key: string, value: number): void;
+		setBool(key: string, value: boolean): void;
+		remove(key: string): void;
+	};
+
+	const music: {
+		setCollection(id: string): void;
+		unset(): void;
+		fadeOut(durationTicks: number): void;
+		fadeIn(durationTicks: number, startingVolume: number): void;
+	};
+
+	interface LevelInfo {
+		readonly index: number;
+		readonly id: string;
+		readonly name: string;
+		readonly description: string;
+		readonly author: string;
+		readonly difficulty: 'unkown' | 'easy' | 'average' | 'hard';
+		readonly minimapId: string;
+	}
+
+	const levels: readonly LevelInfo[];
 
 	function addEventListener(type: 'step', callback: () => void): void;
 	function addEventListener(type: 'key', callback: (event: KeyEvent) => void): void;

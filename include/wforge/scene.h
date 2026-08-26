@@ -67,6 +67,7 @@ public:
 	void handleEvent(sf::Event &evt);
 	void tick();
 	void setWindowTitle(std::string title);
+	void close() noexcept;
 
 	sf::Vector2i mousePosition() const;
 	int scale() const {
