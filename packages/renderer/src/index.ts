@@ -145,7 +145,8 @@ const hostConfig = {
 	commitTextUpdate(textInstance: any, _prevText: string, nextText: string): void {
 		const existing = textInstance.content;
 		const color = existing instanceof waveforge.TextContent ? existing.color?.toString() : undefined;
-		updateTextNode(textInstance, nextText, color);
+		const size = existing instanceof waveforge.TextContent ? existing.size : 1;
+		updateTextNode(textInstance, nextText, size, color);
 	},
 
 	commitMount(_instance: any, _type: string, _props: any, _internalHandle: any): void {},

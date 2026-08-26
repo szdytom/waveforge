@@ -162,15 +162,15 @@ function applyLayoutProps(
 	}
 }
 
-function setTextContent(node: waveforge.LayoutNode, text: string, color?: string): void {
-	const textContent = new waveforge.TextContent(text, 1);
+function setTextContent(node: waveforge.LayoutNode, text: string, size = 1, color?: waveforge.ColorLike): void {
+	const textContent = new waveforge.TextContent(text, size);
 	if (color) {
 		textContent.color = color;
 	}
 	node.content = textContent;
 }
 
-function resolveTextColor(props: Record<string, any> | null): string | undefined {
+function resolveTextColor(props: Record<string, any> | null): waveforge.ColorLike | undefined {
 	return props?.color || props?.style?.color;
 }
 
@@ -194,7 +194,7 @@ export function applyProps(
 
 	if (type === 'text') {
 		if (typeof nextProps?.children === 'string') {
-			setTextContent(node, nextProps.children, resolveTextColor(nextProps) || DEFAULT_TEXT_COLOR);
+			setTextContent(node, nextProps.children, nextProps.size ?? 1, resolveTextColor(nextProps) || DEFAULT_TEXT_COLOR);
 		} else if (typeof previousProps?.children === 'string') {
 			node.content = null;
 		}
@@ -209,12 +209,12 @@ export function createNode(type: HostType, props: Record<string, any> | null): w
 
 export function createTextNode(text: string): waveforge.LayoutNode {
 	const node = new waveforge.LayoutNode();
-	setTextContent(node, text, DEFAULT_TEXT_COLOR);
+	setTextContent(node, text, 1, DEFAULT_TEXT_COLOR);
 	return node;
 }
 
-export function updateTextNode(node: waveforge.LayoutNode, text: string, color?: string): void {
-	setTextContent(node, text, color || DEFAULT_TEXT_COLOR);
+export function updateTextNode(node: waveforge.LayoutNode, text: string, size = 1, color?: waveforge.ColorLike): void {
+	setTextContent(node, text, size, color || DEFAULT_TEXT_COLOR);
 }
 
 export function clearNode(node: waveforge.LayoutNode): void {

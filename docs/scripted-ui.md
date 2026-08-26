@@ -152,6 +152,12 @@ Text color can be set via the `color` prop or `style.color`:
 
 Default text color if unspecified: `#f0e6ff`.
 
+Use the `size` prop for integer pixel-font scaling:
+
+```tsx
+<Text size={2}>Heading</Text>
+```
+
 ### Props Are Diffed on Every Render
 
 The reconciler compares the previous and new effective layout props on every re-render. Removed properties are reset to the defaults of a fresh native `LayoutNode`; this applies equally to direct props and properties inside `style`. Direct props take precedence over values in `style` when both specify the same layout property.
@@ -221,9 +227,17 @@ import { Button } from '@waveforge/components';
 
 Buttons use hover state internally (`onPointerEnter`/`onPointerLeave`). If you need a custom clickable element, replicate the pattern from the Button source rather than trying to extend Button.
 
-### More components
+### Common widgets and hooks
 
-The `@waveforge/components` package welcomes changes. Create new reusable components or extend existing ones as needed.
+The component package also exports reusable layout and navigation building blocks:
+
+- `Screen`, `Row`, `Column`, `Center`, and `Panel` for scene structure.
+- `Label`, `Title`, and `Hint` for consistent typography and colors.
+- `MenuItem` and `useMenuNavigation` for keyboard and pointer menus.
+- `useEngineEvent`, `useKeyDown`, and `useStep` for lifecycle-safe engine subscriptions.
+- `playUiSound` and the shared `UI_COLORS` / `UI_SPACING` tokens.
+
+Prefer extending these primitives when multiple scenes need the same behavior.
 
 ## Scene Lifecycle
 

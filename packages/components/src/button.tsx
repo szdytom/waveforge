@@ -1,19 +1,20 @@
 import { type KeyboardEvent, Text, View } from '@waveforge/renderer';
 import { contentAlignH, contentAlignV, padding, style } from '@waveforge/styles';
 import React from 'react';
+import { UI_COLORS } from './theme.js';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'accent';
 
 const VARIANT_BG: Record<ButtonVariant, string> = {
-	primary: '#4ecdc4',
-	secondary: '#ff6b6b',
-	accent: '#ffd93d',
+	primary: UI_COLORS.primary,
+	secondary: UI_COLORS.secondary,
+	accent: UI_COLORS.accent,
 };
 
 const VARIANT_HOVER_BG: Record<ButtonVariant, string> = {
-	primary: '#6edcd4',
-	secondary: '#ff8b8b',
-	accent: '#ffe36d',
+	primary: UI_COLORS.primaryHover,
+	secondary: UI_COLORS.secondaryHover,
+	accent: UI_COLORS.accentHover,
 };
 
 export interface ButtonProps {
@@ -21,9 +22,10 @@ export interface ButtonProps {
 	onClick?: () => void;
 	variant?: ButtonVariant;
 	style?: Record<string, any>;
+	textSize?: number;
 }
 
-export function Button({ label, onClick, variant = 'primary', style: extra }: ButtonProps) {
+export function Button({ label, onClick, variant = 'primary', style: extra, textSize = 1 }: ButtonProps) {
 	const [hovered, setHovered] = React.useState(false);
 	const [focused, setFocused] = React.useState(false);
 	const handleKeyDown = React.useCallback(
@@ -53,7 +55,7 @@ export function Button({ label, onClick, variant = 'primary', style: extra }: Bu
 				extra,
 			)}
 		>
-			<Text>{label}</Text>
+			<Text size={textSize}>{label}</Text>
 		</View>
 	);
 }
