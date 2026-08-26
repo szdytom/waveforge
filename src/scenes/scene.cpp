@@ -97,20 +97,27 @@ SceneManager::~SceneManager() {
 }
 
 void SceneManager::changeScene(Scene new_scene) {
-	auto [old_width, old_height] = _current_scene->size();
-	_current_scene = std::move(new_scene);
-	auto [width, height] = _current_scene->size();
-	if (width != old_width || height != old_height) {
-		window.close();
-		_scale = automaticScale(width, height, _config_scale);
-		std::cerr << std::format(
-			"Screen size changed to {}x{}, using scale {}x\n", width, height,
-			_scale
-		);
-		window = createWindow(_current_scene, _config_scale);
-	}
-	_current_scene->setup(*this);
+	_pending_scene = std::move(new_scene);
 	_scene_changed = true;
+}
+
+void SceneManager::_applyPendingScene() {
+	while (_scene_changed) {
+		_scene_changed = false;
+		auto [old_width, old_height] = _current_scene->size();
+		_current_scene = std::move(_pending_scene);
+		auto [width, height] = _current_scene->size();
+		if (width != old_width || height != old_height) {
+			window.close();
+			_scale = automaticScale(width, height, _config_scale);
+			std::cerr << std::format(
+				"Screen size changed to {}x{}, using scale {}x\n", width,
+				height, _scale
+			);
+			window = createWindow(_current_scene, _config_scale);
+		}
+		_current_scene->setup(*this);
+	}
 }
 
 void SceneManager::setWindowTitle(std::string title) {
@@ -119,12 +126,14 @@ void SceneManager::setWindowTitle(std::string title) {
 
 void SceneManager::handleEvent(sf::Event &evt) {
 	_current_scene->handleEvent(*this, evt);
+	_applyPendingScene();
 }
 
 void SceneManager::tick() {
 	_scene_changed = false;
 	_current_scene->step(*this);
 	if (_scene_changed) {
+		_applyPendingScene();
 		return;
 	}
 

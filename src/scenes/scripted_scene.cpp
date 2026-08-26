@@ -23,6 +23,7 @@ enum class CallbackIdx : size_t {
 	MOUSEMOVE,
 	MOUSEENTER,
 	MOUSELEAVE,
+	TEARDOWN,
 	COUNT
 };
 
@@ -44,6 +45,9 @@ CallbackIdx callbackIdx(std::string_view type) noexcept {
 	}
 	if (type == "mouseleave") {
 		return CallbackIdx::MOUSELEAVE;
+	}
+	if (type == "teardown") {
+		return CallbackIdx::TEARDOWN;
 	}
 	return CallbackIdx::COUNT;
 }
@@ -262,8 +266,6 @@ JSValue f_navigateTo(
 		return JS_ThrowTypeError(ctx, "%s", e.what());
 	}
 
-	// NOTE: after changeScene, the current ScriptedScene (and its JS context)
-	// is destroyed. Do not touch any JS values after this call.
 	impl->scene_mgr->changeScene(std::move(scene));
 
 	return JS_UNDEFINED;
@@ -361,7 +363,19 @@ ScriptedScene::ScriptedScene(
 )
 	: _impl(std::make_unique<Impl>(script_id, route_data)) {}
 
-ScriptedScene::~ScriptedScene() = default;
+ScriptedScene::~ScriptedScene() {
+	if (!_impl || !_impl->engineCtx) {
+		return;
+	}
+
+	_impl->scene_mgr = nullptr;
+	auto *ctx = _impl->engineCtx.ctx();
+	invokeCallbacks(
+		ctx, _impl->callbacks[std::to_underlying(CallbackIdx::TEARDOWN)], 0,
+		nullptr
+	);
+	_impl->engineCtx.drainPromises();
+}
 
 // ── SceneFacade interface ──
 

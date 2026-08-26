@@ -4,20 +4,16 @@
 #include "ctti.h"
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Window/Event.hpp>
-#include <chrono>
 #include <concepts>
 #include <cstdlib>
-#include <exception>
 #include <expected>
 #include <filesystem>
-#include <format>
 #include <memory>
 #include <proxy/proxy.h>
 #include <quickjs.h>
 #include <span>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 

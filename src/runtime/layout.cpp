@@ -1236,6 +1236,11 @@ JSValue LayoutNode_setBgColor(
 	if (!self) {
 		return JS_UNDEFINED;
 	}
+	if (JS_IsUndefined(val) || JS_IsNull(val)) {
+		JS_FreeValue(ctx, self->background_color);
+		self->background_color = JS_UNDEFINED;
+		return JS_UNDEFINED;
+	}
 
 	auto color_object = Color::interpretAsValue(ctx, val);
 	if (!color_object) {
@@ -1268,12 +1273,18 @@ JSValue LayoutNode_setBorderColor(
 		return JS_UNDEFINED;
 	}
 
+	auto edge = static_cast<YGEdge>(magic);
+	if (JS_IsUndefined(val) || JS_IsNull(val)) {
+		JS_FreeValue(ctx, self->border_color[edge]);
+		self->border_color[edge] = JS_UNDEFINED;
+		return JS_UNDEFINED;
+	}
+
 	auto color_object = Color::interpretAsValue(ctx, val);
 	if (!color_object) {
 		return JS_ThrowTypeError(ctx, "%s", color_object.error());
 	}
 
-	auto edge = static_cast<YGEdge>(magic);
 	JS_FreeValue(ctx, self->border_color[edge]);
 	self->border_color[edge] = *color_object;
 	return JS_UNDEFINED;

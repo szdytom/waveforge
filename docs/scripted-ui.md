@@ -88,11 +88,12 @@ No `export {}` needed — JSX files are automatically treated as modules.
 
 ### `render()` Sets Up the Engine
 
-Calling `render(<App />)` on the first scene internally calls `waveforge.addEventListener('step', ...)` and `waveforge.addEventListener('mousebutton', ...)`. This means:
+Calling `render(<App />)` on the first scene registers the engine listeners used for layout, pointer, keyboard, focus, and teardown handling. This means:
 
 - The reconciler already owns the internal step handler that drives layout; you **should not** call `waveforge.commitLayout` manually — it does this automatically.
 - You **may** register additional `step` listeners (e.g. via `useEffect`) for animation or polling — multiple step listeners are supported.
-- The `mousebutton` listener is managed by the reconciler and dispatches `onClick` events to hit-tested nodes with event bubbling.
+- Input listeners are managed by the renderer and dispatch synthetic events to hit-tested or focused nodes.
+- Scene teardown synchronously unmounts the React root, so `useEffect` cleanup functions run before the QuickJS context is destroyed.
 
 ### Reactive State
 
@@ -117,15 +118,17 @@ Note: different with immediate mode, React scenes do not need to call `relayout(
 
 ### Event Handling
 
-React synthetic events are dispatched by the reconciler:
+React synthetic events are dispatched by the renderer:
 
 ```tsx
-<View onClick={() => console.log('clicked')}>
+<View onClick={(event) => console.log(event.x, event.y)}>
 <View onPointerEnter={() => setHovered(true)}>
 <View onPointerLeave={() => setHovered(false)}>
 ```
 
-Events bubble: clicking a child triggers the child's `onClick`, then the parent's, and so on up the tree. **The first handler found during bubble-up stops propagation** (no `stopPropagation` API). If more complex event handling is needed, consider extending the `@waveforge/renderer` source, which is open to modification.
+Pointer, keyboard, and focus events bubble. Call `event.stopPropagation()` to stop the current event before it reaches an ancestor, or `event.preventDefault()` to suppress renderer defaults such as Tab focus traversal. Synthetic events expose `target`, `currentTarget`, `nativeEvent`, `propagationStopped`, and `defaultPrevented`.
+
+Set `tabIndex={0}` on an element to include it in Tab/Shift+Tab navigation. `tabIndex={-1}` allows pointer or programmatic focus but skips sequential keyboard navigation. Focused nodes receive `onKeyDown`, `onKeyUp`, `onFocus`, and `onBlur`. The renderer also exports `focus(node)` and `blur()` for imperative focus changes.
 
 ### `<Sprite>` Component
 
@@ -149,13 +152,9 @@ Text color can be set via the `color` prop or `style.color`:
 
 Default text color if unspecified: `#f0e6ff`.
 
-### Props Are Sent to `applyProps` Every Render
+### Props Are Diffed on Every Render
 
-The reconciler calls `commitUpdate` with the new props on every re-render. The `applyProps` function iterates all props and overwrites them on the `LayoutNode`. This means:
-
-- If a prop is **not** set in the new render, it does **not** get cleared — `applyProps` only writes props that exist.
-- To "remove" a prop, explicitly set it to `undefined` or to its default value.
-- Style obects are merged via `Object.assign`, so only the keys present in the new style object are overwritten.
+The reconciler compares the previous and new effective layout props on every re-render. Removed properties are reset to the defaults of a fresh native `LayoutNode`; this applies equally to direct props and properties inside `style`. Direct props take precedence over values in `style` when both specify the same layout property.
 
 ### Use `React.useCallback` for Event Handlers
 
@@ -231,9 +230,9 @@ The `@waveforge/components` package welcomes changes. Create new reusable compon
 1. C++ `ModuleRegistry` loads the bundled JS file.
 2. The script executes top-to-bottom (imports, top-level `console.log`, `render()` call, `addEventListener` calls).
 3. The engine enters the event loop: `step` fires each frame, `commitLayout` renders the tree.
-4. `navigateTo(id)` creates a new scene. The current scene's listeners and state are discarded (no explicit cleanup — `React.useEffect` cleanup runs if the component unmounts, but the engine does not call them on navigation).
+4. `navigateTo(id)` queues a scene transition. After the active callback returns, the engine emits `teardown`, the renderer unmounts its React root, and `React.useEffect` cleanup functions run before the old JS context is destroyed.
 
-**Important:** There is no lifecycle hook for scene teardown as of now, but it can be supported with minimal changes to the engine if needed, and this feature is planned. If your scene needs to clean up resources on navigation, consider work on the engine to add a teardown hook first. `React.useEffect` cleanup functions won't run on navigation because the entire scene is hard-replaced, not unmounted.
+Immediate-mode scenes can register `waveforge.addEventListener('teardown', callback)` when they need explicit cleanup. Scene transitions are deferred until the current event or step callback returns, so code after `navigateTo()` can finish safely.
 
 ## Manifest Registration
 

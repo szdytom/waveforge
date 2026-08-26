@@ -16,8 +16,9 @@ declare namespace waveforge {
 	function addEventListener(type: 'mousemove', callback: (event: MouseMoveEvent) => void): void;
 	function addEventListener(type: 'mouseenter', callback: () => void): void;
 	function addEventListener(type: 'mouseleave', callback: () => void): void;
+	function addEventListener(type: 'teardown', callback: () => void): void;
 	function removeEventListener(
-		type: 'step' | 'key' | 'mousebutton' | 'mousemove' | 'mouseenter' | 'mouseleave',
+		type: 'step' | 'key' | 'mousebutton' | 'mousemove' | 'mouseenter' | 'mouseleave' | 'teardown',
 		callback: Function,
 	): void;
 

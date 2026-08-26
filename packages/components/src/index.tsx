@@ -1,4 +1,4 @@
-import { Text, View } from '@waveforge/renderer';
+import { type KeyboardEvent, Text, View } from '@waveforge/renderer';
 import { contentAlignH, contentAlignV, padding, style } from '@waveforge/styles';
 import React from 'react';
 
@@ -25,17 +25,31 @@ export interface ButtonProps {
 
 export function Button({ label, onClick, variant = 'primary', style: extra }: ButtonProps) {
 	const [hovered, setHovered] = React.useState(false);
+	const [focused, setFocused] = React.useState(false);
+	const handleKeyDown = React.useCallback(
+		(event: KeyboardEvent) => {
+			if (event.code === 'Enter' || event.code === 'Space') {
+				event.preventDefault();
+				onClick?.();
+			}
+		},
+		[onClick],
+	);
 
 	return (
 		<View
+			tabIndex={0}
 			onClick={onClick}
 			onPointerEnter={() => setHovered(true)}
 			onPointerLeave={() => setHovered(false)}
+			onFocus={() => setFocused(true)}
+			onBlur={() => setFocused(false)}
+			onKeyDown={handleKeyDown}
 			style={style(
 				padding(4, 14),
 				contentAlignH('center'),
 				contentAlignV('horizon'),
-				{ backgroundColor: hovered ? VARIANT_HOVER_BG[variant] : VARIANT_BG[variant] },
+				{ backgroundColor: hovered || focused ? VARIANT_HOVER_BG[variant] : VARIANT_BG[variant] },
 				extra,
 			)}
 		>

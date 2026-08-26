@@ -5,12 +5,12 @@ import {
 	clearNode,
 	createNode,
 	createTextNode,
-	dispatchClick,
-	dispatchHoverChange,
-	dispatchHoverLeave,
+	EventDispatcher,
 	type HostType,
 	updateTextNode,
 } from './host-config.js';
+
+export type { FocusEvent, KeyboardEvent, PointerEvent, SyntheticEvent } from './host-config.js';
 
 // ── Priority tracking (needed by reconciler internally) ──
 let _currentUpdatePriority = 0;
@@ -151,7 +151,8 @@ const hostConfig = {
 	commitMount(_instance: any, _type: string, _props: any, _internalHandle: any): void {},
 
 	commitUpdate(instance: any, _type: HostType, _prevProps: any, nextProps: any, _internalHandle: any): void {
-		applyProps(instance, _type, nextProps);
+		applyProps(instance, _type, _prevProps, nextProps);
+		_eventDispatcher?.validateNode(instance);
 	},
 
 	hideInstance(instance: any): void {
@@ -178,7 +179,9 @@ const hostConfig = {
 		return false;
 	},
 
-	detachDeletedInstance(): void {},
+	detachDeletedInstance(instance: any): void {
+		_eventDispatcher?.detach(instance);
+	},
 
 	resetFormInstance(): void {},
 };
@@ -190,7 +193,23 @@ const reconciler = Reconciler(hostConfig as any);
 // ── Root tracking & event dispatch ──
 
 let _currentRoot: waveforge.LayoutNode | null = null;
+let _currentContainer: any = null;
+let _eventDispatcher: EventDispatcher | null = null;
 let _setup = false;
+
+function unmountCurrentRoot(): void {
+	if (!_currentContainer) {
+		return;
+	}
+	const activeContainer = _currentContainer;
+	_currentContainer = null;
+	_currentRoot = null;
+	_eventDispatcher?.clear();
+	_eventDispatcher = null;
+	(reconciler as any).updateContainerSync(null, activeContainer, null, null);
+	(reconciler as any).flushSyncWork();
+	(reconciler as any).flushPassiveEffects();
+}
 
 function setupEngine(): void {
 	if (_setup) {
@@ -205,34 +224,37 @@ function setupEngine(): void {
 	});
 
 	waveforge.addEventListener('mousebutton', (event) => {
-		if (event.type !== 'mouseup' || !_currentRoot) {
-			return;
-		}
-		dispatchClick(_currentRoot, event.x, event.y);
+		_eventDispatcher?.dispatchPointerButton(event);
 	});
 
 	waveforge.addEventListener('mousemove', (event) => {
-		if (_currentRoot) {
-			dispatchHoverChange(_currentRoot, event.x, event.y);
-		}
+		_eventDispatcher?.dispatchPointerMove(event);
 	});
 
 	waveforge.addEventListener('mouseleave', () => {
-		if (_currentRoot) {
-			dispatchHoverLeave();
-		}
+		_eventDispatcher?.dispatchPointerLeave();
+	});
+
+	waveforge.addEventListener('key', (event) => {
+		_eventDispatcher?.dispatchKey(event);
+	});
+
+	waveforge.addEventListener('teardown', () => {
+		unmountCurrentRoot();
 	});
 }
 
 // ── Public API ──
 
 export function render(element: any, rootNode?: waveforge.LayoutNode): any {
+	unmountCurrentRoot();
 	if (!rootNode) {
 		rootNode = new waveforge.LayoutNode();
 		rootNode.width = waveforge.width;
 		rootNode.height = waveforge.height;
 	}
 	_currentRoot = rootNode;
+	_eventDispatcher = new EventDispatcher(rootNode);
 	setupEngine();
 
 	const container = reconciler.createContainer(
@@ -247,12 +269,31 @@ export function render(element: any, rootNode?: waveforge.LayoutNode): any {
 	);
 
 	reconciler.updateContainer(element, container, null, null);
+	_currentContainer = container;
 
 	return container;
 }
 
 export function update(container: any, element: any): void {
 	reconciler.updateContainer(element, container, null, null);
+}
+
+export function unmount(container?: any): void {
+	if (!container || container === _currentContainer) {
+		unmountCurrentRoot();
+		return;
+	}
+	(reconciler as any).updateContainerSync(null, container, null, null);
+	(reconciler as any).flushSyncWork();
+	(reconciler as any).flushPassiveEffects();
+}
+
+export function focus(node: waveforge.LayoutNode): void {
+	_eventDispatcher?.focus(node);
+}
+
+export function blur(): void {
+	_eventDispatcher?.blur();
 }
 
 // Host component type constants

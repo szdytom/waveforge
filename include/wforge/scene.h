@@ -76,7 +76,10 @@ public:
 	sf::RenderWindow window;
 
 private:
+	void _applyPendingScene();
+
 	Scene _current_scene;
+	Scene _pending_scene;
 	bool _scene_changed;
 	int _config_scale;
 	int _scale;
