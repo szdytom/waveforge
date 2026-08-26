@@ -197,8 +197,12 @@ JSValue LevelSurface::ctor(
 	}
 
 	try {
+		std::string asset_id(level_id);
+		if (!asset_id.starts_with("level/")) {
+			asset_id.insert(0, "level/");
+		}
 		auto self = std::make_unique<LevelSurface>(
-			Level::loadFromAsset(level_id)
+			Level::loadFromAsset(asset_id)
 		);
 		JS_FreeCString(ctx, level_id);
 
