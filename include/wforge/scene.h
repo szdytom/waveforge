@@ -245,43 +245,6 @@ private:
 	sf::Texture *_level_link_texture_locked;
 };
 
-class SettingsMenu {
-public:
-	SettingsMenu();
-	~SettingsMenu();
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-	struct Option;
-
-private:
-	int _width;
-	int _height;
-	const PixelFont &font;
-
-	UITextDescriptor _header;
-	UITextDescriptor _restart_hint;
-
-	int _current_option_index;
-	std::vector<std::unique_ptr<Option>> _options;
-
-	std::array<int, 2> _option_start_pos;
-	int _option_spacing;
-	int _option_text_size;
-	int _option_width;
-	sf::Color _option_color;
-	sf::Color _option_active_color;
-
-	int _cheat_code_step;
-	int _cheat_code_hint_opacity;
-};
-
 } // namespace scene
 
 class ScriptedScene {

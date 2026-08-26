@@ -43,7 +43,6 @@ add_executable(waveforge
 	src/scenes/level_switch.cpp
 	src/scenes/level.cpp
 	src/scenes/scene.cpp
-	src/scenes/settings.cpp
 	src/scenes/scripted_scene.cpp
 	src/router.cpp
 	src/structures/electric.cpp

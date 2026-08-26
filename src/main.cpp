@@ -98,9 +98,7 @@ void entry(
 	// Register all scene routes
 	auto &router = wf::SceneRouter::instance();
 	router.registerScriptedRoute("main-menu", "scripts/main_menu");
-	router.registerRoute("settings", [](std::string_view) {
-		return pro::make_proxy<wf::SceneFacade, wf::scene::SettingsMenu>();
-	});
+	router.registerScriptedRoute("settings", "scripts/settings");
 	router.registerScriptedRoute("help", "scripts/help");
 	router.registerScriptedRoute("credits", "scripts/credits");
 	router.registerRoute("level-menu", [](std::string_view) {

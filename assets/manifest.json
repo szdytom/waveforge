@@ -1006,6 +1006,13 @@
 			"width": 256,
 			"height": 192,
 			"description": "Loading main menu scene"
+		},
+		{
+			"id": "scripts/settings",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading settings scene"
 		}
 	]
 }

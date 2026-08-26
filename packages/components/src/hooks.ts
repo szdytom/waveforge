@@ -57,6 +57,7 @@ export interface MenuNavigationOptions {
 	itemCount: number;
 	onActivate(index: number): void;
 	onBack?(): void;
+	onAdjust?(index: number, direction: -1 | 1): void;
 	orientation?: 'horizontal' | 'vertical';
 	initialIndex?: number;
 	wrap?: boolean;
@@ -71,6 +72,7 @@ export function useMenuNavigation({
 	itemCount,
 	onActivate,
 	onBack,
+	onAdjust,
 	orientation = 'vertical',
 	initialIndex = 0,
 	wrap = true,
@@ -90,6 +92,10 @@ export function useMenuNavigation({
 		} else if (nextKeys.includes(event.code)) {
 			playUiSound('forward');
 			setSelectedIndex((current) => (current + 1 < itemCount ? current + 1 : wrap ? 0 : current));
+		} else if (orientation === 'vertical' && (event.code === 'ArrowLeft' || event.code === 'a')) {
+			onAdjust?.(selectedIndex, -1);
+		} else if (orientation === 'vertical' && (event.code === 'ArrowRight' || event.code === 'd')) {
+			onAdjust?.(selectedIndex, 1);
 		} else if (event.code === 'Enter' || event.code === 'Space') {
 			onActivate(selectedIndex);
 		} else if (event.code === 'Escape') {
