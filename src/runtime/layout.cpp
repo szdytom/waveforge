@@ -1506,8 +1506,11 @@ JSValue LayoutNode_setYgValue(
 	}
 
 	// number → point
-	double v;
-	if (JS_ToFloat64(ctx, &v, val) == 0) {
+	if (JS_IsNumber(val)) {
+		double v;
+		if (JS_ToFloat64(ctx, &v, val) != 0) {
+			return JS_ThrowTypeError(ctx, "Failed to convert value to number");
+		}
 		funcs.set(&self->yoga_node, sub_magic, static_cast<float>(v));
 		return JS_UNDEFINED;
 	}
