@@ -1,5 +1,6 @@
 #include "wforge/colorpalette.h"
 #include "wforge/physics_gpu.h"
+#include <SFML/Window/Context.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -78,6 +79,7 @@ void waitForTick(wf::GpuPhysicsBackend &backend, std::uint64_t tick) {
 
 int main() {
 	try {
+		sf::Context sfml_context;
 		wf::GpuPhysicsBackend backend(WIDTH, HEIGHT);
 		const auto diagnostics = backend.diagnostics();
 		std::cout << std::format(

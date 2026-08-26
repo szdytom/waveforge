@@ -24,6 +24,26 @@ constexpr std::uint32_t PRESSURE_ITERATIONS = 2;
 constexpr std::uint32_t INVALID_CELL = 0xffffffffU;
 constexpr std::uint32_t TIMESTAMP_COUNT = 16;
 
+[[nodiscard]] constexpr WGPUInstanceBackend platformInstanceBackend() noexcept {
+#if defined(_WIN32)
+	return WGPUInstanceBackend_DX12;
+#elif defined(__APPLE__)
+	return WGPUInstanceBackend_Metal;
+#else
+	return WGPUInstanceBackend_Vulkan;
+#endif
+}
+
+[[nodiscard]] constexpr WGPUBackendType platformBackendType() noexcept {
+#if defined(_WIN32)
+	return WGPUBackendType_D3D12;
+#elif defined(__APPLE__)
+	return WGPUBackendType_Metal;
+#else
+	return WGPUBackendType_Vulkan;
+#endif
+}
+
 constexpr char PHYSICS_SHADER[] = R"(
 struct Cell {
 	metadata: u32,
@@ -777,7 +797,14 @@ GpuPhysicsBackend::Impl::~Impl() noexcept {
 }
 
 void GpuPhysicsBackend::Impl::_createContext() {
-	WGPUInstanceDescriptor instance_descriptor{};
+	WGPUInstanceExtras instance_extras{};
+	instance_extras.chain.sType = static_cast<WGPUSType>(
+		WGPUSType_InstanceExtras
+	);
+	instance_extras.backends = platformInstanceBackend();
+	WGPUInstanceDescriptor instance_descriptor{
+		.nextInChain = &instance_extras.chain,
+	};
 	instance = wgpuCreateInstance(&instance_descriptor);
 	if (instance == nullptr) {
 		throw std::runtime_error("Failed to create WebGPU instance");
@@ -792,6 +819,7 @@ void GpuPhysicsBackend::Impl::_createContext() {
 	WGPURequestAdapterOptions options{
 		.featureLevel = WGPUFeatureLevel_Core,
 		.powerPreference = WGPUPowerPreference_HighPerformance,
+		.backendType = platformBackendType(),
 	};
 	WGPURequestAdapterCallbackInfo callback{
 		.mode = WGPUCallbackMode_AllowProcessEvents,
