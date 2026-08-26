@@ -5,6 +5,16 @@
 
 namespace wf {
 
+namespace {
+
+float globalVolume() noexcept {
+	return static_cast<float>(std::clamp(
+		SaveKV::instance().getInt("settings.global_volume", 80), 0, 100
+	));
+}
+
+} // namespace
+
 FadeIOConfig &FadeIOConfig::load() {
 	static FadeIOConfig config;
 	static bool loaded = false;
@@ -21,6 +31,30 @@ FadeIOConfig &FadeIOConfig::load() {
 	}
 
 	return config;
+}
+
+SoundManager &SoundManager::instance() noexcept {
+	static SoundManager instance;
+	return instance;
+}
+
+void SoundManager::play(const std::shared_ptr<sf::Sound> &sound) {
+	sound->setVolume(globalVolume());
+	sound->play();
+	if (std::ranges::find(_active_sounds, sound) == _active_sounds.end()) {
+		_active_sounds.push_back(sound);
+	}
+}
+
+void SoundManager::step() {
+	const float volume = globalVolume();
+	std::erase_if(_active_sounds, [volume](const auto &sound) {
+		if (sound->getStatus() == sf::Sound::Status::Stopped) {
+			return true;
+		}
+		sound->setVolume(volume);
+		return false;
+	});
 }
 
 BGMManager &BGMManager::instance() noexcept {
@@ -74,16 +108,12 @@ void BGMManager::fadeInCurrent(int duration_ticks, float starting_volume) {
 		_cur_volume = starting_volume;
 		_volume_delta = (1.f - starting_volume) / duration_ticks;
 		if (_cur_bgm) {
-			int global_volume = SaveKV::instance().getInt(
-				"settings.global_volume", 80
-			);
-			_cur_bgm->setVolume(starting_volume * global_volume);
+			_cur_bgm->setVolume(starting_volume * globalVolume());
 		}
 	}
 }
 
 void BGMManager::step() {
-	int global_volume = SaveKV::instance().getInt("settings.global_volume", 80);
 	if (_cur_bgm && _cur_bgm->getStatus() == sf::Music::Status::Playing) {
 		_cur_volume += _volume_delta;
 		if (_cur_volume <= 0.f) {
@@ -96,18 +126,16 @@ void BGMManager::step() {
 			_cur_volume = 1.f;
 			_volume_delta = 0.f;
 		}
-		_cur_bgm->setVolume(_cur_volume * global_volume);
+		_cur_bgm->setVolume(_cur_volume * globalVolume());
 	} else if (_collection) {
 		nextMusic();
 	}
 }
 
 void BGMManager::setVolume(float volume) {
-	{
-		_cur_volume = volume;
-		if (_cur_bgm) {
-			_cur_bgm->setVolume(_cur_volume);
-		}
+	_cur_volume = volume;
+	if (_cur_bgm) {
+		_cur_bgm->setVolume(_cur_volume * globalVolume());
 	}
 }
 
@@ -125,9 +153,10 @@ void BGMManager::nextMusic() {
 	}
 
 	if ((_cur_bgm = _collection->getRandomMusic())) {
-		_cur_bgm->play();
 		_cur_volume = 1.f;
 		_volume_delta = 0.f;
+		_cur_bgm->setVolume(globalVolume());
+		_cur_bgm->play();
 	}
 }
 

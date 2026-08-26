@@ -3,6 +3,8 @@
 
 #include "wforge/assets.h"
 #include <SFML/Audio.hpp>
+#include <memory>
+#include <vector>
 
 namespace wf {
 
@@ -12,6 +14,24 @@ struct FadeIOConfig {
 	int fade_out_ticks;
 
 	static FadeIOConfig &load();
+};
+
+class SoundManager {
+public:
+	SoundManager(const SoundManager &) = delete;
+	SoundManager &operator=(const SoundManager &) = delete;
+	SoundManager(SoundManager &&) = delete;
+	SoundManager &operator=(SoundManager &&) = delete;
+
+	static SoundManager &instance() noexcept;
+
+	void play(const std::shared_ptr<sf::Sound> &sound);
+	void step();
+
+private:
+	SoundManager() = default;
+
+	std::vector<std::shared_ptr<sf::Sound>> _active_sounds;
 };
 
 class BGMManager {

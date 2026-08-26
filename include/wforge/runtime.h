@@ -597,7 +597,7 @@ struct Sound final : BindingBase<Sound> {
 		JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 	) noexcept;
 
-	sf::Sound sound;
+	std::shared_ptr<sf::Sound> sound;
 
 	Sound(sf::SoundBuffer *buffer) noexcept;
 };

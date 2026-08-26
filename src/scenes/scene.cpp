@@ -114,6 +114,7 @@ void SceneManager::handleEvent(sf::Event &evt) {
 }
 
 void SceneManager::tick() {
+	SoundManager::instance().step();
 	_scene_changed = false;
 	_current_scene->step(*this);
 	if (_scene_changed) {

@@ -7,17 +7,18 @@
 
 namespace wf::js {
 
-Sound::Sound(sf::SoundBuffer *buffer) noexcept: sound(*buffer) {}
+Sound::Sound(sf::SoundBuffer *buffer) noexcept
+	: sound(std::make_shared<sf::Sound>(*buffer)) {}
 
 namespace {
 
 WF_JS_METHOD(Sound, play, {
-	self->sound.play();
+	SoundManager::instance().play(self->sound);
 	return JS_UNDEFINED;
 })
 
 WF_JS_METHOD(Sound, stop, {
-	self->sound.stop();
+	self->sound->stop();
 	return JS_UNDEFINED;
 })
 
