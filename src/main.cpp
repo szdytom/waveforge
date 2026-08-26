@@ -13,6 +13,7 @@
 #include <cpptrace/from_current.hpp>
 #include <cpptrace/from_current_macros.hpp>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <proxy/proxy.h>
 
 void entry(
@@ -109,9 +110,35 @@ void entry(
 			256, 192, std::move(metadata)
 		);
 	});
-	router.registerRoute("play-level", [](std::string_view data) {
-		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelPlaying>(
-			std::string(data)
+	router.registerScriptedRoute("play-level", "scripts/level");
+	router.registerRoute("level-death", [](std::string_view data) {
+		auto state = nlohmann::json::parse(data);
+		int duck_x = state.at("duckX");
+		int duck_y = state.at("duckY");
+		if (state.at("failed").get<bool>()) {
+			const auto &duck_texture = wf::AssetsManager::instance()
+										   .getAsset<sf::Texture>(
+											   "duck/texture"
+										   );
+			duck_x = (state.at("width").get<int>() - duck_texture.getSize().x)
+				/ 2;
+			duck_y = (state.at("height").get<int>() - duck_texture.getSize().y)
+				/ 2;
+		}
+		auto metadata = wf::AssetsManager::instance()
+							.getAsset<wf::LevelMetadata>(
+								state.at("levelId").get<std::string>()
+							);
+		return pro::make_proxy<wf::SceneFacade, wf::scene::DuckDeath>(
+			state.at("width").get<int>(), state.at("height").get<int>(), duck_x,
+			duck_y, std::move(metadata)
+		);
+	});
+	router.registerRoute("level-complete", [](std::string_view data) {
+		auto state = nlohmann::json::parse(data);
+		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelComplete>(
+			state.at("width").get<int>(), state.at("height").get<int>(),
+			state.at("duckX").get<int>(), state.at("duckY").get<int>()
 		);
 	});
 

@@ -5,6 +5,7 @@ interface EngineEventMap {
 	key: waveforge.KeyEvent;
 	mousebutton: waveforge.MouseButtonEvent;
 	mousemove: waveforge.MouseMoveEvent;
+	mousewheel: waveforge.MouseWheelEvent;
 	mouseenter: undefined;
 	mouseleave: undefined;
 	teardown: undefined;

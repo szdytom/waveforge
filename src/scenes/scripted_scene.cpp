@@ -24,6 +24,7 @@ enum class CallbackIdx : size_t {
 	KEY,
 	MOUSEBUTTON,
 	MOUSEMOVE,
+	MOUSEWHEEL,
 	MOUSEENTER,
 	MOUSELEAVE,
 	TEARDOWN,
@@ -43,6 +44,9 @@ CallbackIdx callbackIdx(std::string_view type) noexcept {
 	if (type == "mousemove") {
 		return CallbackIdx::MOUSEMOVE;
 	}
+	if (type == "mousewheel") {
+		return CallbackIdx::MOUSEWHEEL;
+	}
 	if (type == "mouseenter") {
 		return CallbackIdx::MOUSEENTER;
 	}
@@ -59,7 +63,7 @@ using SceneBindings = js::BindingList<
 	js::Texture, js::Color, js::TextContent, js::SpriteContent, js::DrawTextCmd,
 	js::DrawSpriteCmd, js::DrawRectCmd, js::DrawCmdList, js::DrawCmdListIter,
 	js::LayoutNode, js::KeyEvent, js::MouseButtonEvent, js::MouseMoveEvent,
-	js::Sound, js::LevelSurface>;
+	js::MouseWheelEvent, js::Sound, js::LevelSurface>;
 
 js::Engine &scriptEngine() {
 	static std::unique_ptr<js::Engine> engine;
@@ -318,6 +322,11 @@ std::tuple<CallbackIdx, JSValue> createJSEvent(
 	if (const auto *e = evt.getIf<sf::Event::MouseMoved>()) {
 		return {
 			CallbackIdx::MOUSEMOVE, js::MouseMoveEvent::from(ctx, *e, scale)
+		};
+	}
+	if (const auto *e = evt.getIf<sf::Event::MouseWheelScrolled>()) {
+		return {
+			CallbackIdx::MOUSEWHEEL, js::MouseWheelEvent::from(ctx, *e, scale)
 		};
 	}
 	if (evt.is<sf::Event::MouseEntered>()) {

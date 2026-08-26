@@ -29,6 +29,7 @@ declare namespace waveforge {
 		unset(): void;
 		fadeOut(durationTicks: number): void;
 		fadeIn(durationTicks: number, startingVolume: number): void;
+		setVolume(volume: number): void;
 	};
 
 	interface LevelInfo {
@@ -47,11 +48,12 @@ declare namespace waveforge {
 	function addEventListener(type: 'key', callback: (event: KeyEvent) => void): void;
 	function addEventListener(type: 'mousebutton', callback: (event: MouseButtonEvent) => void): void;
 	function addEventListener(type: 'mousemove', callback: (event: MouseMoveEvent) => void): void;
+	function addEventListener(type: 'mousewheel', callback: (event: MouseWheelEvent) => void): void;
 	function addEventListener(type: 'mouseenter', callback: () => void): void;
 	function addEventListener(type: 'mouseleave', callback: () => void): void;
 	function addEventListener(type: 'teardown', callback: () => void): void;
 	function removeEventListener(
-		type: 'step' | 'key' | 'mousebutton' | 'mousemove' | 'mouseenter' | 'mouseleave' | 'teardown',
+		type: 'step' | 'key' | 'mousebutton' | 'mousemove' | 'mousewheel' | 'mouseenter' | 'mouseleave' | 'teardown',
 		callback: Function,
 	): void;
 
@@ -235,7 +237,7 @@ declare namespace waveforge {
 
 		constructor(levelId: string);
 		step(): void;
-		useItem(x: number, y: number): void;
+		applyItem(x: number, y: number): void;
 		changeBrushSize(delta: number): void;
 		selectItem(index: number): void;
 		prevItem(): void;
@@ -388,7 +390,13 @@ declare namespace waveforge {
 		readonly y: number;
 	}
 
-	type SceneEvent = KeyEvent | MouseButtonEvent | MouseMoveEvent;
+	class MouseWheelEvent {
+		readonly delta: number;
+		readonly x: number;
+		readonly y: number;
+	}
+
+	type SceneEvent = KeyEvent | MouseButtonEvent | MouseMoveEvent | MouseWheelEvent;
 }
 
 // ── performance API ──

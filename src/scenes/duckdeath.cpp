@@ -1,5 +1,6 @@
 #include "wforge/assets.h"
 #include "wforge/level.h"
+#include "wforge/router.h"
 #include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <SFML/Audio/SoundBuffer.hpp>
@@ -101,9 +102,7 @@ void DuckDeath::step(SceneManager &mgr) {
 	if (_tick > _total_duration) {
 		_reborn_sound.stop();
 		mgr.changeScene(
-			pro::make_proxy<SceneFacade, LevelPlaying>(
-				Level::loadFromMetadata(std::move(_level_metadata))
-			)
+			SceneRouter::instance().create("play-level", _level_metadata.id)
 		);
 		return;
 	}

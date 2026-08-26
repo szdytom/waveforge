@@ -27,7 +27,7 @@ struct LevelSurface final : BindingBase<LevelSurface> {
 	[[nodiscard]] const LevelMetadata &metadata() const noexcept;
 
 	void step();
-	void useItem(int x, int y) noexcept;
+	void applyItem(int x, int y) noexcept;
 	void changeBrushSize(int delta) noexcept;
 	void selectItem(int index) noexcept;
 	void prevItem() noexcept;

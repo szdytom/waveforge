@@ -4,6 +4,7 @@
 #include "wforge/level.h"
 #include "wforge/runtime_platform.h"
 #include "wforge/save_io.h"
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 #include <quickjs.h>
@@ -86,7 +87,7 @@ JSValue storageSet(
 JSValue storageSetInt(
 	JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
 ) noexcept {
-	if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsBool(argv[1])) {
+	if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsNumber(argv[1])) {
 		return JS_ThrowTypeError(
 			ctx, "storage.setInt expects a string key and integer value"
 		);
@@ -168,6 +169,19 @@ JSValue musicFadeIn(
 	return JS_UNDEFINED;
 }
 
+JSValue musicSetVolume(
+	JSContext *ctx, JSValueConst, int argc, JSValueConst *argv
+) noexcept {
+	double volume;
+	if (argc < 1 || JS_ToFloat64(ctx, &volume, argv[0]) < 0) {
+		return JS_ThrowTypeError(ctx, "music.setVolume expects a volume");
+	}
+	BGMManager::instance().setVolume(
+		static_cast<float>(std::clamp(volume, 0.0, 1.0))
+	);
+	return JS_UNDEFINED;
+}
+
 void setStringProperty(
 	JSContext *ctx, JSValueConst object, const char *name,
 	std::string_view value
@@ -225,6 +239,7 @@ void bindPlatformApi(JSContext *ctx, JSValueConst waveforge) {
 		cFuncDef("unset", 0, musicUnset),
 		cFuncDef("fadeOut", 1, musicFadeOut),
 		cFuncDef("fadeIn", 2, musicFadeIn),
+		cFuncDef("setVolume", 1, musicSetVolume),
 	};
 	JSValue music = JS_NewObject(ctx);
 	JS_SetPropertyFunctionList(ctx, music, MUSIC_API, std::size(MUSIC_API));

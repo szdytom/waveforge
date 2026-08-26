@@ -81,7 +81,7 @@ JSValue step(
 	return JS_UNDEFINED;
 }
 
-JSValue useItem(
+JSValue applyItem(
 	JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv
 ) noexcept {
 	auto *self = LevelSurface::unwrap(ctx, this_val);
@@ -89,9 +89,9 @@ JSValue useItem(
 	int32_t y;
 	if (!self || argc < 2 || JS_ToInt32(ctx, &x, argv[0])
 	    || JS_ToInt32(ctx, &y, argv[1])) {
-		return JS_ThrowTypeError(ctx, "useItem expects x and y coordinates");
+		return JS_ThrowTypeError(ctx, "applyItem expects x and y coordinates");
 	}
-	self->useItem(x, y);
+	self->applyItem(x, y);
 	return JS_UNDEFINED;
 }
 
@@ -164,7 +164,7 @@ const JSCFunctionListEntry LEVEL_SURFACE_PROTO[] = {
 	cGetSetDef("levelIndex", getLevelIndex, nullptr),
 	cGetSetDef("levelName", getLevelName, nullptr),
 	cFuncDef("step", 0, step),
-	cFuncDef("useItem", 2, useItem),
+	cFuncDef("applyItem", 2, applyItem),
 	cFuncDef("changeBrushSize", 1, changeBrushSize),
 	cFuncDef("selectItem", 1, selectItem),
 	cFuncDef("prevItem", 0, prevItem),
@@ -246,7 +246,7 @@ void LevelSurface::step() {
 	_level.step();
 }
 
-void LevelSurface::useItem(int x, int y) noexcept {
+void LevelSurface::applyItem(int x, int y) noexcept {
 	_level.useActiveItem(x, y);
 }
 

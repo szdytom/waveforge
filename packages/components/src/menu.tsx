@@ -11,6 +11,8 @@ export interface MenuItemProps {
 	style?: Record<string, any>;
 	value?: string;
 	textSize?: number;
+	color?: waveforge.ColorLike;
+	selectedColor?: waveforge.ColorLike;
 }
 
 export function MenuItem({
@@ -22,8 +24,10 @@ export function MenuItem({
 	style: extraStyle,
 	value,
 	textSize = 1,
+	color = UI_COLORS.text,
+	selectedColor = UI_COLORS.active,
 }: MenuItemProps) {
-	const color = disabled ? UI_COLORS.mutedText : selected ? UI_COLORS.active : UI_COLORS.text;
+	const textColor = disabled ? UI_COLORS.mutedText : selected ? selectedColor : color;
 	return (
 		<View
 			tabIndex={disabled ? undefined : -1}
@@ -31,11 +35,11 @@ export function MenuItem({
 			onClick={disabled ? undefined : onActivate}
 			style={style(row(), padding(2, 4), contentAlignV('horizon'), extraStyle)}
 		>
-			<Text color={color} size={textSize}>
+			<Text color={textColor} size={textSize}>
 				{label}
 			</Text>
 			{value ? (
-				<Text color={color} size={textSize} style={{ marginLeft: 'auto' }}>
+				<Text color={textColor} size={textSize} style={{ marginLeft: 'auto' }}>
 					{selected ? `<${value}>` : value}
 				</Text>
 			) : null}

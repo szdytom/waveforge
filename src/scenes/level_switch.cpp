@@ -139,11 +139,9 @@ void LevelLoading::step(SceneManager &mgr) {
 	_tick++;
 	if (_tick >= _total_duration) {
 		// Load level scene
-		mgr.changeScene(Scene(
-			pro::make_proxy<SceneFacade, LevelPlaying>(
-				Level::loadFromMetadata(std::move(_level_metadata))
-			)
-		));
+		mgr.changeScene(
+			SceneRouter::instance().create("play-level", _level_metadata.id)
+		);
 	}
 }
 

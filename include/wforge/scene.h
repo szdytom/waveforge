@@ -94,38 +94,6 @@ struct ButtonDescriptor {
 
 namespace scene {
 
-struct LevelPlaying {
-	LevelPlaying(const std::string &level_id);
-	LevelPlaying(Level level);
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-	void pause(SceneManager &mgr) noexcept;
-	void unpause(SceneManager &mgr) noexcept;
-
-private:
-	void _restartLevel(SceneManager &mgr, bool is_failed = true);
-
-	int _tick;
-	Level _level;
-	mutable LevelRenderer _renderer;
-	int _hint_type;
-	int _hint_opacity;
-	PixelFont &font;
-	bool _paused;
-
-	// Paused Menu
-	int _paused_menu_current_button_index;
-	bool _show_help;
-	sf::Texture *_help_texture;
-};
-
 struct DuckDeath {
 	DuckDeath(
 		int level_width, int level_height, int duck_x, int duck_y,

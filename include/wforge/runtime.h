@@ -570,6 +570,23 @@ struct MouseMoveEvent final : BindingBase<MouseMoveEvent> {
 	) noexcept;
 };
 
+struct MouseWheelEvent final : BindingBase<MouseWheelEvent> {
+	static constexpr const char *CLASS_NAME = "MouseWheelEvent";
+	static const CFunctionList PROTO_FIELDS;
+
+	[[nodiscard]] static JSValue parentProto(JSContext *ctx) noexcept;
+
+	float delta;
+	int x;
+	int y;
+
+	MouseWheelEvent(float delta, int x, int y) noexcept;
+
+	[[nodiscard]] static JSValue from(
+		JSContext *ctx, const sf::Event::MouseWheelScrolled &evt, int scale = 1
+	) noexcept;
+};
+
 struct Sound final : BindingBase<Sound> {
 	static constexpr const char *CLASS_NAME = "Sound";
 	static constexpr int CTOR_LENGTH = 1;

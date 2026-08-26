@@ -41,7 +41,6 @@ add_executable(waveforge
 	src/runtime/texture.cpp
 	src/scenes/duckdeath.cpp
 	src/scenes/level_switch.cpp
-	src/scenes/level.cpp
 	src/scenes/scene.cpp
 	src/scenes/scripted_scene.cpp
 	src/router.cpp

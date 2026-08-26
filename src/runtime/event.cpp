@@ -63,6 +63,12 @@ JSValue MouseMoveEvent_getType(JSContext *ctx, JSValueConst this_val) noexcept {
 WF_JS_DEF_GETTER_I32(MouseMoveEvent, getX, self->x)
 WF_JS_DEF_GETTER_I32(MouseMoveEvent, getY, self->y)
 
+// --- MouseWheelEvent getters ---
+
+WF_JS_DEF_GETTER_F64(MouseWheelEvent, getDelta, self->delta)
+WF_JS_DEF_GETTER_I32(MouseWheelEvent, getX, self->x)
+WF_JS_DEF_GETTER_I32(MouseWheelEvent, getY, self->y)
+
 #define WF_KEY(key, js)          \
 	case sf::Keyboard::Key::key: \
 		return js;
@@ -285,6 +291,43 @@ JSValue MouseMoveEvent::from(
 ) noexcept {
 	auto self = std::make_unique<MouseMoveEvent>(
 		Type::MouseMove, evt.position.x / scale, evt.position.y / scale
+	);
+	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
+	if (JS_IsException(obj)) {
+		return obj;
+	}
+	if (JS_SetOpaque(obj, self.get()) < 0) {
+		return JS_ThrowTypeError(ctx, "Internal error");
+	}
+	self.release();
+	return obj;
+}
+
+// ===== MouseWheelEvent =====
+
+MouseWheelEvent::MouseWheelEvent(float delta, int x, int y) noexcept
+	: delta(delta), x(x), y(y) {}
+
+JSValue MouseWheelEvent::parentProto(JSContext *ctx) noexcept {
+	return JS_UNDEFINED;
+}
+
+static const JSCFunctionListEntry MOUSE_WHEEL_EVENT_PROTO[] = {
+	cGetSetDef("delta", MouseWheelEvent_getDelta, nullptr),
+	cGetSetDef("x", MouseWheelEvent_getX, nullptr),
+	cGetSetDef("y", MouseWheelEvent_getY, nullptr),
+	propStringDef(
+		"[Symbol.toStringTag]", "MouseWheelEvent", JS_PROP_CONFIGURABLE
+	),
+};
+
+const CFunctionList MouseWheelEvent::PROTO_FIELDS{MOUSE_WHEEL_EVENT_PROTO};
+
+JSValue MouseWheelEvent::from(
+	JSContext *ctx, const sf::Event::MouseWheelScrolled &evt, int scale
+) noexcept {
+	auto self = std::make_unique<MouseWheelEvent>(
+		evt.delta, evt.position.x / scale, evt.position.y / scale
 	);
 	JSValue obj = JS_NewObjectClass(ctx, clsId(JS_GetRuntime(ctx)));
 	if (JS_IsException(obj)) {
