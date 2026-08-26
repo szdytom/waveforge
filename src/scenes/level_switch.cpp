@@ -2,6 +2,7 @@
 #include "wforge/audio.h"
 #include "wforge/colorpalette.h"
 #include "wforge/level.h"
+#include "wforge/router.h"
 #include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <SFML/Graphics/Sprite.hpp>
@@ -81,7 +82,7 @@ void LevelComplete::step(SceneManager &mgr) {
 
 	if (_display_text) {
 		// Go back to level menu
-		mgr.changeScene(Scene(std::make_unique<LevelSelectionMenu>()));
+		mgr.changeScene(SceneRouter::instance().create("level-menu"));
 		return;
 	}
 

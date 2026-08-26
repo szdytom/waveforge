@@ -208,43 +208,6 @@ private:
 	LevelMetadata _level_metadata;
 };
 
-struct LevelSelectionMenu {
-	LevelSelectionMenu();
-
-	std::array<int, 2> size() const;
-	void setup(SceneManager &mgr);
-	void handleEvent(SceneManager &mgr, sf::Event &evt);
-	void step(SceneManager &mgr);
-	void render(
-		const SceneManager &mgr, sf::RenderTarget &target, int scale
-	) const;
-
-private:
-	int _selected_index;
-	const LevelSequence &_level_seq;
-
-	int _width;
-	int _height;
-	const PixelFont &font;
-
-	UITextDescriptor _header;
-	UITextDescriptor _level_button_text;
-	UITextDescriptor _level_title;
-	UITextDescriptor _level_desc;
-	UITextDescriptor _level_difficulty;
-	UITextDescriptor _play_hint;
-	UITextDescriptor _enter_hint;
-	std::vector<std::array<int, 2>> _level_button;
-	std::vector<std::array<int, 2>> _level_links;
-	std::array<int, 2> _duck_rel;
-
-	sf::Texture *_duck_texture;
-	sf::Texture *_level_button_texture_frame;
-	sf::Texture *_level_button_texture_locked;
-	sf::Texture *_level_link_texture_activated;
-	sf::Texture *_level_link_texture_locked;
-};
-
 } // namespace scene
 
 class ScriptedScene {

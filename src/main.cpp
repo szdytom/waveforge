@@ -101,9 +101,13 @@ void entry(
 	router.registerScriptedRoute("settings", "scripts/settings");
 	router.registerScriptedRoute("help", "scripts/help");
 	router.registerScriptedRoute("credits", "scripts/credits");
-	router.registerRoute("level-menu", [](std::string_view) {
-		return pro::make_proxy<
-			wf::SceneFacade, wf::scene::LevelSelectionMenu>();
+	router.registerScriptedRoute("level-menu", "scripts/level_menu");
+	router.registerRoute("load-level", [](std::string_view data) {
+		auto metadata = wf::AssetsManager::instance()
+							.getAsset<wf::LevelMetadata>(data);
+		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelLoading>(
+			256, 192, std::move(metadata)
+		);
 	});
 	router.registerRoute("play-level", [](std::string_view data) {
 		return pro::make_proxy<wf::SceneFacade, wf::scene::LevelPlaying>(

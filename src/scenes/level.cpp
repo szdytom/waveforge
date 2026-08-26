@@ -1,6 +1,7 @@
 #include "wforge/level.h"
 #include "wforge/assets.h"
 #include "wforge/colorpalette.h"
+#include "wforge/router.h"
 #include "wforge/save_io.h"
 #include "wforge/scene.h"
 #include <SFML/Window/Event.hpp>
@@ -162,7 +163,7 @@ void LevelPlaying::handleEvent(SceneManager &mgr, sf::Event &ev) {
 
 					case PausedMenuButton::QUIT:
 						mgr.changeScene(
-							pro::make_proxy<SceneFacade, LevelSelectionMenu>()
+							SceneRouter::instance().create("level-menu")
 						);
 						return;
 

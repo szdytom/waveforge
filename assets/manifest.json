@@ -1013,6 +1013,13 @@
 			"width": 256,
 			"height": 192,
 			"description": "Loading settings scene"
+		},
+		{
+			"id": "scripts/level_menu",
+			"type": "ui-scene",
+			"width": 256,
+			"height": 192,
+			"description": "Loading level selection scene"
 		}
 	]
 }

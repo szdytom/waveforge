@@ -39,7 +39,6 @@ add_executable(waveforge
 	src/runtime/sound.cpp
 	src/runtime/texture.cpp
 	src/scenes/duckdeath.cpp
-	src/scenes/level_menu.cpp
 	src/scenes/level_switch.cpp
 	src/scenes/level.cpp
 	src/scenes/scene.cpp
