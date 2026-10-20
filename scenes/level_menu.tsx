@@ -54,7 +54,7 @@ function LevelMenuScene() {
 
 	return (
 		<Screen title="Level Menu">
-			<Title style={{ position: 'absolute', left: 16, top: 16 }} size={4}>
+			<Title style={{ position: 'absolute', left: 16, top: 12 }} size={4}>
 				Levels
 			</Title>
 			{LINK_X.map((left, slot) => {
@@ -91,7 +91,15 @@ function LevelMenuScene() {
 							style={style(fill(), { position: 'absolute', left: 0, top: 0 })}
 						/>
 						{locked ? null : (
-							<Text color="#ffffff" size={2} style={{ position: 'absolute' }}>
+							<Text
+								color="#ffffff"
+								size={2}
+								style={{
+									position: 'absolute',
+									left: 1 + Math.floor((31 - `${level.index + 1}`.length * 11) / 2),
+									top: 9,
+								}}
+							>
 								{`${level.index + 1}`}
 							</Text>
 						)}
@@ -101,18 +109,20 @@ function LevelMenuScene() {
 					</View>
 				);
 			})}
-			<Sprite texture={duckTexture} style={{ position: 'absolute', left: BUTTON_X[duckButtonIndex] + 8, top: 59 }} />
+			<Sprite texture={duckTexture} style={{ position: 'absolute', left: BUTTON_X[duckButtonIndex] + 10, top: 64 }} />
 			{selectedLevel ? (
 				<>
-					<Label size={2} style={{ position: 'absolute', left: 16, top: 124 }}>
+					<Label size={2} style={{ position: 'absolute', left: 16, top: 122 }}>
 						{selectedLevel.name}
 					</Label>
-					<Hint style={{ position: 'absolute', left: 16, top: 142 }}>{selectedLevel.description}</Hint>
-					<Hint style={{ position: 'absolute', left: 16, top: 154 }}>{`Difficulty: ${selectedLevel.difficulty}`}</Hint>
-					<Label color="#fac82e" style={{ position: 'absolute', left: 16, top: 166 }}>
+					<Hint style={{ position: 'absolute', left: 16, top: 141 }}>{selectedLevel.description}</Hint>
+					<Hint style={{ position: 'absolute', left: 16, top: 153 }}>{`Difficulty:${selectedLevel.difficulty}`}</Hint>
+					<Label color="#fac82e" style={{ position: 'absolute', left: 16, top: 165 }}>
 						Play
 					</Label>
-					<Hint style={{ position: 'absolute', left: 40, top: 166 }}>[Enter]</Hint>
+					<Hint color="#b4b4b4" style={{ position: 'absolute', left: 40, top: 165 }}>
+						[Enter]
+					</Hint>
 				</>
 			) : null}
 		</Screen>

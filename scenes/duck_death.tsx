@@ -74,7 +74,7 @@ function DuckDeathScene() {
 				sourceX={frame * FRAME_SIZE}
 				sourceWidth={FRAME_SIZE}
 				sourceHeight={FRAME_SIZE}
-				style={{ position: 'absolute', left: duckX, top: duckY }}
+				style={{ position: 'absolute', left: duckX - 2, top: duckY - 2 }}
 			/>
 		</View>
 	);

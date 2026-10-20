@@ -7,10 +7,13 @@ import {
 	Title,
 	useKeyDown,
 	useMenuNavigation,
+	useStep,
 } from '@waveforge/components';
 import { render } from '@waveforge/renderer';
-import { padding, style } from '@waveforge/styles';
 import React from 'react';
+
+const HINT_MAX_OPACITY = 200;
+const HINT_FADE_SPEED = 3;
 
 const SETTINGS_KEYS = [
 	'settings.scale',
@@ -32,6 +35,7 @@ function SettingsScene() {
 	const [, rerender] = React.useReducer((current) => current + 1, 0);
 	const [resetConfirmed, setResetConfirmed] = React.useState(false);
 	const [cheatProgress, setCheatProgress] = React.useState('');
+	const [cheatOpacity, setCheatOpacity] = React.useState(0);
 
 	const goBack = React.useCallback(() => {
 		playUiSound('backward');
@@ -97,7 +101,7 @@ function SettingsScene() {
 				},
 			},
 			{
-				label: resetConfirmed ? 'Reset All (Again to Confirm)' : 'Reset All',
+				label: resetConfirmed ? 'Reset All(Again to Confirm)' : 'Reset All',
 				activate: () => {
 					if (!resetConfirmed) {
 						setResetConfirmed(true);
@@ -110,7 +114,7 @@ function SettingsScene() {
 					waveforge.navigateTo('main-menu');
 				},
 			},
-			{ label: 'Back (Esc)', activate: goBack },
+			{ label: 'Back(esc)', activate: goBack },
 		);
 		return settings;
 	})();
@@ -154,6 +158,7 @@ function SettingsScene() {
 		const next = `${cheatProgress}${event.code.toUpperCase()}`;
 		if ('XYZZY'.startsWith(next)) {
 			setCheatProgress(next);
+			setCheatOpacity(HINT_MAX_OPACITY);
 			if (next === 'XYZZY') {
 				waveforge.storage.setInt('completed_levels', waveforge.levels.length);
 			}
@@ -162,11 +167,19 @@ function SettingsScene() {
 		}
 	});
 
+	useStep(() => {
+		if (cheatOpacity > 0) {
+			setCheatOpacity(Math.max(0, cheatOpacity - HINT_FADE_SPEED));
+		} else if (cheatProgress) {
+			setCheatProgress('');
+		}
+	});
+
 	return (
-		<Screen title="Settings" style={padding(16)}>
-			<Title>Settings</Title>
-			<Hint style={{ marginTop: 2 }}>Some changes require restart</Hint>
-			<Column style={style({ width: 192, marginLeft: 16, marginTop: 22 }, { gap: 2 })}>
+		<Screen title="Settings">
+			<Title style={{ position: 'absolute', left: 16, top: 14 }}>Settings</Title>
+			<Hint style={{ position: 'absolute', left: 16, top: 31 }}>some changes require restart</Hint>
+			<Column style={{ position: 'absolute', left: 32, top: 63, width: 192, gap: 6 }}>
 				{options.map((option, index) => (
 					<MenuItem
 						key={option.label}
@@ -175,12 +188,12 @@ function SettingsScene() {
 						selected={selectedIndex === index}
 						onSelect={() => setSelectedIndex(index)}
 						onActivate={() => activate(index)}
-						style={{ height: 10 }}
+						style={{ height: 6, paddingLeft: 0, paddingRight: 0, paddingTop: 0, paddingBottom: 0 }}
 					/>
 				))}
 			</Column>
-			{cheatProgress ? (
-				<Hint style={{ marginTop: 'auto', alignSelf: 'center' }}>
+			{cheatProgress && cheatOpacity > 0 ? (
+				<Hint color={[0, 0, 0, cheatOpacity]} style={{ position: 'absolute', bottom: 11, alignSelf: 'center' }}>
 					{cheatProgress === 'XYZZY' ? 'All levels unlocked' : cheatProgress}
 				</Hint>
 			) : null}

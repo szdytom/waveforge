@@ -9,6 +9,7 @@ declare namespace waveforge {
 	const width: number;
 	const height: number;
 	const version: string;
+	const commitHash: string;
 	const debug: boolean;
 	function setTitle(title: string): void;
 	function close(): void;

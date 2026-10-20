@@ -113,7 +113,7 @@ function LevelCompleteScene() {
 					style={{
 						position: 'absolute',
 						left: target.x + DUCK_WIDTH + 3,
-						top: Math.floor((state.height - 6) / 2),
+						top: Math.floor((state.height - 6) / 2) - 1,
 					}}
 				>
 					{MESSAGE}

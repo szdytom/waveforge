@@ -440,6 +440,13 @@ void ScriptedScene::setup(SceneManager &mgr) {
 		js::propInt32Def("width", impl.width, JS_PROP_CONFIGURABLE),
 		js::propInt32Def("height", impl.height, JS_PROP_CONFIGURABLE),
 		js::propStringDef("version", WAVEFORGE_VERSION, JS_PROP_CONFIGURABLE),
+#ifdef WAVEFORGE_GIT_COMMIT_HASH
+		js::propStringDef(
+			"commitHash", WAVEFORGE_GIT_COMMIT_HASH, JS_PROP_CONFIGURABLE
+		),
+#else
+		js::propStringDef("commitHash", "", JS_PROP_CONFIGURABLE),
+#endif
 #ifndef NDEBUG
 		js::propBoolDef("debug", true, JS_PROP_CONFIGURABLE),
 #else

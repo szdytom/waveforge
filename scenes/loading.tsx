@@ -22,7 +22,7 @@ function LoadingScene() {
 
 	return (
 		<View style={{ ...fill(), ...center(), backgroundColor: '#ffffff' }}>
-			<Label>LOADING...</Label>
+			<Label style={{ position: 'relative', top: -1 }}>LOADING...</Label>
 		</View>
 	);
 }

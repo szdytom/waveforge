@@ -1,7 +1,7 @@
 export const UI_COLORS = {
-	background: '#f0e6ff',
+	background: '#ffffff',
 	panel: '#ffffffcc',
-	text: '#1f1b2d',
+	text: '#000000',
 	mutedText: '#787878',
 	brightText: '#ffffff',
 	active: '#fac82e',

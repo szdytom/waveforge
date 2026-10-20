@@ -269,10 +269,16 @@ export function render(element: any, rootNode?: waveforge.LayoutNode): any {
 		null, // transitionCallbacks
 	);
 
-	reconciler.updateContainer(element, container, null, null);
 	_currentContainer = container;
+	(reconciler as any).updateContainerSync(element, container, null, null);
+	(reconciler as any).flushSyncWork();
+	(reconciler as any).flushPassiveEffects();
 
 	return container;
+}
+
+export function flushSync(callback: () => void): void {
+	(reconciler as any).flushSyncFromReconciler(callback);
 }
 
 export function update(container: any, element: any): void {

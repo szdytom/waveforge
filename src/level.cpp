@@ -256,7 +256,8 @@ void LevelRenderer::_renderItemText(sf::RenderTarget &target, int scale) {
 	constexpr sf::Color active_color = ui_text_color(200);
 	constexpr sf::Color inactive_color = ui_text_color(120);
 	constexpr int start_x = 2;
-	constexpr int start_y = 2;
+	// Compensate for the font atlas's one-pixel top bearing.
+	constexpr int start_y = 1;
 	constexpr int line_spacing = 1;
 
 	auto active_stack = _level.activeItemStack();

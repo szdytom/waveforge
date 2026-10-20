@@ -45,7 +45,11 @@ export function MenuItem({
 				{label}
 			</Text>
 			{value ? (
-				<Text color={textColor} size={textSize}>
+				<Text
+					color={textColor}
+					size={textSize}
+					style={{ width: (value.length + (selected ? 2 : 1)) * (5 * textSize + 1) }}
+				>
 					{selected ? `<${value}>` : `${value} `}
 				</Text>
 			) : null}

@@ -1,3 +1,4 @@
+import { flushSync } from '@waveforge/renderer';
 import React from 'react';
 
 interface EngineEventMap {
@@ -23,7 +24,10 @@ export function useEngineEvent<EventType extends keyof EngineEventMap>(
 	handlerRef.current = handler;
 
 	React.useEffect(() => {
-		const listener = (...args: unknown[]) => (handlerRef.current as (...values: unknown[]) => void)(...args);
+		const listener = (...args: unknown[]) => {
+			// Commit scene state before the native frame is rendered.
+			flushSync(() => (handlerRef.current as (...values: unknown[]) => void)(...args));
+		};
 		(waveforge.addEventListener as any)(type, listener);
 		return () => waveforge.removeEventListener(type, listener);
 	}, [type]);

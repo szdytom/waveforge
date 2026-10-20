@@ -1,6 +1,6 @@
 import { Label, MenuItem, playUiSound, useEngineEvent, useKeyDown, useStep } from '@waveforge/components';
 import { Level as LevelView, render, Sprite, View } from '@waveforge/renderer';
-import { center, column, fill, style } from '@waveforge/styles';
+import { fill } from '@waveforge/styles';
 import React from 'react';
 
 const RETRY_COOLDOWN_TICKS = 48;
@@ -176,27 +176,38 @@ function LevelScene() {
 		<View style={fill()}>
 			<LevelView surface={surface} style={fill()} />
 			{hintType === 'restart' && hintOpacity > 0 ? (
-				<Label color={[31, 27, 45, hintOpacity]} style={{ position: 'absolute', bottom: 10, alignSelf: 'center' }}>
+				<Label color={[0, 0, 0, hintOpacity]} style={{ position: 'absolute', bottom: 11, alignSelf: 'center' }}>
 					Press R again to retry
 				</Label>
 			) : null}
 			{paused ? (
-				<View style={style(fill(), center(), { position: 'absolute', backgroundColor: '#000000c8' })}>
-					<View style={style(column(), { width: 100, gap: 3 })}>
-						<Label color="#ffffff" size={2} style={{ alignSelf: 'center', marginBottom: 14 }}>
-							PAUSED
-						</Label>
-						{PAUSE_ACTIONS.map((label, index) => (
-							<MenuItem
-								key={label}
-								label={label}
-								selected={pauseIndex === index}
-								color="#ffffff"
-								onSelect={() => setPauseIndex(index)}
-								onActivate={() => activatePauseAction(index)}
-							/>
-						))}
-					</View>
+				<View style={{ ...fill(), position: 'absolute', backgroundColor: '#000000c8' }}>
+					<Label
+						color="#ffffff"
+						size={2}
+						style={{ position: 'absolute', left: Math.floor((surface.width - 6 * 12) / 2), top: 62 }}
+					>
+						PAUSED
+					</Label>
+					{PAUSE_ACTIONS.map((label, index) => (
+						<MenuItem
+							key={label}
+							label={label}
+							selected={pauseIndex === index}
+							color="#ffffff"
+							onSelect={() => setPauseIndex(index)}
+							onActivate={() => activatePauseAction(index)}
+							style={{
+								position: 'absolute',
+								left: Math.floor((surface.width - label.length * 6) / 2),
+								top: Math.floor(surface.height / 2) + index * 11 - 1,
+								paddingLeft: 0,
+								paddingRight: 0,
+								paddingTop: 0,
+								paddingBottom: 0,
+							}}
+						/>
+					))}
 				</View>
 			) : null}
 			{showHelp ? <Sprite texture={helpTexture} style={{ ...fill(), position: 'absolute' }} /> : null}

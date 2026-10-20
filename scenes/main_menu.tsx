@@ -66,7 +66,7 @@ function MainMenuScene() {
 				))}
 			</View>
 			<Text color="#00000028" style={{ position: 'absolute', left: 1, bottom: 1 }}>
-				{`V${waveforge.version}`}
+				{`V${waveforge.version}${waveforge.commitHash ? `-${waveforge.commitHash}` : ''}`}
 			</Text>
 		</Screen>
 	);

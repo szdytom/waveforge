@@ -290,7 +290,7 @@ YGSize LevelSurface::measure(
 void LevelSurface::render(
 	sf::RenderTarget &target, JSContext *ctx, LayoutParameters parameters
 ) const {
-	_render_texture.clear();
+	_render_texture.clear(sf::Color::White);
 	_renderer.render(_render_texture, _pointer_x, _pointer_y, 1);
 	_render_texture.display();
 
