@@ -1,8 +1,9 @@
 #ifndef WFORGE_2D_H
 #define WFORGE_2D_H
 
+#include "wforge/generator.h"
 #include <array>
-#include <generator>
+#include <cstdint>
 #include <utility>
 
 namespace wf {
@@ -49,17 +50,17 @@ inline constexpr FacingDirection rotate90CCW(FacingDirection dir) noexcept {
 }
 
 // All tiles from start to end inclusively
-std::generator<std::array<int, 2>> tilesOnSegment(
+Generator<std::array<int, 2>> tilesOnSegment(
 	std::array<int, 2> start, std::array<int, 2> end
 ) noexcept;
 
 // All 4-neighbors of center within size bounds
-std::generator<std::array<int, 2>> neighbors4(
+Generator<std::array<int, 2>> neighbors4(
 	std::array<int, 2> center, std::array<int, 2> size
 ) noexcept;
 
 // All 8-neighbors of center within size bounds
-std::generator<std::array<int, 2>> neighbors8(
+Generator<std::array<int, 2>> neighbors8(
 	std::array<int, 2> center, std::array<int, 2> size
 ) noexcept;
 

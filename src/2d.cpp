@@ -1,10 +1,9 @@
 #include "wforge/2d.h"
 #include <cmath>
-#include <generator>
 
 namespace wf {
 
-std::generator<std::array<int, 2>> tilesOnSegment(
+Generator<std::array<int, 2>> tilesOnSegment(
 	std::array<int, 2> start, std::array<int, 2> end
 ) noexcept {
 	// Use Bresenham's line algorithm to generate integer tiles between
@@ -42,7 +41,7 @@ std::generator<std::array<int, 2>> tilesOnSegment(
 	}
 }
 
-std::generator<std::array<int, 2>> neighbors4(
+Generator<std::array<int, 2>> neighbors4(
 	std::array<int, 2> center, std::array<int, 2> size
 ) noexcept {
 	const int dx[] = {-1, 1, 0, 0};
@@ -56,7 +55,7 @@ std::generator<std::array<int, 2>> neighbors4(
 	}
 }
 
-std::generator<std::array<int, 2>> neighbors8(
+Generator<std::array<int, 2>> neighbors8(
 	std::array<int, 2> center, std::array<int, 2> size
 ) noexcept {
 	const int dx[] = {-1, -1, -1, 0, 0, 1, 1, 1};

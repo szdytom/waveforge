@@ -99,7 +99,7 @@ void PixelFont::renderText(
 	}
 }
 
-std::generator<std::array<int, 2>> PixelFont::textBitmap(
+Generator<std::array<int, 2>> PixelFont::textBitmap(
 	std::string_view text
 ) const noexcept {
 	int x = 0;
